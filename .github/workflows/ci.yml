@@ -1,0 +1,146 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fast, no-install signal: fails a PR immediately if schema.prisma changed
+  # without a corresponding new migration file in the same diff (Production
+  # Hardening Phase 2 / PR-1 follow-up — enforces the migration policy
+  # documented in docs/runbooks/database-setup.md §5 going forward).
+  migration-check:
+    name: Migration check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history for base-ref diff)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fail if schema.prisma changed with no new migration
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+
+          # First push of a new branch, or a base we can't resolve — nothing
+          # to diff against, so there's nothing to enforce.
+          if [ -z "$BASE" ] || ! git cat-file -e "$BASE" 2>/dev/null; then
+            echo "No resolvable base commit to diff against — skipping."
+            exit 0
+          fi
+
+          CHANGED=$(git diff --name-only "$BASE" "${{ github.sha }}")
+
+          if echo "$CHANGED" | grep -q "^apps/api/prisma/schema.prisma$"; then
+            if ! echo "$CHANGED" | grep -q "^apps/api/prisma/migrations/.*/migration\.sql$"; then
+              echo "::error::apps/api/prisma/schema.prisma changed but no new file under apps/api/prisma/migrations/ was found in this diff."
+              echo "Every schema change needs its own migration — see docs/runbooks/database-setup.md §5."
+              echo "Run: cd apps/api && pnpm run prisma:migrate -- --name <description>"
+              exit 1
+            fi
+          fi
+
+          echo "OK — no unmigrated schema.prisma change detected."
+
+  verify:
+    name: Validate, lint, typecheck, test, build
+    runs-on: ubuntu-latest
+
+    # Gives migrate deploy something real to apply against, matching the
+    # exact command path docs/runbooks/database-setup.md documents for
+    # production (Production Hardening Phase 1 / PR-1).
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ordervora_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ordervora_ci?schema=public
+      # Non-secret placeholders sufficient for schema/build validation —
+      # every module that reads a required env var at import time
+      # (lib/jwt.ts, customer auth, etc.) needs *a* value here, never a
+      # real one. Mirrors the pattern already used by this repo's own
+      # test files (e.g. rate-limit-registration.test.ts).
+      JWT_ACCESS_SECRET: ci-placeholder-not-a-real-secret
+      JWT_REFRESH_SECRET: ci-placeholder-not-a-real-secret-either
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 30d
+      FRONTEND_URL: http://localhost:3000
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate Prisma schema
+        run: pnpm --filter api exec prisma validate
+
+      - name: Generate Prisma client
+        run: pnpm --filter api exec prisma generate
+
+      - name: Apply migrations to the CI database
+        run: pnpm --filter api exec prisma migrate deploy
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Test
+        shell: bash
+        run: pnpm run test 2>&1 | tee test-output.log
+
+      - name: Upload test output (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: test-output.log
+          retention-days: 14
+
+      - name: Build
+        shell: bash
+        run: pnpm run build 2>&1 | tee build-output.log
+
+      - name: Upload build output (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: build-output.log
+          retention-days: 14

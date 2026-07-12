@@ -1,0 +1,184 @@
+# Local production simulation (Production Hardening Phase 4, extended in
+# Phase 5 with Redis and Phase 7 with MinIO/object storage).
+#
+# Brings up the full stack (Postgres + Redis + MinIO + api + web) built
+# from the same Dockerfiles the real deployment target uses, wired
+# together the same way a real rolling deploy would gate traffic: api
+# only becomes "healthy" once its own HEALTHCHECK (GET /health) passes,
+# and web only starts once api is healthy.
+#
+# api is wired to use MinIO (not local disk) by default here, unlike
+# `pnpm dev` outside Docker (which always stays on local disk, per
+# lib/file-storage.ts's factory) — this file represents a *production-
+# like* simulation, and the master spec's own Phase 7 verification
+# criteria calls for exercising the real S3-compatible code path "against
+# real S3-compatible storage (e.g., MinIO in a staged environment) before
+# this is called done," not just the local-disk default.
+#
+# Usage: docker compose up --build
+# Then:  curl http://localhost:4000/health
+#        curl http://localhost:4000/ready
+#        open http://localhost:3000
+#        open http://localhost:9001 (MinIO console — minioadmin/minioadmin)
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ordervora
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ordervora"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Postgres's own image needs a writable data directory; immutability
+    # for this stack is enforced on the two images this project actually
+    # builds (api/web) below, not on the upstream Postgres image.
+    read_only: false
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    # Rate-limit counters are disposable — losing them on a restart just
+    # resets everyone's window (harmless), so persistence is deliberately
+    # off rather than provisioning a volume for it. That also means the
+    # image's own data directory never needs to be writable — read_only:
+    # true + a tmpfs is enough for whatever transient files redis-server
+    # itself expects at that path.
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    tmpfs:
+      - /data
+    read_only: true
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    # Pinned to a real, specific MinIO release rather than `:latest` —
+    # same immutability reasoning as postgres/redis above. Bump this
+    # periodically; check https://hub.docker.com/r/minio/minio/tags for a
+    # current release before relying on this for anything beyond local
+    # simulation.
+    image: minio/minio:RELEASE.2024-01-16T16-07-38Z
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Web console
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: creates the bucket api/web actually use, then exits.
+  # MinIO itself doesn't auto-create buckets — this is the standard
+  # docker-compose pattern for bootstrapping one at stack-up time.
+  minio-init:
+    image: minio/mc:RELEASE.2024-01-13T08-44-48Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+    entrypoint:
+      - /bin/sh
+      - -c
+      - mc alias set local http://minio:9000 minioadmin minioadmin && mc mb --ignore-existing local/ordervora-storage
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    init: true # PID 1 = tini, reaps zombies + forwards signals correctly
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      DATABASE_URL: "postgresql://postgres:postgres@postgres:5432/ordervora?schema=public"
+      REDIS_URL: "redis://redis:6379"
+      FRONTEND_URL: "http://localhost:3000"
+      # MinIO, not local disk (see the top-of-file note) — the bucket
+      # minio-init creates above. OBJECT_STORAGE_PUBLIC_URL_BASE is
+      # deliberately left unset here: this local MinIO isn't reachable
+      # from a browser at the same http://minio:9000 URL the api
+      # container uses (that hostname only resolves inside the compose
+      # network), so assets are proxied through the api's /assets route
+      # instead (app.ts's third serving path) — a real deployment behind
+      # an actual CDN/public bucket domain would set this.
+      OBJECT_STORAGE_BUCKET: "ordervora-storage"
+      OBJECT_STORAGE_REGION: "us-east-1"
+      OBJECT_STORAGE_ENDPOINT: "http://minio:9000"
+      OBJECT_STORAGE_ACCESS_KEY_ID: "minioadmin"
+      OBJECT_STORAGE_SECRET_ACCESS_KEY: "minioadmin"
+      # Local-simulation-only values, generated with `openssl rand -hex 32`
+      # specifically for this file — not the .env.example placeholder
+      # strings (which NODE_ENV=production would reject, see
+      # config/env.ts), and not used by any real deployment. Overridden by
+      # a real secrets-manager-injected value in an actual production
+      # environment (docs/runbooks/secret-rotation.md).
+      JWT_ACCESS_SECRET: "6c7fc0a7da10f16bc4b5092f4edb3a52d5091b54a072b27b5f379cda8d53acd3"
+      JWT_ACCESS_TTL: "15m"
+      JWT_REFRESH_TTL: "30d"
+      COMMERCE_ENCRYPTION_KEY: "71bc608aa54dafc189443a116655fcbaeb13f1954d00fb314fa9dcce67bb0873"
+    ports:
+      - "4000:4000"
+    # No api-uploads volume needed anymore (Production Hardening Phase 7):
+    # import uploads and site releases both write to MinIO now, not the
+    # container's local (otherwise-ephemeral) filesystem — see the
+    # OBJECT_STORAGE_* variables above.
+    tmpfs:
+      - /tmp
+    read_only: true
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('node:http').get({host:'127.0.0.1',port:4000,path:'/health',timeout:3000},r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        API_HOST: "api:4000"
+    restart: unless-stopped
+    init: true
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      API_URL: "http://api:4000"
+    ports:
+      - "3000:3000"
+    tmpfs:
+      - /tmp
+    read_only: true
+
+volumes:
+  postgres-data:
+  minio-data:

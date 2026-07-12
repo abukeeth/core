@@ -1,0 +1,88 @@
+name: Deploy
+
+# Deliberately a separate workflow from CI (Production Hardening Phase 2).
+# Triggered only after CI has actually completed successfully on main —
+# `workflow_run` here does the job branch-protection would otherwise do,
+# without requiring a repository-settings change this workflow can't make
+# itself.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+
+concurrency:
+  # One deploy at a time — a second push to main while a deploy is in
+  # flight waits for the first to finish rather than racing it.
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to production
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate Prisma schema
+        run: pnpm --filter api exec prisma validate
+
+      - name: Generate Prisma client
+        run: pnpm --filter api exec prisma generate
+
+      # Real, safe today: no-ops until PRODUCTION_DATABASE_URL actually
+      # exists as a repository secret. Once Production Hardening Phase 4
+      # (Deployment Architecture) provisions a real database and this
+      # secret is set, this becomes the actual production migration step —
+      # the exact `prisma migrate deploy` path documented in
+      # docs/runbooks/database-setup.md §3. Intentionally not
+      # unconditional: this workflow must be safe to merge and run before
+      # that secret exists.
+      - name: Apply migrations to production (skipped until configured)
+        if: ${{ vars.PRODUCTION_DATABASE_URL_CONFIGURED == 'true' }}
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: pnpm --filter api exec prisma migrate deploy
+
+      # Placeholder — intentionally not implemented yet. Production
+      # Hardening Phase 4 (Deployment Architecture & Containerization)
+      # defines the actual container build, registry push, and
+      # health-check-gated rollout; Phase 2's scope is the pipeline shape
+      # only, per explicit instruction not to start Docker work here.
+      - name: Deploy application (pending Phase 4)
+        run: |
+          echo "No deployment target exists yet."
+          echo "This step becomes a real container build + health-check-gated"
+          echo "rollout once Production Hardening Phase 4 (Deployment"
+          echo "Architecture & Containerization) lands a Dockerfile and a"
+          echo "hosting target. See PRODUCTION_HARDENING_MASTER_SPEC.md, Phase 4."
+
+  smoke-test:
+    name: Post-deploy smoke test (pending Phase 4)
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      # Placeholder — there is no deployed URL to hit yet. Once Phase 4
+      # exists, this becomes `curl -f https://<host>/health` and
+      # `curl -f https://<host>/ready`, gating on both succeeding.
+      - name: Smoke test placeholder
+        run: |
+          echo "No deployed instance exists yet to smoke-test."
+          echo "This job becomes a real curl against /health and /ready"
+          echo "once Phase 4 provisions a hosting target."

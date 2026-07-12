@@ -1,0 +1,2060 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  RESTAURANT_OWNER
+  RESTAURANT_STAFF
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         Role
+  // Staff-only, optional — SMS driver-assignment offers (Sprint 07.6 C-10)
+  // are skipped (not an error) for staff with no phone on file.
+  phone        String?
+  // Owner-controlled kill switch for a staff account (Sprint 15). Owners
+  // themselves are never deactivated through this flag — only staff they've
+  // invited. Enforced at login and at refresh-token rotation, not on every
+  // request, since access tokens are short-lived and this mirrors the
+  // existing token-theft revocation check's granularity.
+  isActive     Boolean  @default(true)
+  // Sprint 18 — owner/staff account completeness. Not enforced at login
+  // (an unverified owner can still use the product; this only gates the
+  // "Resend verification" banner/prompt), mirroring how most SaaS
+  // products treat email verification as a nag, not a hard login gate.
+  emailVerified Boolean @default(false)
+
+  invitedById String?
+  invitedBy   User?   @relation("StaffInvitedBy", fields: [invitedById], references: [id])
+  invitedUsers User[] @relation("StaffInvitedBy")
+
+  restaurantId String?
+  restaurant   Restaurant? @relation("RestaurantMembers", fields: [restaurantId], references: [id])
+  ownedRestaurant Restaurant? @relation("RestaurantOwner")
+
+  refreshTokens RefreshToken[]
+  passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  importJobs    ImportJob[]
+  siteVersionsCreated SiteVersion[] @relation("SiteVersionCreatedBy")
+  siteVersionsPublished SiteVersion[] @relation("SiteVersionPublishedBy")
+
+  // --- Commerce & Fulfillment Engine (Sprint 07) ---
+  driverAssignments    DriverAssignment[]
+  refundsInitiated     Refund[]
+  fraudSignalsResolved FraudSignal[]
+  adminAuditLogEntries AdminAuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId])
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  // "Remember me" (Sprint 18) — decides whether the refresh-token cookie
+  // is persistent (survives browser close) or session-only. Carried
+  // forward across rotation so the original login choice holds for the
+  // life of the session, not just its first refresh.
+  rememberMe Boolean  @default(true)
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/** Mirrors CustomerPasswordResetToken exactly, for the User (owner/staff) table (Sprint 18). */
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model Restaurant {
+  id          String   @id @default(uuid())
+  ownerId     String   @unique
+  owner       User     @relation("RestaurantOwner", fields: [ownerId], references: [id])
+  name        String
+  // Sprint 18 — Business Setup Wizard. "Business" is the umbrella term
+  // across every business type below (a coffee shop or retail store is
+  // still a "Restaurant" row internally — renaming the table platform-wide
+  // was out of scope; only user-facing copy says "Business").
+  businessType BusinessType @default(OTHER)
+  // Tracks which wizard step the owner should resume at if they close the
+  // tab mid-setup and log back in later (from any device) — DONE means
+  // the wizard has been completed and the owner sees the normal dashboard.
+  setupStep    SetupStep    @default(BUSINESS_TYPE)
+  description String?
+  address     String?
+  // Geocoded restaurant location — required for the Smart Routing
+  // Engine's delivery-distance calculation (delivery-rules/geometry.ts).
+  // Nullable: a restaurant that hasn't set this yet simply can't offer
+  // distance-based delivery routing until it does.
+  lat         Float?
+  lng         Float?
+  phone       String?
+  isPublished Boolean  @default(false)
+  // Platform-admin kill switch (Sprint 16) — distinct from isPublished,
+  // which the owner controls for their own storefront. A suspended
+  // restaurant is blocked at checkout (quote.service.ts) regardless of
+  // isPublished, for platform-level enforcement (e.g. a ToS violation)
+  // that the owner themselves can't toggle back on.
+  isSuspended     Boolean @default(false)
+  suspendedReason String?
+
+  // Platform referral program (Sprint 17) — tracking only for now (no
+  // billing system exists yet to grant a reward against); every
+  // restaurant gets its own shareable code at creation time, and
+  // optionally records which other restaurant's code it was created
+  // under. Nullable rather than backfilled so this column addition
+  // never needs a data-migration pass over existing rows.
+  referralCode String?      @unique
+  referredById String?
+  referredBy   Restaurant?  @relation("RestaurantReferrals", fields: [referredById], references: [id])
+  referrals    Restaurant[] @relation("RestaurantReferrals")
+
+  members    User[]         @relation("RestaurantMembers")
+  categories MenuCategory[]
+  items      MenuItem[]
+  importJobs ImportJob[]
+  site       Site?
+
+  // --- Commerce & Fulfillment Engine (Sprint 07) ---
+  hours                RestaurantHours[]
+  carts                Cart[]
+  orders               Order[]
+  paymentProviders     PaymentProvider[]
+  paymentMethods       PaymentMethod[]
+  taxes                Tax[]
+  coupons              Coupon[]
+  giftCards            GiftCard[]
+  deliveryConfig       DeliveryConfig?
+  deliveryFeeRules     DeliveryFeeRule[]
+  serviceFeeRules      ServiceFeeRule[]
+  kitchenCapacity      KitchenCapacity?
+  fulfillmentProviders FulfillmentProvider[]
+  deliveryZones        DeliveryZone[]
+  deliveryRules        DeliveryRule[]
+  modifierGroups       ModifierGroup[]
+  tables               Table[]
+  posProviders         POSProvider[]
+  loyaltyProgram       LoyaltyProgram?
+  loyaltyAccounts      LoyaltyAccount[]
+  customerFavorites    CustomerFavorite[]
+  reviews              Review[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MenuCategory {
+  id           String   @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  name         String
+  sortOrder    Int      @default(0)
+
+  items MenuItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId])
+}
+
+model MenuItem {
+  id           String   @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id])
+  categoryId   String
+  category     MenuCategory @relation(fields: [categoryId], references: [id])
+  name         String
+  description  String?
+  priceCents   Int
+  isAvailable  Boolean  @default(true)
+  sortOrder    Int      @default(0)
+
+  // --- Commerce & Fulfillment Engine (Sprint 07) ---
+  variants       MenuItemVariant[]
+  inventory      MenuItemInventory?
+  modifierGroups MenuItemModifierGroup[]
+  cartItems      CartItem[]
+  orderItems     OrderItem[]
+  favoritedBy    CustomerFavorite[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId])
+  @@index([categoryId])
+}
+
+// Sprint 18 — Business Setup Wizard.
+enum BusinessType {
+  RESTAURANT
+  COFFEE_SHOP
+  DELI
+  VAPE_SHOP
+  CONVENIENCE_STORE
+  BAKERY
+  PIZZA
+  RETAIL
+  OTHER
+}
+
+enum SetupStep {
+  BUSINESS_TYPE
+  BUSINESS_INFO
+  LOCATION
+  PAYMENT_PROVIDER
+  MENU_IMPORT
+  WEBSITE_THEME
+  DONE
+}
+
+enum ImportSourceType {
+  PDF
+  IMAGE
+  CSV
+  WEBSITE
+  GOOGLE_MAPS
+  DOORDASH
+  UBER_EATS
+  GRUBHUB
+}
+
+enum ImportStatus {
+  PENDING
+  PROCESSING
+  AWAITING_REVIEW
+  APPROVED
+  REJECTED
+  FAILED
+}
+
+model ImportJob {
+  id             String           @id @default(uuid())
+  restaurantId   String
+  restaurant     Restaurant       @relation(fields: [restaurantId], references: [id])
+  createdById    String
+  createdBy      User             @relation(fields: [createdById], references: [id])
+  sourceType     ImportSourceType
+  status         ImportStatus     @default(PENDING)
+  sourceFilePath String?
+  // Persisted alongside sourceFilePath so a file-based job can be rerun
+  // later without re-deriving the MIME type from the storage key's
+  // extension (adapters like ImageImportAdapter validate against it).
+  sourceMimeType String?
+  sourceUrl      String?
+  extractedData  Json?
+  errorMessage   String?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  reviewedAt DateTime?
+
+  @@index([restaurantId])
+}
+
+// ---------------------------------------------------------------------------
+// AI Website Builder (Sprint 06) — all tenant-scoped through Site.restaurantId,
+// consistent with the existing multi-tenant model. See RELEASE_NOTES.md for
+// the full Sprint 06 write-up.
+// ---------------------------------------------------------------------------
+
+enum SiteStatus {
+  DRAFT
+  PUBLISHING
+  REPUBLISHING
+  PUBLISHED
+  FAILED
+  UNPUBLISHED
+}
+
+enum SiteVersionStatus {
+  VARIATION
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum StyleFamily {
+  LUXURY
+  MODERN
+  MINIMAL
+}
+
+enum ScoreSource {
+  AUTO
+  MANUAL
+  PUBLISH
+}
+
+enum DomainType {
+  PLATFORM
+  CUSTOM
+}
+
+enum DomainVerificationStatus {
+  PENDING
+  VERIFIED
+  FAILED
+}
+
+enum DomainTlsStatus {
+  PENDING
+  GENERATING
+  ACTIVE
+  EXPIRED
+  FAILED
+}
+
+enum DomainEventType {
+  CREATED
+  VERIFIED
+  VERIFICATION_FAILED
+  SSL_GENERATING
+  SSL_ACTIVE
+  SSL_FAILED
+  PRIMARY_CHANGED
+  DISCONNECTED
+}
+
+enum AssetKind {
+  HERO
+  GALLERY
+  LOGO
+  OG
+  FAVICON
+  // Sprint 20A Task 5 — a hero section's optional background image is a
+  // distinct slot from HERO (its foreground photo), since Hero Section
+  // settings let an owner set both independently.
+  HERO_BACKGROUND
+}
+
+enum GenerationStage {
+  INGEST
+  BRAND_ANALYSIS
+  THEME_SELECTION
+  CONTENT_GENERATION
+  ASSEMBLY
+  ASSETS
+  SCORING
+  FINALIZE
+}
+
+enum GenerationStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+model Site {
+  id                 String     @id @default(uuid())
+  restaurantId       String     @unique
+  restaurant         Restaurant @relation(fields: [restaurantId], references: [id])
+  slug               String     @unique
+  status             SiteStatus @default(DRAFT)
+  themeId            String?
+  themeVersion       Int?
+  // Plain pointer (not a relation) to the currently-live SiteVersion.id —
+  // avoids a circular Site<->SiteVersion relation; resolved in application code.
+  publishedVersionId String?
+  // Brand Profile persisted here (not just per-version) so it survives
+  // variation selection/regeneration and is reused by section regeneration.
+  brandProfile       Json?
+  settings           Json?
+
+  versions              SiteVersion[]
+  domains               Domain[]
+  domainEvents          DomainEvent[]
+  assets                SiteAsset[]
+  generationJobs        GenerationJob[]
+  contactMessages       ContactMessage[]
+  newsletterSubscribers NewsletterSubscriber[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SiteVersion {
+  id                  String            @id @default(uuid())
+  siteId              String
+  site                Site              @relation(fields: [siteId], references: [id])
+  versionNo           Int
+  definition          Json
+  status              SiteVersionStatus @default(VARIATION)
+  // Which style family this version originated from; retained (not cleared)
+  // after selection into DRAFT so the editor can still show its origin.
+  styleFamily         StyleFamily?
+  generationBatchId   String?
+  createdById         String
+  createdBy           User              @relation("SiteVersionCreatedBy", fields: [createdById], references: [id])
+  publishedAt         DateTime?
+  // Who actually clicked Publish for this release (Sprint 20A) — distinct
+  // from createdBy, which is whoever generated/edited the draft. Nullable
+  // because older releases predate this field and were never backfilled.
+  publishedById       String?
+  publishedBy         User?             @relation("SiteVersionPublishedBy", fields: [publishedById], references: [id])
+
+  scores SiteScore[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([siteId, versionNo])
+  @@index([generationBatchId])
+}
+
+model Theme {
+  id                String      @id @default(uuid())
+  key               String
+  version           Int
+  styleFamily       StyleFamily
+  // { traditionalContemporary, casualFormal, playfulSerious, understatedBold, rusticPolished } each 0-1
+  personalityVector Json
+  // { [cuisine]: affinityScore } used as a scoring bonus
+  cuisineAffinities Json
+  // e.g. { minPhotos: 3 } — hard constraints checked before scoring
+  constraints       Json
+  tokens            Json
+  variants          Json
+  layouts           Json
+  isActive          Boolean     @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([key, version])
+}
+
+model SiteScore {
+  id                String      @id @default(uuid())
+  siteVersionId     String
+  siteVersion       SiteVersion @relation(fields: [siteVersionId], references: [id])
+  overall           Int
+  seo               Int
+  performance       Int
+  accessibility     Int
+  brandConsistency  Int
+  conversion        Int
+  suggestions       Json
+  measuredAt        DateTime    @default(now())
+  source            ScoreSource @default(AUTO)
+
+  @@index([siteVersionId])
+}
+
+model Domain {
+  id                 String                    @id @default(uuid())
+  siteId             String
+  site               Site                      @relation(fields: [siteId], references: [id])
+  hostname           String                    @unique
+  type               DomainType
+  verificationStatus DomainVerificationStatus  @default(PENDING)
+  // Random per-domain proof-of-control token (Sprint 20A Task 4): the
+  // owner must publish it in a `_ordervora-challenge.<hostname>` TXT
+  // record alongside the CNAME before verification succeeds — proves they
+  // control DNS for this exact hostname, not just that some CNAME already
+  // happens to point at our shared edge.
+  verificationToken  String                    @default(uuid())
+  lastCheckedAt      DateTime?
+  tlsStatus          DomainTlsStatus           @default(PENDING)
+  // Set once tlsStatus becomes ACTIVE (Sprint 20A Task 4); the renewal
+  // sweep (ssl-issuance-scheduler.ts) flips ACTIVE -> EXPIRED once this
+  // passes, mirroring a real certificate's validity window.
+  tlsExpiresAt       DateTime?
+  isPrimary          Boolean                   @default(false)
+
+  events    DomainEvent[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([siteId])
+}
+
+// Sprint 20A Task 4 — durable domain lifecycle history. Deliberately not
+// only reachable through Domain: hostname/siteId are denormalized and
+// domainId is nullable (SetNull on delete) so a domain's full history
+// (including its own "disconnected" event) survives the Domain row being
+// hard-deleted by removeDomain.
+model DomainEvent {
+  id        String          @id @default(uuid())
+  siteId    String
+  site      Site            @relation(fields: [siteId], references: [id])
+  domainId  String?
+  domain    Domain?         @relation(fields: [domainId], references: [id], onDelete: SetNull)
+  hostname  String
+  type      DomainEventType
+  message   String?
+  createdAt DateTime        @default(now())
+
+  @@index([siteId])
+  @@index([domainId])
+}
+
+model SiteAsset {
+  id          String    @id @default(uuid())
+  siteId      String
+  site        Site      @relation(fields: [siteId], references: [id])
+  kind        AssetKind
+  storageKey  String
+  renditions  Json?
+  altText     String?
+  sortOrder   Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([siteId])
+}
+
+model GenerationJob {
+  id         String            @id @default(uuid())
+  siteId     String
+  site       Site              @relation(fields: [siteId], references: [id])
+  batchId    String
+  stage      GenerationStage   @default(INGEST)
+  status     GenerationStatus  @default(PENDING)
+  error      String?
+  tokensUsed Int?
+  costCents  Int?
+  timings    Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([siteId])
+  @@index([batchId])
+}
+
+model ContactMessage {
+  id        String   @id @default(uuid())
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id])
+  name      String
+  email     String
+  message   String
+  ipHash    String
+  createdAt DateTime @default(now())
+
+  @@index([siteId])
+}
+
+// Sprint 20A Task 5 — real signup capture for the storefront's "Newsletter"
+// section and the footer's optional inline form; @@unique so resubmitting
+// the same address (e.g. re-visiting the page) is a harmless no-op rather
+// than a duplicate row or a 409 the owner would need to handle.
+model NewsletterSubscriber {
+  id        String   @id @default(uuid())
+  siteId    String
+  site      Site     @relation(fields: [siteId], references: [id])
+  email     String
+  createdAt DateTime @default(now())
+
+  @@unique([siteId, email])
+  @@index([siteId])
+}
+
+// ---------------------------------------------------------------------------
+// Commerce & Fulfillment Engine (Sprint 07) — cart/checkout/orders, full
+// multi-provider BYOP payments, BYO-delivery fulfillment, delivery economics
+// (radius/min-order/max-distance/fee rules), kitchen capacity, POS adapters,
+// QR dine-in ordering, and a future-ready loyalty/gift-card schema. Every
+// tenant-owned model here carries a path back to restaurantId, consistent
+// with the existing multi-tenant model. See SPRINT_07_MASTER_SPECIFICATION.md
+// and RELEASE_NOTES.md for the full write-up.
+// ---------------------------------------------------------------------------
+
+// --- Structured hours (checkout-scheduling prerequisite) -------------------
+
+enum HoursDayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+model RestaurantHours {
+  id           String         @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant     @relation(fields: [restaurantId], references: [id])
+  dayOfWeek    HoursDayOfWeek
+  // Minutes from midnight (0-1439). Multiple rows per day are allowed
+  // (no @@unique) to support split shifts, e.g. lunch 11:00-14:00 and
+  // dinner 17:00-21:00 as two separate rows for the same dayOfWeek.
+  opensAt      Int
+  closesAt     Int
+  isClosed     Boolean        @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId, dayOfWeek])
+}
+
+// --- Customers & guest identity ---------------------------------------------
+// Deliberately separate from the staff User/Role model — diners and
+// restaurant staff are different trust domains and never share an auth table.
+
+model Customer {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  passwordHash String?
+  name         String
+  phone        String?
+
+  addresses         CustomerAddress[]
+  favorites         CustomerFavorite[]
+  paymentMethods    CustomerPaymentMethod[]
+  orders            Order[]
+  carts             Cart[]
+  loyaltyAccounts   LoyaltyAccount[]
+  couponRedemptions CouponRedemption[]
+  refreshTokens     CustomerRefreshToken[]
+  passwordResetTokens CustomerPasswordResetToken[]
+  reviews           Review[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Opaque, DB-tracked customer refresh tokens (Sprint 07.7 H-7) — mirrors
+// the staff-auth RefreshToken model above as closely as practical, closing
+// the gap where customer refresh tokens were previously self-contained
+// JWTs with no server-side revocation and a logout that only cleared
+// cookies.
+model CustomerRefreshToken {
+  id         String    @id @default(uuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId])
+}
+
+// Opaque, DB-tracked, single-use password reset tokens (Sprint 07.7 H-6) —
+// same hashed-token-at-rest pattern as CustomerRefreshToken above; usedAt
+// (rather than revokedAt) reflects that a reset token is spent by a
+// successful confirm, not revoked in response to a session event.
+model CustomerPasswordResetToken {
+  id         String    @id @default(uuid())
+  customerId String
+  customer   Customer  @relation(fields: [customerId], references: [id])
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([customerId])
+}
+
+// No password, ever — created at order placement for guest checkouts.
+model GuestCustomer {
+  id    String  @id @default(uuid())
+  email String
+  phone String?
+  name  String
+
+  orders            Order[]
+  couponRedemptions CouponRedemption[]
+
+  createdAt DateTime @default(now())
+}
+
+model CustomerAddress {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  label      String?
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  postalCode String
+  country    String
+  // Geocoded once at save time and cached — never re-geocoded per checkout.
+  lat        Float?
+  lng        Float?
+  isDefault  Boolean  @default(false)
+
+  carts  Cart[]
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+}
+
+model CustomerFavorite {
+  id           String     @id @default(uuid())
+  customerId   String
+  customer     Customer   @relation(fields: [customerId], references: [id])
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  menuItemId   String
+  menuItem     MenuItem   @relation(fields: [menuItemId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([customerId, menuItemId])
+  @@index([restaurantId])
+}
+
+// Scoped to the specific PaymentProvider it was tokenized under — not a
+// platform-wide wallet. A card saved against one restaurant's Stripe
+// account cannot be replayed against a different restaurant's provider.
+model CustomerPaymentMethod {
+  id            String          @id @default(uuid())
+  customerId    String
+  customer      Customer        @relation(fields: [customerId], references: [id])
+  providerId    String
+  provider      PaymentProvider @relation(fields: [providerId], references: [id])
+  providerToken String
+  brand         String?
+  last4         String?
+  expMonth      Int?
+  expYear       Int?
+  isDefault     Boolean         @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([customerId])
+}
+
+// --- Cart & checkout ---------------------------------------------------------
+
+enum FulfillmentType {
+  PICKUP
+  DELIVERY
+  DINE_IN
+}
+
+enum OrderSource {
+  WEBSITE
+  QR_DINE_IN
+  POS
+  PHONE
+  MARKETPLACE
+  MOBILE_APP
+}
+
+enum CartStatus {
+  ACTIVE
+  CONVERTED
+  ABANDONED
+  EXPIRED
+}
+
+model Cart {
+  id                 String           @id @default(uuid())
+  restaurantId       String
+  restaurant         Restaurant       @relation(fields: [restaurantId], references: [id])
+  customerId         String?
+  customer           Customer?        @relation(fields: [customerId], references: [id])
+  guestSessionId     String?
+  fulfillmentType    FulfillmentType  @default(PICKUP)
+  status             CartStatus       @default(ACTIVE)
+  scheduledFor       DateTime?
+  deliveryAddressId  String?
+  deliveryAddress    CustomerAddress? @relation(fields: [deliveryAddressId], references: [id])
+  tableId            String?
+  table              Table?           @relation(fields: [tableId], references: [id])
+  notes              String?
+  // The currently-applied coupon code, re-validated (never trusted as
+  // still-valid) at both quote and placement time via
+  // validateCouponForRedemption — this field only remembers the
+  // customer's selection between requests.
+  couponCode         String?
+  // Loyalty points the customer has chosen to redeem toward this cart's
+  // total, mirroring couponCode's "remembers the selection, re-validated
+  // fresh at quote and placement time" pattern — never trusted as still
+  // redeemable just because it's set here.
+  loyaltyPointsToRedeem Int?
+  expiresAt          DateTime
+
+  items CartItem[]
+  order Order?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId, status])
+  @@index([customerId])
+  @@index([guestSessionId])
+}
+
+model CartItem {
+  id                String           @id @default(uuid())
+  cartId            String
+  cart              Cart             @relation(fields: [cartId], references: [id])
+  menuItemId        String
+  menuItem          MenuItem         @relation(fields: [menuItemId], references: [id])
+  variantId         String?
+  variant           MenuItemVariant? @relation(fields: [variantId], references: [id])
+  quantity          Int              @default(1)
+  // Computed and frozen at add-time: MenuItem.priceCents + variant delta +
+  // sum of selected modifier deltas. Re-validated (never silently
+  // recalculated) against current menu data at checkout confirmation.
+  unitPriceCents    Int
+  modifiersSnapshot Json?
+  notes             String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([cartId])
+}
+
+// --- Orders (the durable financial record) ----------------------------------
+
+enum OrderStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  COMPLETED
+  CANCELLED
+  REFUNDED
+  FAILED
+}
+
+enum OrderPaymentStatus {
+  UNPAID
+  AUTHORIZED
+  // A 3DS/SCA challenge is required before the authorization can be
+  // captured — the order is parked here until the confirm-payment
+  // endpoint resumes it (Sprint 07.6 C-6).
+  REQUIRES_ACTION
+  PAID
+  PARTIALLY_REFUNDED
+  REFUNDED
+  FAILED
+}
+
+enum OrderFulfillmentStatus {
+  UNASSIGNED
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+model Order {
+  id                   String                  @id @default(uuid())
+  // Sequential per restaurant (not globally), human-readable (e.g. #1042).
+  orderNumber          Int
+  restaurantId         String
+  restaurant           Restaurant              @relation(fields: [restaurantId], references: [id])
+  customerId           String?
+  customer             Customer?               @relation(fields: [customerId], references: [id])
+  guestCustomerId      String?
+  guestCustomer         GuestCustomer?          @relation(fields: [guestCustomerId], references: [id])
+  cartId               String?                 @unique
+  cart                 Cart?                   @relation(fields: [cartId], references: [id])
+  fulfillmentType      FulfillmentType
+  // Attribution/reporting only — never a trust or authorization boundary.
+  source               OrderSource             @default(WEBSITE)
+  tableId              String?
+  table                Table?                  @relation(fields: [tableId], references: [id])
+  status               OrderStatus             @default(PENDING_PAYMENT)
+  paymentStatus        OrderPaymentStatus      @default(UNPAID)
+  fulfillmentStatus    OrderFulfillmentStatus  @default(UNASSIGNED)
+  subtotalCents        Int
+  taxCents             Int                     @default(0)
+  tipCents             Int                     @default(0)
+  deliveryFeeCents     Int                     @default(0)
+  serviceFeeCents      Int                     @default(0)
+  discountCents        Int                     @default(0)
+  totalCents           Int
+  currency             String                  @default("usd")
+  scheduledFor         DateTime?
+  deliveryAddressId    String?
+  deliveryAddress      CustomerAddress?        @relation(fields: [deliveryAddressId], references: [id])
+  deliveryInstructions String?
+  notes                String?
+  placedAt             DateTime                @default(now())
+  confirmedAt          DateTime?
+  readyAt              DateTime?
+  completedAt          DateTime?
+  cancelledAt          DateTime?
+  cancellationReason   String?
+
+  items                OrderItem[]
+  events               OrderEvent[]
+  timeline             OrderTimeline[]
+  payment              Payment?
+  paymentAttempts      PaymentAttempt[]
+  fulfillment          Fulfillment?
+  tip                  Tip?
+  couponRedemption     CouponRedemption?
+  fraudSignals         FraudSignal[]
+  giftCardTransactions GiftCardTransaction[]
+  loyaltyTransactions  LoyaltyTransaction[]
+  transactions         Transaction[]
+  notificationLogs     NotificationLog[]
+  review               Review?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([restaurantId, orderNumber])
+  @@index([restaurantId, status])
+  @@index([restaurantId, createdAt])
+  @@index([restaurantId, source])
+  @@index([customerId])
+}
+
+// Frozen financial snapshot — deliberately divergent from the "menu always
+// renders live" principle: display must always be live, but a financial
+// record must never be recomputed even if the menu changes later.
+model OrderItem {
+  id                  String   @id @default(uuid())
+  orderId             String
+  order               Order    @relation(fields: [orderId], references: [id])
+  menuItemId          String
+  menuItem            MenuItem @relation(fields: [menuItemId], references: [id])
+  nameSnapshot        String
+  variantNameSnapshot String?
+  unitPriceCents      Int
+  quantity            Int
+  modifiersSnapshot   Json?
+  lineTotalCents      Int
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+// One review per order — @@unique on orderId is what actually enforces
+// "a customer can only review a given order once" at the database level
+// (the service layer's own check is a non-authoritative UX check, same
+// convention as this codebase's coupon/loyalty redemption checks).
+model Review {
+  id           String     @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  customerId   String
+  customer     Customer   @relation(fields: [customerId], references: [id])
+  orderId      String     @unique
+  order        Order      @relation(fields: [orderId], references: [id])
+  rating       Int
+  comment      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([restaurantId, createdAt])
+}
+
+enum OrderEventType {
+  ORDER_CREATED
+  PAYMENT_AUTHORIZED
+  PAYMENT_CAPTURED
+  PAYMENT_FAILED
+  ORDER_CONFIRMED
+  KITCHEN_STARTED
+  ORDER_READY
+  DRIVER_ASSIGNED
+  DRIVER_EN_ROUTE
+  ORDER_PICKED_UP
+  ORDER_OUT_FOR_DELIVERY
+  ORDER_DELIVERED
+  ORDER_PICKED_UP_BY_CUSTOMER
+  ORDER_COMPLETED
+  ORDER_CANCELLED
+  REFUND_INITIATED
+  REFUND_ISSUED
+  COUPON_REDEEMED
+  FRAUD_SIGNAL_RAISED
+  KITCHEN_PAUSED
+  KITCHEN_RESUMED
+  KITCHEN_CAPACITY_REACHED
+  DRIVER_LOCATION_UPDATED
+  POS_SYNC_COMPLETED
+  POS_SYNC_FAILED
+  TABLE_ORDER_PLACED
+  DRIVER_OFFER_EXPIRED
+}
+
+enum OrderEventActorType {
+  SYSTEM
+  STAFF
+  CUSTOMER
+  PROVIDER_WEBHOOK
+}
+
+// Append-only — the single source of truth for everything that happened to
+// an order. Includes internal/noisy events that must never reach a
+// customer-facing tracking page (see OrderTimeline below).
+model OrderEvent {
+  id        String               @id @default(uuid())
+  orderId   String
+  order     Order                @relation(fields: [orderId], references: [id])
+  type      OrderEventType
+  payload   Json?
+  actorType OrderEventActorType  @default(SYSTEM)
+  actorId   String?
+  createdAt DateTime             @default(now())
+
+  @@index([orderId, createdAt])
+}
+
+// Durable staging table for the in-process commerceEventBus (Sprint 07.7
+// H-11) — distinct from OrderEvent above, which is the domain audit log,
+// not a processing queue. writeOrderEvent writes a row here in the same
+// transaction as its OrderEvent write; outbox-worker.ts polls for
+// unprocessed rows and dispatches each to commerceEventBus.emit(), marking
+// processedAt on success. This gives at-least-once delivery surviving a
+// process crash between the original write and the in-memory emit — no
+// removal of the EventEmitter itself, this is a durability layer in front
+// of it.
+model OutboxEvent {
+  id           String         @id @default(uuid())
+  type         OrderEventType
+  restaurantId String
+  orderId      String?
+  payload      Json?
+  createdAt    DateTime       @default(now())
+  processedAt  DateTime?
+
+  @@index([processedAt, createdAt])
+}
+
+enum OrderMilestone {
+  PLACED
+  CONFIRMED
+  PREPARING
+  READY
+  OUT_FOR_DELIVERY
+  DELIVERED
+  COMPLETED
+  CANCELLED
+}
+
+// A small, curated projection of OrderEvent specifically for the
+// customer-facing tracking page, so that page never has to filter or
+// interpret the full internal event log.
+model OrderTimeline {
+  id         String         @id @default(uuid())
+  orderId    String
+  order      Order          @relation(fields: [orderId], references: [id])
+  milestone  OrderMilestone
+  occurredAt DateTime       @default(now())
+
+  @@index([orderId])
+}
+
+// --- Payments (full multi-provider BYOP) ------------------------------------
+
+enum PaymentProviderType {
+  STRIPE
+  CLOVER
+  SQUARE
+  AUTHORIZE_NET
+  ADYEN
+  FISERV
+}
+
+// Shared connection-state shape reused by PaymentProvider, FulfillmentProvider,
+// and POSProvider — all three are "a restaurant's BYO connection to an
+// external system," so they share one lifecycle enum rather than three
+// near-identical ones.
+enum ProviderConnectionStatus {
+  PENDING_CONNECTION
+  CONNECTED
+  DISCONNECTED
+  ERROR
+}
+
+enum PaymentMethodType {
+  APPLE_PAY
+  GOOGLE_PAY
+  VISA
+  MASTERCARD
+  AMEX
+  DISCOVER
+  CASH_ON_DELIVERY
+  CASH_AT_PICKUP
+}
+
+enum PaymentAttemptStatus {
+  PENDING
+  AUTHORIZED
+  // A 3DS/SCA challenge is required before this attempt can resolve to
+  // AUTHORIZED — distinct from FAILED (Sprint 07.6 C-6).
+  REQUIRES_ACTION
+  FAILED
+  CAPTURED
+  VOIDED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  REQUIRES_ACTION
+  CAPTURED
+  PARTIALLY_REFUNDED
+  REFUNDED
+  FAILED
+  VOIDED
+}
+
+enum RefundReason {
+  CUSTOMER_REQUEST
+  ORDER_CANCELLED
+  ITEM_UNAVAILABLE
+  QUALITY_ISSUE
+  OTHER
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum TransactionType {
+  CHARGE
+  REFUND
+  TIP
+  PLATFORM_FEE
+  SERVICE_FEE
+  ADJUSTMENT
+}
+
+enum TipRecipientType {
+  RESTAURANT_POOL
+  DRIVER
+}
+
+enum TaxAppliesTo {
+  FOOD
+  DELIVERY_FEE
+  ALL
+}
+
+enum CouponType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  FREE_DELIVERY
+}
+
+enum GiftCardStatus {
+  ACTIVE
+  REDEEMED
+  EXPIRED
+  CANCELLED
+}
+
+enum GiftCardTxnType {
+  ISSUE
+  REDEEM
+  REFUND_CREDIT
+}
+
+// A restaurant's connected merchant account. Multiple simultaneous rows per
+// restaurant (across different providerTypes) are the expected, supported
+// shape, not an edge case — @@unique only prevents two connections of the
+// SAME provider type. priority/isDefault drive orchestration-level failover
+// (see payments/orchestrator.ts) when a method's primary provider is down.
+model PaymentProvider {
+  id                     String                    @id @default(uuid())
+  restaurantId           String
+  restaurant             Restaurant                @relation(fields: [restaurantId], references: [id])
+  providerType           PaymentProviderType
+  displayName            String?
+  status                 ProviderConnectionStatus  @default(PENDING_CONNECTION)
+  priority               Int                       @default(0)
+  isDefault              Boolean                   @default(false)
+  credentialsEncrypted   String?
+  externalAccountId      String?
+  webhookSecretEncrypted String?
+  // Stripe publishable key — safe to expose client-side by design (unlike
+  // credentialsEncrypted's secret key); powers the checkout page's Stripe
+  // Elements integration (Sprint 07.6 C-1).
+  publicKey              String?
+  implemented            Boolean                   @default(false)
+  connectedAt            DateTime?
+
+  paymentMethods         PaymentMethod[]
+  paymentAttempts        PaymentAttempt[]
+  payments               Payment[]
+  customerPaymentMethods CustomerPaymentMethod[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([restaurantId, providerType])
+  @@index([restaurantId, status])
+}
+
+// The per-restaurant enable/disable toggle + primary-provider routing for
+// each payment method. Provider-level failover (if the primary is down) is
+// orchestration logic, not a second schema row.
+model PaymentMethod {
+  id           String            @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id])
+  providerId   String
+  provider     PaymentProvider   @relation(fields: [providerId], references: [id])
+  methodType   PaymentMethodType
+  isEnabled    Boolean           @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([restaurantId, methodType])
+}
+
+// One row per authorization try — attemptNumber counts across all providers
+// tried for an order, not just retries within one (provider-level failover).
+model PaymentAttempt {
+  id                      String                @id @default(uuid())
+  orderId                 String
+  order                   Order                 @relation(fields: [orderId], references: [id])
+  providerId              String
+  provider                PaymentProvider       @relation(fields: [providerId], references: [id])
+  methodType              PaymentMethodType
+  attemptNumber           Int
+  status                  PaymentAttemptStatus  @default(PENDING)
+  providerPaymentIntentId String?
+  failureCode             String?
+  failureMessage          String?
+  amountCents             Int
+
+  wonPayment Payment?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+}
+
+// The settled record for an order, aggregating across attempts.
+model Payment {
+  id                    String           @id @default(uuid())
+  orderId               String           @unique
+  order                 Order            @relation(fields: [orderId], references: [id])
+  providerId            String
+  provider              PaymentProvider  @relation(fields: [providerId], references: [id])
+  successfulAttemptId   String?          @unique
+  successfulAttempt     PaymentAttempt?  @relation(fields: [successfulAttemptId], references: [id])
+  status                PaymentStatus    @default(PENDING)
+  authorizedAmountCents Int              @default(0)
+  capturedAmountCents   Int              @default(0)
+  refundedAmountCents   Int              @default(0)
+  capturedAt            DateTime?
+
+  refunds Refund[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Refund {
+  id               String       @id @default(uuid())
+  paymentId        String
+  payment          Payment      @relation(fields: [paymentId], references: [id])
+  // Denormalized for direct queryability — a deliberate divergence from the
+  // transitive-FK pattern elsewhere: financial audit records must remain
+  // reachable regardless of how intermediate join paths evolve.
+  orderId          String
+  amountCents      Int
+  reason           RefundReason
+  status           RefundStatus @default(PENDING)
+  providerRefundId String?
+  initiatedById    String?
+  initiatedBy      User?        @relation(fields: [initiatedById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([paymentId])
+  @@index([orderId])
+}
+
+// Append-only ledger — the reconciliation backbone / audit trail.
+model Transaction {
+  id                    String          @id @default(uuid())
+  orderId               String
+  order                 Order           @relation(fields: [orderId], references: [id])
+  // Denormalized, same rationale as Refund.orderId above.
+  restaurantId          String
+  type                  TransactionType
+  amountCents           Int
+  providerTransactionId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([restaurantId, createdAt])
+  @@index([orderId])
+}
+
+model Tip {
+  id            String           @id @default(uuid())
+  orderId       String           @unique
+  order         Order            @relation(fields: [orderId], references: [id])
+  amountCents   Int
+  percentage    Float?
+  recipientType TipRecipientType @default(RESTAURANT_POOL)
+
+  createdAt DateTime @default(now())
+}
+
+// Order.taxCents is a frozen snapshot computed at order time, never
+// retroactively recalculated if a Tax row changes later.
+model Tax {
+  id              String        @id @default(uuid())
+  restaurantId    String
+  restaurant      Restaurant    @relation(fields: [restaurantId], references: [id])
+  jurisdiction    String
+  rateBasisPoints Int
+  appliesTo       TaxAppliesTo  @default(ALL)
+  isActive        Boolean       @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId])
+}
+
+model Coupon {
+  id                         String     @id @default(uuid())
+  restaurantId               String
+  restaurant                 Restaurant @relation(fields: [restaurantId], references: [id])
+  code                        String
+  type                        CouponType
+  value                        Int
+  minOrderCents                Int?
+  maxDiscountCents              Int?
+  startsAt                    DateTime?
+  expiresAt                   DateTime?
+  maxRedemptions               Int?
+  maxRedemptionsPerCustomer      Int?
+  isActive                    Boolean    @default(true)
+
+  redemptions CouponRedemption[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([restaurantId, code])
+  @@index([restaurantId, isActive])
+}
+
+model CouponRedemption {
+  id                   String         @id @default(uuid())
+  couponId             String
+  coupon               Coupon         @relation(fields: [couponId], references: [id])
+  orderId              String         @unique
+  order                Order          @relation(fields: [orderId], references: [id])
+  customerId           String?
+  customer             Customer?      @relation(fields: [customerId], references: [id])
+  guestCustomerId      String?
+  guestCustomer        GuestCustomer? @relation(fields: [guestCustomerId], references: [id])
+  discountAppliedCents Int
+
+  createdAt DateTime @default(now())
+
+  @@index([couponId])
+}
+
+// Explicitly schema-only in Sprint 07 — no checkout UI wiring.
+model GiftCard {
+  id                  String         @id @default(uuid())
+  restaurantId        String
+  restaurant          Restaurant     @relation(fields: [restaurantId], references: [id])
+  code                String         @unique
+  initialBalanceCents Int
+  currentBalanceCents Int
+  status              GiftCardStatus @default(ACTIVE)
+  issuedToEmail       String?
+  expiresAt           DateTime?
+
+  transactions GiftCardTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId])
+}
+
+model GiftCardTransaction {
+  id          String          @id @default(uuid())
+  giftCardId  String
+  giftCard    GiftCard        @relation(fields: [giftCardId], references: [id])
+  orderId     String?
+  order       Order?          @relation(fields: [orderId], references: [id])
+  amountCents Int
+  type        GiftCardTxnType
+
+  createdAt DateTime @default(now())
+
+  @@index([giftCardId])
+}
+
+// --- Delivery configuration & fees ------------------------------------------
+
+enum DeliveryFeeType {
+  FLAT
+  PER_MILE
+  PERCENTAGE_OF_SUBTOTAL
+}
+
+enum ServiceFeeType {
+  FLAT
+  PERCENTAGE_OF_SUBTOTAL
+}
+
+enum ServiceFeeAppliesTo {
+  ALL_ORDERS
+  DELIVERY_ONLY
+  PICKUP_ONLY
+  DINE_IN_ONLY
+}
+
+// One row per restaurant. deliveryRadiusMiles is the simple no-zones-
+// configured fast path (a plain circle); DeliveryZone/DeliveryRule are the
+// advanced mode and supersede it once configured. maxDeliveryDistanceMiles
+// is an absolute ceiling that applies under either mode, checked first by
+// the Smart Routing Engine as the cheapest possible early rejection.
+model DeliveryConfig {
+  id                       String     @id @default(uuid())
+  restaurantId             String     @unique
+  restaurant               Restaurant @relation(fields: [restaurantId], references: [id])
+  isDeliveryEnabled        Boolean    @default(false)
+  isPickupEnabled          Boolean    @default(true)
+  isDineInEnabled          Boolean    @default(false)
+  deliveryRadiusMiles      Float?
+  maxDeliveryDistanceMiles Float?
+  minOrderCentsForDelivery Int        @default(0)
+  minOrderCentsForPickup   Int        @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// feeValue is dual-unit by feeType: cents for FLAT/PER_MILE, basis points
+// for PERCENTAGE_OF_SUBTOTAL — called out explicitly to avoid ambiguity.
+model DeliveryFeeRule {
+  id               String          @id @default(uuid())
+  restaurantId     String
+  restaurant       Restaurant      @relation(fields: [restaurantId], references: [id])
+  name             String?
+  minDistanceMiles Float?
+  maxDistanceMiles Float?
+  feeType          DeliveryFeeType
+  feeValue         Int
+  priority         Int             @default(0)
+  isActive         Boolean         @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId, priority])
+}
+
+// Always itemized as its own labeled line item — a service fee funds
+// restaurant operations and must never be confused with a driver tip.
+model ServiceFeeRule {
+  id           String              @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant          @relation(fields: [restaurantId], references: [id])
+  name         String
+  feeType      ServiceFeeType
+  feeValue     Int
+  appliesTo    ServiceFeeAppliesTo @default(ALL_ORDERS)
+  isActive     Boolean             @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId])
+}
+
+// One row per restaurant. Replaces the "kitchen busy?" placeholder flag
+// described in the Sprint 07 spec's first revision with a real,
+// owner-configurable model read by the Smart Routing Engine.
+model KitchenCapacity {
+  id                  String     @id @default(uuid())
+  restaurantId        String     @unique
+  restaurant          Restaurant @relation(fields: [restaurantId], references: [id])
+  isAcceptingOrders   Boolean    @default(true)
+  maxConcurrentOrders Int?
+  avgPrepTimeMinutes  Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- Fulfillment & driver tracking -------------------------------------------
+
+enum FulfillmentMethod {
+  PICKUP
+  RESTAURANT_DRIVER
+  UBER_DIRECT
+  DOORDASH_DRIVE
+  LOCAL_COURIER
+}
+
+enum FulfillmentDetailStatus {
+  UNASSIGNED
+  ASSIGNED
+  EN_ROUTE_TO_RESTAURANT
+  PICKED_UP
+  EN_ROUTE_TO_CUSTOMER
+  DELIVERED
+  PICKUP_READY
+  PICKED_UP_BY_CUSTOMER
+  FAILED
+  CANCELLED
+}
+
+enum FulfillmentProviderType {
+  UBER_DIRECT
+  DOORDASH_DRIVE
+  LOCAL_COURIER
+}
+
+enum DriverAssignmentStatus {
+  OFFERED
+  ACCEPTED
+  DECLINED
+  // The offer's own offerExpiresAt passed with no driver response — distinct
+  // from DECLINED (driver actively said no) so staff dispatch can tell "no
+  // one answered" apart from "the driver refused" (Sprint 07.6 C-11).
+  EXPIRED
+  EN_ROUTE
+  DELIVERED
+}
+
+// One per order — tracks execution, distinct from Order.fulfillmentType
+// (the customer's choice).
+model Fulfillment {
+  id                  String                   @id @default(uuid())
+  orderId             String                   @unique
+  order               Order                    @relation(fields: [orderId], references: [id])
+  restaurantId        String
+  method              FulfillmentMethod
+  status              FulfillmentDetailStatus  @default(UNASSIGNED)
+  estimatedReadyAt    DateTime?
+  estimatedDeliveryAt DateTime?
+  actualPickedUpAt    DateTime?
+  actualDeliveredAt   DateTime?
+  providerId          String?
+  provider            FulfillmentProvider?     @relation(fields: [providerId], references: [id])
+  externalDeliveryId  String?
+
+  driverAssignment DriverAssignment?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId, status])
+}
+
+// A restaurant's BYO-delivery connection — same multi-provider-capable
+// shape as PaymentProvider.
+model FulfillmentProvider {
+  id                   String                    @id @default(uuid())
+  restaurantId         String
+  restaurant           Restaurant                @relation(fields: [restaurantId], references: [id])
+  providerType         FulfillmentProviderType
+  status               ProviderConnectionStatus  @default(PENDING_CONNECTION)
+  credentialsEncrypted String?
+  implemented          Boolean                   @default(false)
+
+  fulfillments Fulfillment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([restaurantId, providerType])
+}
+
+// For RESTAURANT_DRIVER only — reuses the existing staff User identity
+// rather than inventing a parallel Driver model.
+model DriverAssignment {
+  id             String                  @id @default(uuid())
+  fulfillmentId  String                  @unique
+  fulfillment    Fulfillment             @relation(fields: [fulfillmentId], references: [id])
+  driverId       String
+  driver         User                    @relation(fields: [driverId], references: [id])
+  assignedAt     DateTime                @default(now())
+  acceptedAt     DateTime?
+  status         DriverAssignmentStatus  @default(OFFERED)
+  // Set whenever a fresh OFFERED assignment is created; a scheduled sweep
+  // (expireStaleOffers) transitions any assignment still OFFERED past this
+  // time to EXPIRED (Sprint 07.6 C-11).
+  offerExpiresAt DateTime?
+  // Denormalized latest-known position for fast reads without scanning
+  // history — see DriverLocationPing for the append-only tracking log.
+  currentLat     Float?
+  currentLng     Float?
+  lastLocationAt DateTime?
+
+  locationPings DriverLocationPing[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([driverId])
+}
+
+// Append-only tracking history, populated by polling in Sprint 07
+// (push-ready for real-time updates later without a migration).
+model DriverLocationPing {
+  id                 String           @id @default(uuid())
+  driverAssignmentId String
+  driverAssignment   DriverAssignment @relation(fields: [driverAssignmentId], references: [id])
+  lat                Float
+  lng                Float
+  recordedAt         DateTime         @default(now())
+
+  @@index([driverAssignmentId, recordedAt])
+}
+
+model DeliveryZone {
+  id           String     @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  name         String
+  geometry     Json
+  isActive     Boolean    @default(true)
+
+  rules DeliveryRule[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId])
+}
+
+model DeliveryRule {
+  id                String             @id @default(uuid())
+  restaurantId      String
+  restaurant        Restaurant         @relation(fields: [restaurantId], references: [id])
+  zoneId            String?
+  zone              DeliveryZone?      @relation(fields: [zoneId], references: [id])
+  minDistanceMiles  Float?
+  maxDistanceMiles  Float?
+  fulfillmentMethod FulfillmentMethod
+  priority          Int                @default(0)
+  fallbackToRuleId  String?
+  fallbackToRule    DeliveryRule?      @relation("DeliveryRuleFallback", fields: [fallbackToRuleId], references: [id])
+  fallbackFromRules DeliveryRule[]     @relation("DeliveryRuleFallback")
+  isActive          Boolean            @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId, priority])
+}
+
+// --- Menu commerce (extends, does not fork, MenuItem) -----------------------
+
+enum ModifierSelectionType {
+  SINGLE
+  MULTIPLE
+}
+
+model MenuItemVariant {
+  id              String   @id @default(uuid())
+  menuItemId      String
+  menuItem        MenuItem @relation(fields: [menuItemId], references: [id])
+  name            String
+  priceDeltaCents Int      @default(0)
+  sortOrder       Int      @default(0)
+  isDefault       Boolean  @default(false)
+
+  cartItems CartItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([menuItemId])
+}
+
+// Reusable across menu items within a restaurant, e.g. "Choose your sauce."
+model ModifierGroup {
+  id            String                @id @default(uuid())
+  restaurantId  String
+  restaurant    Restaurant            @relation(fields: [restaurantId], references: [id])
+  name          String
+  selectionType ModifierSelectionType @default(SINGLE)
+  isRequired    Boolean               @default(false)
+  minSelections Int                   @default(0)
+  maxSelections Int?
+
+  options   ModifierOption[]
+  menuItems MenuItemModifierGroup[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId])
+}
+
+model ModifierOption {
+  id              String        @id @default(uuid())
+  modifierGroupId String
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id])
+  name            String
+  priceDeltaCents Int           @default(0)
+  isAvailable     Boolean       @default(true)
+  sortOrder       Int           @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([modifierGroupId])
+}
+
+model MenuItemModifierGroup {
+  id              String        @id @default(uuid())
+  menuItemId      String
+  menuItem        MenuItem      @relation(fields: [menuItemId], references: [id])
+  modifierGroupId String
+  modifierGroup   ModifierGroup @relation(fields: [modifierGroupId], references: [id])
+  sortOrder       Int           @default(0)
+
+  @@unique([menuItemId, modifierGroupId])
+}
+
+// trackInventory is opt-in (most small restaurants won't manage stock
+// counts); isTemporarilyOutOfStock ("86 the salmon") is independent and
+// always available regardless of trackInventory.
+model MenuItemInventory {
+  id                      String    @id @default(uuid())
+  menuItemId              String    @unique
+  menuItem                MenuItem  @relation(fields: [menuItemId], references: [id])
+  trackInventory          Boolean   @default(false)
+  quantityAvailable       Int?
+  lowStockThreshold       Int?
+  isTemporarilyOutOfStock Boolean   @default(false)
+  outOfStockUntil         DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- QR ordering --------------------------------------------------------------
+
+model Table {
+  id           String     @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  label        String
+  // High-entropy, regenerable — the sole authorization for "which
+  // restaurant and table this order is attributed to."
+  qrToken      String     @unique
+  isActive     Boolean    @default(true)
+
+  carts  Cart[]
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([restaurantId])
+}
+
+// --- POS integration ------------------------------------------------------
+
+enum POSProviderType {
+  SQUARE_POS
+  CLOVER_POS
+  TOAST
+  LIGHTSPEED
+  GENERIC
+}
+
+enum POSSyncDirection {
+  MENU_IMPORT
+  ORDER_EXPORT
+  BIDIRECTIONAL
+}
+
+enum POSSyncStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+// All providers are registered stub adapters in Sprint 07 (implemented:
+// false) — the interface, schema, and registry are proven now without a
+// live POS integration shipping this sprint.
+model POSProvider {
+  id                   String                    @id @default(uuid())
+  restaurantId         String
+  restaurant           Restaurant                @relation(fields: [restaurantId], references: [id])
+  providerType         POSProviderType
+  status               ProviderConnectionStatus  @default(PENDING_CONNECTION)
+  credentialsEncrypted String?
+  syncDirection        POSSyncDirection          @default(MENU_IMPORT)
+  implemented          Boolean                   @default(false)
+  connectedAt          DateTime?
+
+  syncLogs POSSyncLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([restaurantId, providerType])
+}
+
+model POSSyncLog {
+  id            String           @id @default(uuid())
+  posProviderId String
+  posProvider   POSProvider      @relation(fields: [posProviderId], references: [id])
+  direction     POSSyncDirection
+  status        POSSyncStatus
+  itemsSynced   Int              @default(0)
+  errorMessage  String?
+  syncedAt      DateTime         @default(now())
+
+  @@index([posProviderId, syncedAt])
+}
+
+// --- Loyalty (future-ready, schema-only) -------------------------------------
+// No checkout step earns or redeems points in Sprint 07; no dashboard
+// surfaces a balance. Same treatment as GiftCard above.
+
+enum LoyaltyTxnType {
+  EARN
+  REDEEM
+  ADJUST
+  EXPIRE
+}
+
+model LoyaltyProgram {
+  id                          String     @id @default(uuid())
+  restaurantId                String     @unique
+  restaurant                  Restaurant @relation(fields: [restaurantId], references: [id])
+  pointsPerDollarCents        Int        @default(0)
+  redemptionRateCentsPerPoint Int        @default(0)
+  isActive                    Boolean    @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Points are per-restaurant, not a platform-wide currency — same pattern
+// as CustomerPaymentMethod being scoped per-restaurant-provider.
+model LoyaltyAccount {
+  id            String     @id @default(uuid())
+  customerId    String
+  customer      Customer   @relation(fields: [customerId], references: [id])
+  restaurantId  String
+  restaurant    Restaurant @relation(fields: [restaurantId], references: [id])
+  pointsBalance Int        @default(0)
+
+  transactions LoyaltyTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([customerId, restaurantId])
+}
+
+model LoyaltyTransaction {
+  id               String         @id @default(uuid())
+  loyaltyAccountId String
+  loyaltyAccount   LoyaltyAccount @relation(fields: [loyaltyAccountId], references: [id])
+  orderId          String?
+  order            Order?         @relation(fields: [orderId], references: [id])
+  points           Int
+  type             LoyaltyTxnType
+
+  createdAt DateTime @default(now())
+
+  @@index([loyaltyAccountId, createdAt])
+}
+
+// --- Notifications, webhooks, idempotency, fraud -----------------------------
+
+enum NotificationChannel {
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum NotificationType {
+  ORDER_CONFIRMATION
+  ORDER_READY
+  ORDER_OUT_FOR_DELIVERY
+  ORDER_DELIVERED
+  PAYMENT_FAILED
+  REFUND_ISSUED
+  NEW_ORDER_STAFF_ALERT
+  DRIVER_ASSIGNMENT_OFFER
+  DRIVER_REASSIGNED_AWAY
+  PASSWORD_RESET_REQUESTED
+  EMAIL_VERIFICATION_REQUESTED
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+  SKIPPED_CHANNEL_DISABLED
+}
+
+// Every attempt writes a row, even for a disabled channel (status
+// SKIPPED_CHANNEL_DISABLED), so gaps are auditable rather than silently
+// absent.
+model NotificationLog {
+  id                String               @id @default(uuid())
+  orderId           String?
+  order             Order?               @relation(fields: [orderId], references: [id])
+  restaurantId      String?
+  customerId        String?
+  channel           NotificationChannel
+  type              NotificationType
+  status            NotificationStatus   @default(QUEUED)
+  providerMessageId String?
+  error             String?
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+  @@index([restaurantId, createdAt])
+}
+
+enum WebhookStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+  IGNORED_DUPLICATE
+}
+
+// [source, externalEventId] uniqueness is the webhook idempotency mechanism.
+model WebhookEvent {
+  id                String        @id @default(uuid())
+  source            String
+  externalEventId   String
+  payload           Json
+  signatureVerified Boolean       @default(false)
+  status            WebhookStatus @default(RECEIVED)
+  processedAt       DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@unique([source, externalEventId])
+  @@index([source, status])
+}
+
+enum IdempotencyStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+// Must be backed by Postgres, never an in-memory structure — a correctness
+// requirement under multiple server instances, not a performance nicety.
+model IdempotencyKey {
+  id               String            @id @default(uuid())
+  key              String            @unique
+  restaurantId     String?
+  endpoint         String
+  responseSnapshot Json?
+  status           IdempotencyStatus @default(IN_PROGRESS)
+  expiresAt        DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}
+
+enum FraudSignalType {
+  DUPLICATE_ORDER_SUSPECTED
+  VELOCITY_LIMIT_EXCEEDED
+  CARD_MISMATCH
+  HIGH_RISK_LOCATION
+  MANUAL_REVIEW_REQUESTED
+}
+
+enum FraudSignalSeverity {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model FraudSignal {
+  id           String               @id @default(uuid())
+  orderId      String
+  order        Order                @relation(fields: [orderId], references: [id])
+  signalType   FraudSignalType
+  severity     FraudSignalSeverity  @default(LOW)
+  details      Json?
+  resolvedAt   DateTime?
+  resolvedById String?
+  resolvedBy   User?                @relation(fields: [resolvedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+/**
+ * Platform-admin action trail (Sprint 16). targetType/targetId are plain
+ * strings rather than a typed relation — an audit log is meant to
+ * outlive and span whatever entity types admin actions touch (today
+ * just Restaurant; potentially Users, Sites, etc. later) without a
+ * schema change or a relation to every possible target model.
+ */
+model AdminAuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  admin      User     @relation(fields: [adminId], references: [id])
+  action     String
+  targetType String
+  targetId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}

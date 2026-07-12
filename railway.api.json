@@ -1,0 +1,13 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "RAILPACK",
+    "buildCommand": "pnpm --filter api prisma:generate && pnpm --filter api build"
+  },
+  "deploy": {
+    "startCommand": "pnpm --filter api prisma:migrate:deploy && pnpm --filter api seed:if-empty && pnpm --filter api start",
+    "healthcheckPath": "/health",
+    "restartPolicyType": "ON_FAILURE",
+    "restartPolicyMaxRetries": 3
+  }
+}

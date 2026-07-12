@@ -1,0 +1,104 @@
+# Render Blueprint — deploys apps/api only, as a Docker web service on
+# Render's free plan. This is the one supported backend deployment
+# target for this project (apps/api also ships a Dockerfile/start.sh
+# that work identically on any Docker host, not just Render) — there is
+# no Vercel-serverless alternative for the backend.
+#
+# Database: any PostgreSQL instance you provision yourself (Supabase,
+# Render's own managed Postgres, Neon, RDS, etc.) — paste its connection
+# string into DATABASE_URL below. This app has no dependency on any
+# specific Postgres provider or SDK; DATABASE_URL is the only thing that
+# matters (see apps/api/prisma/schema.prisma's datasource block).
+#
+# apps/web is deployed separately, to Vercel.
+#
+# Deploy: render.com -> New -> Blueprint -> select this repo -> pick the
+# correct branch explicitly from the branch dropdown (do not accept
+# whatever branch the picker defaults to) -> Apply. Render will prompt
+# for every `sync: false` value below — see docs/runbooks/environment-configuration.md
+# and apps/api/.env.example for what each one is and how to generate it.
+
+services:
+  - type: web
+    name: ordervora-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    # No preDeployCommand: migrations + the idempotent beta seed now run
+    # inside apps/api/scripts/start.sh itself (the container's own
+    # entrypoint), not via a Render-specific hook — so this exact image
+    # deploys identically on any Docker host, not just Render.
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "4000"
+      # The new PostgreSQL database's connection string (see the note at
+      # the top of this file). sync: false means Render asks for this
+      # once and never stores it in git — required since this repo is
+      # public.
+      - key: DATABASE_URL
+        sync: false
+      # The new Vercel web app's URL (e.g. https://ordervora-web.vercel.app),
+      # or your final production domain once one is attached. Also
+      # sync: false — not a secret, but its real value isn't known until
+      # the Vercel deployment exists, so it can't be a literal in this
+      # file either.
+      - key: FRONTEND_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_TTL
+        value: 30d
+      # generateValue produces a base64 value, but this app validates
+      # COMMERCE_ENCRYPTION_KEY against a 64-char-hex regex at startup, so
+      # generateValue can't be used here. It's also a real secret, so —
+      # like DATABASE_URL/FRONTEND_URL above — it must not be a literal
+      # in this public repo either: sync: false, generate with
+      # `openssl rand -hex 32` and paste the result when Render prompts.
+      - key: COMMERCE_ENCRYPTION_KEY
+        sync: false
+      # Bootstraps the single platform ADMIN account on first boot (see
+      # apps/api/prisma/seed.ts) — required for the seed step in
+      # start.sh to succeed. Never exposed through any HTTP endpoint.
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_NAME
+        sync: false
+      # Transactional order emails (nodemailer/SMTP — works with Resend's
+      # SMTP relay, or any other SMTP provider). Required for email to
+      # send at all; see apps/api/.env.example for detail on each field.
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_ADDRESS
+        sync: false
+      # At least one AI provider key is required for AI features (menu
+      # import, brand analysis, content generation, the Brand Consistency
+      # judge) — priority order OpenAI, then Anthropic, then Gemini; set
+      # only the one(s) you're using. Leave the unused ones out of the
+      # Render dashboard entirely rather than setting them to a placeholder.
+      - key: OPENAI_API_KEY
+        sync: false
+      # Required only if you want Google Maps (Places API) import live.
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+      # Hostname suffix used by custom-domain CNAME verification (see
+      # apps/api/src/modules/sites/domain.service.ts). Set this to a
+      # domain/subdomain you control before relying on the custom-domain
+      # feature.
+      - key: SITE_PLATFORM_DOMAIN
+        sync: false
