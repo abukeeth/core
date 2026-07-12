@@ -41,6 +41,8 @@ The master spec calls this out explicitly as a decision with real tradeoffs, not
 
 Recommendation if forced to pick one: **Option B (Vercel for web)** is usually the better default specifically *because* this is a Next.js app and Vercel is purpose-built for it — but this is a hosting-cost/operational-preference call for whoever owns the infrastructure budget, not a code-correctness one, so this phase intentionally leaves both paths open rather than deleting one.
 
+**Resolved (Production Phase 2C): Option A was chosen.** `render.yaml` deploys both `apps/api` and `apps/web` to Render as Docker web services — see `docs/reports/ARCHITECTURE_VERIFICATION.md` (verified no code-level Vercel dependency exists) and `docs/reports/RENDER_BLUEPRINT_FINAL.md` (the resulting Blueprint). The tradeoff analysis above remains accurate as historical reasoning for *why* this was a real choice, not just a formality.
+
 ## `/health` vs `/ready`
 
 Two distinct endpoints (`apps/api/src/app.ts`), serving two distinct orchestration purposes:

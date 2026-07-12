@@ -1,19 +1,25 @@
-# Deploying OrderVora — Supabase/Postgres + Render + Vercel
+# Deploying OrderVora — Supabase/Postgres + Render
 
 This is a generic runbook for deploying this project to fresh accounts.
 It intentionally names no specific project, account, domain, or commit —
 fill those in as you go, in your own notes or in
 `docs/PRODUCTION_SOURCE_OF_TRUTH.md` once the deployment is live.
 
+**Render is the only production platform** for both `apps/api` and
+`apps/web` — see `docs/reports/ARCHITECTURE_VERIFICATION.md` (verified
+no code-level dependency on Vercel exists) and
+`docs/reports/RENDER_BLUEPRINT_FINAL.md` (the current, authoritative
+field-by-field Blueprint reference). This runbook's narrative walkthrough
+below is kept in sync with that reference but is not a substitute for it.
+
 ## Why this combination
 
-Three pieces, three platforms, each with a real free tier:
+Two pieces, two platforms, each with a real free tier:
 
 | Piece | Platform | Why |
 |---|---|---|
 | Postgres database | **Supabase** (or Render Postgres, Neon, etc.) | Any of these have a genuine, permanently-free hosted Postgres tier — this app has no dependency on a specific provider, just a `DATABASE_URL` connection string (see `apps/api/prisma/schema.prisma`). |
-| API (`apps/api`) | **Render**, free plan | Needs to run continuously (in-process background workers: outbox drain, driver-offer expiry, SSL-issuance sweep — see `apps/api/src/index.ts`), so it can't be serverless. Render's free Docker web service needs no card for most signups. Trade-off: the free plan spins down after 15 minutes idle, with a 30-60s cold start on the next request. This is the **only supported backend deployment target** for this project — there is no Vercel-serverless path for the API. |
-| Web app (`apps/web`) | **Vercel** | Purpose-built for Next.js, genuinely free Hobby tier, deploys straight from GitHub with continuous auto-deploy on every push. |
+| API + Web (`apps/api`, `apps/web`) | **Render**, free plan, two Docker web services | The API needs to run continuously (in-process background workers: outbox drain, driver-offer expiry, SSL-issuance sweep — see `apps/api/src/index.ts`), so it can't be serverless. Both apps already ship a production Dockerfile; Render runs each as its own free Docker web service, communicating over Render's private network (`render.yaml`'s `fromService` wiring — see `docs/reports/RENDER_BLUEPRINT_FINAL.md`). Trade-off: the free plan spins down each service after 15 minutes idle, with a 30-60s cold start on the next request. |
 
 Whether any given signup gets asked for a card is decided by that
 platform's own account-level fraud/anti-abuse scoring — not something
@@ -52,55 +58,50 @@ section below if Render doesn't work out for your account.
    - A strong `ADMIN_PASSWORD` for the platform admin account the seed
      script creates.
 
-## Step 1 — Deploy the API to Render (~5 minutes)
+## Step 1 — Deploy both services to Render via Blueprint (~5 minutes)
 
 1. dashboard.render.com → **New** → **Blueprint**.
 2. Select your new repository, and explicitly pick the `main` branch
    from the branch dropdown (don't accept whatever the picker defaults
    to — confirm it says `main`).
-3. Render reads `render.yaml` and shows one free web service,
-   `ordervora-api`. Tap **Apply**.
-4. Render will prompt for every `sync: false` value in `render.yaml` —
-   `DATABASE_URL`, `FRONTEND_URL` (leave a placeholder for now, you'll
-   fix it after Step 2), `COMMERCE_ENCRYPTION_KEY`, `ADMIN_EMAIL`,
-   `ADMIN_PASSWORD`, `ADMIN_NAME`, `SMTP_*`, at least one AI provider
-   key, and optionally `GOOGLE_MAPS_API_KEY` / `SITE_PLATFORM_DOMAIN`.
-   See `apps/api/.env.example` for what each one is and which features
-   depend on it.
-5. Wait for the build to finish. Open the service page and note the
-   **exact URL** Render assigned (top of the page) — you'll need it in
-   Step 2.
-6. Confirm it's healthy: open `<that-url>/health` — it should return a
-   JSON response, not an error.
-
-## Step 2 — Deploy the web app to Vercel (~3 minutes)
-
-1. vercel.com → **Add New** → **Project**.
-2. Import the same GitHub repository.
-3. Before deploying, set **Root Directory** to `apps/web`. Vercel
-   auto-detects Next.js once you do.
-4. Under **Environment Variables**, add:
-   ```
-   API_URL = <the exact URL Render showed you in Step 1.5>
-   NEXT_PUBLIC_SITE_URL = <your production domain, once you have one — otherwise the Vercel-assigned URL>
-   ```
-   Both must be available at **build time**, not just runtime —
-   `next.config.ts`'s rewrites are resolved once when the app is built
-   (see that file's comments), so a Vercel-scoped "runtime only" env
-   var will not take effect. Vercel's default env var scope (available
-   to both Build and Runtime) is what you want.
-5. Deploy.
-6. Go back to Render's `ordervora-api` service → Environment → set
-   `FRONTEND_URL` to the real URL Vercel just assigned, and save
-   (Render redeploys automatically).
-7. Open the deployed Vercel URL — this is your working app.
+3. Render reads `render.yaml` and shows **two** free web services:
+   `ordervora-api` and `ordervora-web`. Tap **Apply**.
+4. Render will prompt for every `sync: false` value across both
+   services — for `ordervora-api`: `DATABASE_URL`, `FRONTEND_URL`
+   (leave a placeholder for now, you'll fix it after both services are
+   up), `COMMERCE_ENCRYPTION_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`,
+   `ADMIN_NAME`, `SMTP_*`, at least one AI provider key, and optionally
+   `GOOGLE_MAPS_API_KEY` / `SITE_PLATFORM_DOMAIN`; for `ordervora-web`:
+   `NEXT_PUBLIC_SITE_URL` (your production domain, or leave as a
+   placeholder if you don't have one yet). `API_URL_SCHEME`/`API_HOST`
+   on `ordervora-web` need **no input** — they're wired automatically
+   via `fromService` to `ordervora-api`'s internal address. See
+   `docs/reports/RENDER_BLUEPRINT_FINAL.md` for the complete
+   field-by-field reference.
+5. Wait for both builds to finish. Open each service's page and note
+   its **exact URL** (top of the page).
+6. Confirm `ordervora-api` is healthy: open `<api-url>/health` — it
+   should return a JSON response, not an error.
+7. Confirm `ordervora-web` is healthy: open `<web-url>/` — the app's
+   homepage should load.
+8. Go back to `ordervora-api`'s service → Environment → set
+   `FRONTEND_URL` to `ordervora-web`'s real URL from step 5, and save
+   (Render redeploys `ordervora-api` automatically). This is the one
+   remaining manual cross-service value — Render doesn't resolve a
+   sibling service's own assigned URL as a `fromService` target within
+   the same Blueprint run, only pre-existing services' internal
+   host/port.
+9. Open `ordervora-web`'s URL — this is your working app.
 
 ## Fallback — deploy the API to Koyeb instead (if Render asks for a card)
 
 Koyeb has a genuine free tier (1 service, no card required for most
 signups) with one advantage over Render's: no cold start, the container
 stays running. No project changes are needed — the same Dockerfile and
-env vars apply.
+env vars apply. (This fallback covers `apps/api` only; `apps/web` would
+need an equivalent second Koyeb service, mirroring the Render setup for
+`ordervora-web` — set `API_HOST` to that Koyeb API service's own
+address instead of `fromService`, since `fromService` is Render-specific.)
 
 1. app.koyeb.com → sign up → **Create Web Service** → **GitHub** →
    select your repository.
@@ -110,8 +111,8 @@ env vars apply.
 3. Set **Port** to `4000` and **Health check path** to `/health`.
 4. Add the same environment variables as the Render setup above.
 5. Deploy. Koyeb assigns a `*.koyeb.app` URL — use it the same way as
-   Render's URL in Step 2 above (`API_URL` on Vercel, `FRONTEND_URL`
-   back on this service).
+   Render's `ordervora-api` URL above (`API_HOST` on the web service,
+   `FRONTEND_URL` back on this service).
 
 (Koyeb has no equivalent of Render's `preDeployCommand` — not a problem
 here, since migrations and the seed already run from

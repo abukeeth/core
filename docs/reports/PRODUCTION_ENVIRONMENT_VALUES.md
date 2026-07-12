@@ -1,6 +1,6 @@
 # Production Environment Values — Render Deployment Workbook
 
-Complete environment-variable inventory for deploying `apps/api` to Render, built from a fresh inspection of the current codebase (`render.yaml`, `apps/api/src/config/env.ts`, `apps/api/.env.example`, `docs/PRODUCTION_SOURCE_OF_TRUTH.md`) after the seed-system fix (`docs/reports/SEED_SYSTEM_FIX_REPORT.md`). No deployment was performed while producing this report.
+Complete environment-variable inventory for deploying both `apps/api` and `apps/web` to Render, built from a fresh inspection of the current codebase (`render.yaml`, `apps/api/src/config/env.ts`, `apps/api/.env.example`, `docs/PRODUCTION_SOURCE_OF_TRUTH.md`) after the seed-system fix (`docs/reports/SEED_SYSTEM_FIX_REPORT.md`). Updated in Production Phase 2C to add the `ordervora-web` variables once Vercel was replaced by a second Render service (`docs/reports/RENDER_BLUEPRINT_FINAL.md`). No deployment was performed while producing this report.
 
 **This file is committed to a public GitHub repository (`abukeeth/core`) and will never contain a real secret value** — every secret cell below is a placeholder or format example only, consistent with `render.yaml`'s own rule for every `sync: false` variable ("must not be a literal in this public repo either") and `docs/runbooks/database-setup.md`'s explicit instruction to never commit a real credential. See **"About the generated secret"** at the end of this document for where the real, generated `COMMERCE_ENCRYPTION_KEY` value actually is.
 
@@ -47,12 +47,12 @@ Order matches exactly how Render's Blueprint prompts for them — the same order
 
 | | |
 |---|---|
-| Where it comes from | Your Vercel deployment's URL (not created yet — `apps/web` deploys in a later phase) |
-| Already available? | No — doesn't exist until Vercel deployment happens |
-| Must be generated? | No — assigned by Vercel |
+| Where it comes from | `ordervora-web`'s own Render-assigned URL (not known until that service completes its first deploy) |
+| Already available? | No — doesn't exist until `ordervora-web`'s deploy happens |
+| Must be generated? | No — assigned by Render |
 | Do you already own it? | No, not yet |
-| Example format | `https://ordervora-web.vercel.app` |
-| Action needed | Paste a **temporary placeholder** now (e.g. `https://placeholder.example`); return to Render's Environment tab and set the real value after the Vercel deploy |
+| Example format | `https://ordervora-web.onrender.com` |
+| Action needed | Paste a **temporary placeholder** now (e.g. `https://placeholder.example`); return to Render's Environment tab and set the real value after `ordervora-web`'s deploy |
 
 ### 5. `JWT_ACCESS_SECRET`
 
@@ -232,16 +232,73 @@ Order matches exactly how Render's Blueprint prompts for them — the same order
 
 ---
 
+## `ordervora-web` Environment Variables
+
+Added in Production Phase 2C, when `render.yaml` was extended to deploy `apps/web` on Render instead of Vercel (`docs/reports/RENDER_BLUEPRINT_FINAL.md`). Full detail in that report; summarized here for workbook completeness.
+
+### 21. `NODE_ENV` (web)
+
+| | |
+|---|---|
+| Where it comes from | Literal, fixed by `render.yaml` |
+| Already available? | Yes — `value: production` |
+| Must be generated? | No |
+| Action needed | None — automatic |
+
+### 22. `PORT` (web)
+
+| | |
+|---|---|
+| Where it comes from | Literal, fixed by `render.yaml` |
+| Already available? | Yes — `value: "3000"` |
+| Must be generated? | No |
+| Action needed | None — automatic |
+
+### 23. `API_URL_SCHEME`
+
+| | |
+|---|---|
+| Where it comes from | Literal, fixed by `render.yaml` |
+| Already available? | Yes — `value: http` (Render's private network between services is plain HTTP, not HTTPS) |
+| Must be generated? | No |
+| Action needed | None — automatic |
+
+### 24. `API_HOST`
+
+| | |
+|---|---|
+| Where it comes from | Render itself, via `fromService` — resolves to `ordervora-api`'s internal `host:port` on Render's private network |
+| Already available? | Yes — resolved automatically on every deploy/sync |
+| Must be generated? | No |
+| Do you already own it? | N/A — not a credential, computed by Render |
+| Example format | `ordervora-api:4000` (internal address — never a public URL) |
+| Action needed | None — automatic. This is what makes web↔API internal communication automatic in both directions of build/runtime (see `apps/web/Dockerfile`'s use of it, detailed in `docs/reports/RENDER_BLUEPRINT_FINAL.md`) |
+
+### 25. `NEXT_PUBLIC_SITE_URL`
+
+| | |
+|---|---|
+| Where it comes from | You choose it — your production domain |
+| Already available? | No — depends on whether you have a custom domain |
+| Must be generated? | No |
+| Do you already own it? | Unknown — depends on domain ownership |
+| Example format | `https://yourdomain.com` (or leave as `ordervora-web`'s own Render-assigned URL if no custom domain exists yet) |
+| Action needed | Paste your production domain, or a placeholder to fix later, when Render prompts |
+
+---
+
 ## Deployment Order
 
-This is the exact order Render's Blueprint UI will prompt for values (matches `render.yaml`'s declaration order). Variables with no prompt (automatic) are listed for completeness but need no action.
+This is the exact order Render's Blueprint UI will prompt for values (matches `render.yaml`'s declaration order — `ordervora-api` first, then `ordervora-web`, since that's the service order in `render.yaml`). Variables with no prompt (automatic) are listed for completeness but need no action.
+
+### `ordervora-api`
 
 | Order | Variable | Action |
 |---|---|---|
 | — | `NODE_ENV` | No action — automatic |
 | — | `PORT` | No action — automatic |
 | **1st** | `DATABASE_URL` | Paste your completed Supabase Session Pooler string |
-| **2nd** | `FRONTEND_URL` | Paste a temporary placeholder — replace with the real Vercel URL later |
+| **2nd** | `FRONTEND_URL` | Paste a temporary placeholder — replace with `ordervora-web`'s real URL after both services exist |
 | — | `JWT_ACCESS_SECRET` | No action — Render auto-generates |
 | — | `JWT_REFRESH_SECRET` | No action — Render auto-generates |
 | — | `JWT_ACCESS_TTL` | No action — automatic |
@@ -258,6 +315,22 @@ This is the exact order Render's Blueprint UI will prompt for values (matches `r
 | **12th** | `OPENAI_API_KEY` | Paste your OpenAI key |
 | **13th** | `GOOGLE_MAPS_API_KEY` | Paste if using Places import, otherwise leave blank |
 | **14th** | `SITE_PLATFORM_DOMAIN` | Paste if using custom domains, otherwise leave blank |
+
+### `ordervora-web`
+
+| Order | Variable | Action |
+|---|---|---|
+| — | `NODE_ENV` | No action — automatic |
+| — | `PORT` | No action — automatic |
+| — | `API_URL_SCHEME` | No action — automatic |
+| — | `API_HOST` | No action — automatic, resolved via `fromService` |
+| **15th** | `NEXT_PUBLIC_SITE_URL` | Paste your production domain, or a placeholder to fix later |
+
+### After both services exist
+
+| Order | Variable | Action |
+|---|---|---|
+| **16th (final step)** | `FRONTEND_URL` (back on `ordervora-api`) | Return and paste `ordervora-web`'s real URL, replacing the step-2 placeholder |
 
 **You need to obtain, before starting:** a live Supabase project + its Session Pooler `DATABASE_URL` (step 1), an SMTP provider account (steps 7-11), and an OpenAI API key (step 12) — none of these were confirmed to already exist in this engagement. Everything else is either automatic, generated for you, or your own free choice.
 

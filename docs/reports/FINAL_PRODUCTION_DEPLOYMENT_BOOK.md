@@ -2,7 +2,9 @@
 
 **This is the single source of truth for deploying and operating OrderVora in production.** It consolidates every audit performed across this engagement into one master document. No deployment has been performed while producing this document. No real secret values appear anywhere below — placeholders only.
 
-Repository: `abukeeth/core`, branch `main`. Detailed supporting reports (referenced throughout, not duplicated in full): `docs/reports/DEPLOYMENT_BLOCKERS.md`, `docs/reports/SEED_SYSTEM_BLOCKER_ANALYSIS.md`, `docs/reports/SEED_SYSTEM_FIX_REPORT.md`, `docs/reports/SUPABASE_SETUP_REPORT.md`, `docs/reports/SUPABASE_DEPLOYMENT_CHECKLIST.md`, `docs/reports/RENDER_DEPLOYMENT_GUIDE.md`, `docs/reports/RENDER_DEPLOYMENT_CHECKLIST.md`, `docs/reports/PRODUCTION_ENVIRONMENT_VALUES.md`, `docs/reports/FINAL_DEPLOYMENT_READINESS_REPORT.md`, plus the codebase's own `docs/runbooks/*.md`.
+> **Updated — Production Phase 2C: Render is now the only production platform.** Vercel has been removed from this architecture entirely. `render.yaml` now deploys both `apps/api` (`ordervora-api`) and `apps/web` (`ordervora-web`) as Render Docker web services, communicating over Render's private network. See `docs/reports/ARCHITECTURE_VERIFICATION.md` (verified no code-level Vercel dependency existed) and `docs/reports/RENDER_BLUEPRINT_FINAL.md` (the current field-by-field Blueprint reference) for the full detail behind this change. Every section below has been updated accordingly.
+
+Repository: `abukeeth/core`, branch `main`. Detailed supporting reports (referenced throughout, not duplicated in full): `docs/reports/DEPLOYMENT_BLOCKERS.md`, `docs/reports/SEED_SYSTEM_BLOCKER_ANALYSIS.md`, `docs/reports/SEED_SYSTEM_FIX_REPORT.md`, `docs/reports/SUPABASE_SETUP_REPORT.md`, `docs/reports/SUPABASE_DEPLOYMENT_CHECKLIST.md`, `docs/reports/RENDER_DEPLOYMENT_GUIDE.md`, `docs/reports/RENDER_DEPLOYMENT_CHECKLIST.md`, `docs/reports/PRODUCTION_ENVIRONMENT_VALUES.md`, `docs/reports/FINAL_DEPLOYMENT_READINESS_REPORT.md`, `docs/reports/ARCHITECTURE_VERIFICATION.md`, `docs/reports/RENDER_BLUEPRINT_FINAL.md`, plus the codebase's own `docs/runbooks/*.md`.
 
 ---
 
@@ -20,10 +22,10 @@ Repository: `abukeeth/core`, branch `main`. Detailed supporting reports (referen
 | Fix verified (typecheck, full test suite, production build, live re-run) | ✅ Pass — 1113 passed / 0 failed / 5 skipped / 1118 total | `docs/reports/SEED_SYSTEM_FIX_REPORT.md` |
 | `COMMERCE_ENCRYPTION_KEY` generated | ✅ Done — delivered privately, never committed | `docs/reports/PRODUCTION_ENVIRONMENT_VALUES.md` |
 | Live Supabase project created | ❌ **Not yet done** | No evidence of an existing project in this repo |
-| Live Render service created | ❌ **Not yet done** | No deployment has been performed |
-| Live Vercel project created | ❌ **Not yet done** | No deployment has been performed |
+| Live Render services created (`ordervora-api`, `ordervora-web`) | ❌ **Not yet done** | No deployment has been performed |
 | Resend/SMTP account | ❌ **Unconfirmed** | You must confirm you have one |
 | OpenAI account/key | ❌ **Unconfirmed** | You must confirm you have one |
+| `render.yaml` extended to deploy `apps/web` | ✅ Done — Vercel no longer part of this architecture | `docs/reports/RENDER_BLUEPRINT_FINAL.md` |
 
 **Overall verdict: code and configuration are production-ready. Nothing left to fix in the repository.** The only remaining work is external account provisioning and the deploy sequence itself (§11).
 
@@ -34,13 +36,14 @@ Repository: `abukeeth/core`, branch `main`. Detailed supporting reports (referen
 | # | Account | Purpose | Status |
 |---|---|---|---|
 | 1 | **GitHub** | Hosts `abukeeth/core`, source of truth for both deploy targets | ✅ Ready — repo exists, `main` is current |
-| 2 | **Render** | Hosts `apps/api` (Docker web service) | New account, confirmed empty — no service created yet |
+| 2 | **Render** | Hosts **both** `apps/api` (`ordervora-api`) and `apps/web` (`ordervora-web`) as Docker web services | New account, confirmed empty — no services created yet |
 | 3 | **Supabase** | Hosts the production PostgreSQL database | New account — **no project confirmed to exist yet**; must be created before Render deploy |
 | 4 | **Resend** (or any SMTP provider) | Sends transactional order emails (confirmation, ready, out-for-delivery, delivered, payment failed, refund issued, staff alerts) | Not confirmed — needed before Render deploy, or leave `SMTP_*` unset temporarily (email sending will fail until set) |
 | 5 | **OpenAI** | Powers menu import, brand analysis, content generation, Brand Consistency judge | Not confirmed — needed before Render deploy, or leave `OPENAI_API_KEY` unset temporarily (AI features unavailable until set) |
 | 6 | **Google Cloud** (Places API) | Optional — Google Maps-based restaurant import | Optional; only needed if that feature is wanted at launch |
-| 7 | **Domain** | Optional — custom domain for the public site and/or `SITE_PLATFORM_DOMAIN` (per-restaurant custom-domain publishing) | Optional; the app works on Render's/Vercel's assigned subdomains without one |
-| 8 | **Vercel** *(not in your list, but structurally required)* | Hosts `apps/web` (Next.js) | New account, confirmed empty — no project created yet. Flagged here because this document must be a complete source of truth: `apps/api` alone is not a working product without the web frontend. |
+| 7 | **Domain** | Optional — custom domain for the public site and/or `SITE_PLATFORM_DOMAIN` (per-restaurant custom-domain publishing) | Optional; the app works on Render's assigned subdomains without one |
+
+**Vercel is not required and is not used.** It was evaluated (`docs/reports/ARCHITECTURE_VERIFICATION.md`) and found to have no code-level dependency anywhere in this codebase — `apps/web` deploys to Render instead, using its own existing Dockerfile.
 
 ---
 
@@ -50,11 +53,11 @@ Repository: `abukeeth/core`, branch `main`. Detailed supporting reports (referen
 
 `NODE_ENV`, `PORT`, `DATABASE_URL`, `FRONTEND_URL`, `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_TTL`, `JWT_REFRESH_TTL`, `COMMERCE_ENCRYPTION_KEY`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM_ADDRESS`, `OPENAI_API_KEY`, `GOOGLE_MAPS_API_KEY`, `SITE_PLATFORM_DOMAIN`.
 
-### `apps/web` (Vercel) — 2 variables
+### `apps/web` (Render) — 5 variables, declared in `render.yaml`
 
-`API_URL` (required — server-side rewrite target, no hardcoded fallback in production), `NEXT_PUBLIC_SITE_URL` (required for correct `sitemap.xml`/`robots.txt`/OG tags — falls back to `localhost` if unset, which is wrong in production).
+`NODE_ENV`, `PORT`, `API_URL_SCHEME`, `API_HOST` (both build- and runtime-time internal API address, resolved automatically via `fromService` — no manual value), `NEXT_PUBLIC_SITE_URL` (your production domain — required for correct `sitemap.xml`/`robots.txt`/OG tags, falls back to `localhost` if unset).
 
-Full per-variable detail (source, format, action) for the 20 API variables already exists in `docs/reports/PRODUCTION_ENVIRONMENT_VALUES.md` — not repeated in full here to keep this book from drifting out of sync with that more detailed document. This book gives the summary view (§4–§10); that report gives the exhaustive one.
+Full per-variable detail (source, format, action) for all 25 variables across both services already exists in `docs/reports/PRODUCTION_ENVIRONMENT_VALUES.md` — not repeated in full here to keep this book from drifting out of sync with that more detailed document. This book gives the summary view (§4–§10); that report gives the exhaustive one.
 
 ---
 
@@ -77,14 +80,15 @@ Everything else is either automatic (§6), or depends on an account/choice not y
 | Variable(s) | What's needed |
 |---|---|
 | `DATABASE_URL` | Create the Supabase project; copy its **Session Pooler** connection string (§7) |
-| `FRONTEND_URL` | Doesn't exist until the Vercel deploy happens; use a placeholder first, fix it after (§11) |
+| `FRONTEND_URL` | Doesn't exist until `ordervora-web`'s Render deploy happens; use a placeholder first, fix it after (§11) |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_NAME` | Your own choice — decide a real email you control and a strong password (not the `.env.example` placeholder text, which is rejected at startup) |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM_ADDRESS` | Create/confirm your Resend (or other SMTP provider) account (§8) |
 | `OPENAI_API_KEY` | Create/confirm your OpenAI account and generate a key (§9) |
 | `GOOGLE_MAPS_API_KEY` | Optional — only if Google Places import is wanted (§10) |
 | `SITE_PLATFORM_DOMAIN` | Optional — only if per-restaurant custom-domain publishing is wanted; requires a domain you control |
-| `API_URL` (Vercel) | The Render service's URL, known only after the Render deploy completes |
-| `NEXT_PUBLIC_SITE_URL` (Vercel) | Your production domain, or the Vercel-assigned URL if none yet |
+| `NEXT_PUBLIC_SITE_URL` (`ordervora-web`) | Your production domain, or `ordervora-web`'s own Render-assigned URL if none yet |
+
+`API_URL_SCHEME` and `API_HOST` (`ordervora-web`) do **not** need to be created by you at all — resolved automatically via `render.yaml`'s `fromService` wiring to `ordervora-api` (§6, §11).
 
 ---
 
@@ -94,8 +98,9 @@ Everything else is either automatic (§6), or depends on an account/choice not y
 |---|---|
 | `JWT_ACCESS_SECRET` | `generateValue: true` in `render.yaml` — Render generates a random value at Blueprint-apply time; never shown to you, never prompted for |
 | `JWT_REFRESH_SECRET` | Same mechanism. (Declared but not currently read by any module — `apps/api/src/config/env.ts` line 194 — kept reserved for future use.) |
+| `API_URL_SCHEME` / `API_HOST` (`ordervora-web`) | `API_URL_SCHEME` is a literal (`http`); `API_HOST` is resolved via `fromService`, pointing at `ordervora-api`'s internal `host:port` on Render's private network. Both re-resolve automatically on every deploy/sync — no manual value, ever. |
 
-No action needed for either — do not attempt to set these manually.
+No action needed for any of these — do not attempt to set them manually.
 
 ---
 
@@ -152,51 +157,43 @@ Powers: menu import (PDF/image extraction), brand analysis, content generation, 
 3. Copy the **Session Pooler** connection string, substitute the real password, confirm `?sslmode=require` is present (§2C).
 4. Do **not** run any migration yet — the first Render boot does this automatically.
 
-### Phase B — Render (Blueprint deploy)
+### Phase B — Render (single Blueprint deploy, both services)
 
 5. render.com → **New +** → **Blueprint** → select `abukeeth/core` → explicitly confirm branch = `main`.
-6. Review the Blueprint preview (one service, `ordervora-api`, Docker, Free plan) → **Apply**.
-7. Fill every prompted `sync: false` variable, **in this exact order** (matches `render.yaml`'s declaration order, which is the order Render prompts):
+6. Review the Blueprint preview (**two** services, `ordervora-api` and `ordervora-web`, both Docker, both Free plan) → **Apply**.
+7. Fill every prompted `sync: false` variable. Render prompts per-service, in each service's `render.yaml` declaration order (`ordervora-api` first, then `ordervora-web`):
 
-   | Order | Variable |
-   |---|---|
-   | 1 | `DATABASE_URL` — the Phase A value |
-   | 2 | `FRONTEND_URL` — temporary placeholder for now |
-   | 3 | `COMMERCE_ENCRYPTION_KEY` — the value already generated and delivered to you privately |
-   | 4 | `ADMIN_EMAIL` |
-   | 5 | `ADMIN_PASSWORD` |
-   | 6 | `ADMIN_NAME` |
-   | 7 | `SMTP_HOST` |
-   | 8 | `SMTP_PORT` |
-   | 9 | `SMTP_USER` |
-   | 10 | `SMTP_PASSWORD` |
-   | 11 | `SMTP_FROM_ADDRESS` |
-   | 12 | `OPENAI_API_KEY` |
-   | 13 | `GOOGLE_MAPS_API_KEY` (optional — may be left blank) |
-   | 14 | `SITE_PLATFORM_DOMAIN` (optional — may be left blank) |
+   | Order | Service | Variable |
+   |---|---|---|
+   | 1 | `ordervora-api` | `DATABASE_URL` — the Phase A value |
+   | 2 | `ordervora-api` | `FRONTEND_URL` — temporary placeholder for now |
+   | 3 | `ordervora-api` | `COMMERCE_ENCRYPTION_KEY` — the value already generated and delivered to you privately |
+   | 4 | `ordervora-api` | `ADMIN_EMAIL` |
+   | 5 | `ordervora-api` | `ADMIN_PASSWORD` |
+   | 6 | `ordervora-api` | `ADMIN_NAME` |
+   | 7 | `ordervora-api` | `SMTP_HOST` |
+   | 8 | `ordervora-api` | `SMTP_PORT` |
+   | 9 | `ordervora-api` | `SMTP_USER` |
+   | 10 | `ordervora-api` | `SMTP_PASSWORD` |
+   | 11 | `ordervora-api` | `SMTP_FROM_ADDRESS` |
+   | 12 | `ordervora-api` | `OPENAI_API_KEY` |
+   | 13 | `ordervora-api` | `GOOGLE_MAPS_API_KEY` (optional — may be left blank) |
+   | 14 | `ordervora-api` | `SITE_PLATFORM_DOMAIN` (optional — may be left blank) |
+   | 15 | `ordervora-web` | `NEXT_PUBLIC_SITE_URL` — your production domain, or a placeholder to fix later |
 
-   (`JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` are not prompted — Render generates them automatically.)
-8. Watch the **Events** tab until the build completes.
-9. Confirm **Settings → Auto-Deploy** is enabled and **Settings → Health Check Path** reads `/health`.
-10. Note the assigned public Render URL.
-11. Verify: `GET <render-url>/health` → `200`; `GET <render-url>/ready` → `200` (confirms real DB connectivity).
-12. Check the **Logs** tab for `"Seeded ADMIN user: <your ADMIN_EMAIL>"` — **not** `admin@demo.ordervora.example`. This confirms the seed-system fix (§1) is in effect.
+   (`JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` on `ordervora-api`, and `API_URL_SCHEME`/`API_HOST` on `ordervora-web`, are not prompted — all four are resolved automatically.)
+8. Watch the **Events** tab on both services until both builds complete.
+9. Confirm, for each service, **Settings → Auto-Deploy** is enabled; confirm `ordervora-api`'s **Settings → Health Check Path** reads `/health` and `ordervora-web`'s reads `/`.
+10. Note the assigned public URL for each service.
+11. Verify `ordervora-api`: `GET <api-url>/health` → `200`; `GET <api-url>/ready` → `200` (confirms real DB connectivity).
+12. Check `ordervora-api`'s **Logs** tab for `"Seeded ADMIN user: <your ADMIN_EMAIL>"` — **not** `admin@demo.ordervora.example`. This confirms the seed-system fix (§1) is in effect.
+13. Verify `ordervora-web`: open `<web-url>/` — the app's homepage should load.
 
-### Phase C — Vercel
+### Phase C — Close the loop
 
-13. vercel.com → **Add New** → **Project** → import `abukeeth/core`.
-14. Set **Root Directory** to `apps/web`.
-15. Set environment variables (must be available at **build time**, not just runtime):
-    - `API_URL` = the Render URL from step 10
-    - `NEXT_PUBLIC_SITE_URL` = your real production domain, or leave as the Vercel-assigned URL for now
-16. Deploy.
-17. Open the deployed Vercel URL — confirm the app loads.
-
-### Phase D — Close the loop
-
-18. Back in Render: **Environment** tab → set `FRONTEND_URL` to the real Vercel URL from step 16/17 → save (Render redeploys automatically).
-19. Re-verify `<render-url>/health` and `<render-url>/ready` after the redeploy.
-20. Perform first production login (§13) and post-deployment verification (§14).
+14. Back in Render, on `ordervora-api`: **Environment** tab → set `FRONTEND_URL` to `ordervora-web`'s real URL from step 10 → save (Render redeploys `ordervora-api` automatically). This is the one remaining manual cross-service value — `fromService` only resolves *pre-existing* services' internal addresses, not a sibling service's own public URL within the same Blueprint run.
+15. Re-verify `<api-url>/health` and `<api-url>/ready` after the redeploy.
+16. Perform first production login (§13) and post-deployment verification (§14).
 
 ---
 
@@ -227,14 +224,14 @@ Powers: menu import (PDF/image extraction), brand analysis, content generation, 
 
 ## 14. Post-Deployment Verification Checklist
 
-- [ ] `GET <render-url>/health` → `200`, `{"status":"ok", ...}`
-- [ ] `GET <render-url>/ready` → `200`, `{"status":"ready"}` (live DB connectivity through the Session Pooler)
-- [ ] `GET <render-url>/metrics` → Prometheus-format output, no errors
-- [ ] Web app loads at the Vercel URL, no console errors referencing `localhost:4000`
+- [ ] `GET <api-url>/health` → `200`, `{"status":"ok", ...}`
+- [ ] `GET <api-url>/ready` → `200`, `{"status":"ready"}` (live DB connectivity through the Session Pooler)
+- [ ] `GET <api-url>/metrics` → Prometheus-format output, no errors
+- [ ] `GET <web-url>/` → `200`, app homepage loads, no console errors referencing `localhost:4000`
 - [ ] A real API call through the deployed frontend succeeds (not just `/health` in isolation) — per `docs/PRODUCTION_SOURCE_OF_TRUTH.md`'s release acceptance checklist
-- [ ] `sitemap.xml` and `robots.txt` reflect the real production domain, not `localhost` (confirms `NEXT_PUBLIC_SITE_URL` was set at Vercel build time)
+- [ ] `sitemap.xml` and `robots.txt` reflect the real production domain, not `localhost` (confirms `NEXT_PUBLIC_SITE_URL` was set at Render build time)
 - [ ] Full golden-path smoke test: customer places a pickup order (cash) → kitchen advances it → order completes — mirrors the Sprint 08 verified walkthrough (`docs/reports/Sprint08/SPRINT_08_BETA_EXPERIENCE_REPORT.md`), now against real (not demo) data
-- [ ] Confirm `docs/PRODUCTION_SOURCE_OF_TRUTH.md`'s "Canonical production architecture" and "Current verified state" sections are filled in with the real Vercel project, Render service URL, and commit SHA — this document is explicitly a template until that happens
+- [ ] Confirm `docs/PRODUCTION_SOURCE_OF_TRUTH.md`'s "Canonical production architecture" and "Current verified state" sections are filled in with both Render service URLs and commit SHAs — this document is explicitly a template until that happens
 
 ---
 
@@ -243,8 +240,7 @@ Powers: menu import (PDF/image extraction), brand analysis, content generation, 
 Two independent mechanisms — application code and database schema — per `docs/runbooks/migration-rollback.md`:
 
 **Application code rollback:**
-- Render: redeploy the previous known-good commit/image via the dashboard (Render keeps prior deploys). No database action implied.
-- Vercel: use "Promote to Production" on a prior deployment, or redeploy a previous commit.
+- Render (either service, `ordervora-api` or `ordervora-web`, independently): redeploy the previous known-good commit/image via the dashboard (Render keeps prior deploys). No database action implied.
 
 **Database schema rollback:**
 - Prisma Migrate is forward-only — there is no `prisma migrate down`.
@@ -285,4 +281,4 @@ Per `docs/runbooks/disaster-recovery.md`:
 
 ## Document Status
 
-This book reflects the repository as of commit `36564be` (post seed-system fix, post environment-values workbook) plus this document's own addition. No deployment has occurred yet. Once Phases A–D in §11 are actually executed, update `docs/PRODUCTION_SOURCE_OF_TRUTH.md`'s "Current verified state" section with the real, live details — that document, not this one, is where the *current live state* is tracked going forward. This book is the **procedure**; `PRODUCTION_SOURCE_OF_TRUTH.md` is the **current status**. Keep both in sync after every future deployment.
+This book reflects the repository as of the Production Phase 2C `render.yaml`/`apps/web/Dockerfile` update (`docs/reports/RENDER_BLUEPRINT_FINAL.md`) — Render is the only production platform, Vercel is fully removed from the architecture. No deployment has occurred yet. Once Phases A–C in §11 are actually executed, update `docs/PRODUCTION_SOURCE_OF_TRUTH.md`'s "Current verified state" section with the real, live details — that document, not this one, is where the *current live state* is tracked going forward. This book is the **procedure**; `PRODUCTION_SOURCE_OF_TRUTH.md` is the **current status**. Keep both in sync after every future deployment.

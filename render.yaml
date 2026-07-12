@@ -1,8 +1,8 @@
-# Render Blueprint — deploys apps/api only, as a Docker web service on
-# Render's free plan. This is the one supported backend deployment
-# target for this project (apps/api also ships a Dockerfile/start.sh
-# that work identically on any Docker host, not just Render) — there is
-# no Vercel-serverless alternative for the backend.
+# Render Blueprint — deploys both apps/api and apps/web as Docker web
+# services on Render's free plan. Render is the only production platform
+# for this project (docs/reports/ARCHITECTURE_VERIFICATION.md verified no
+# code-level dependency on Vercel exists — both apps already ship a
+# Dockerfile/start.sh that work identically on any Docker host).
 #
 # Database: any PostgreSQL instance you provision yourself (Supabase,
 # Render's own managed Postgres, Neon, RDS, etc.) — paste its connection
@@ -10,13 +10,21 @@
 # specific Postgres provider or SDK; DATABASE_URL is the only thing that
 # matters (see apps/api/prisma/schema.prisma's datasource block).
 #
-# apps/web is deployed separately, to Vercel.
+# The two services below communicate over Render's private network:
+# ordervora-web's API_HOST is wired via fromService to ordervora-api's
+# internal host:port, so no public internet round-trip and no manually
+# pasted API URL are needed for that direction. ordervora-api's
+# FRONTEND_URL still needs one manual paste after the first deploy (see
+# that variable's own comment below) — Render has no equivalent
+# "resolve after both services exist" mechanism for that direction.
 #
 # Deploy: render.com -> New -> Blueprint -> select this repo -> pick the
 # correct branch explicitly from the branch dropdown (do not accept
 # whatever branch the picker defaults to) -> Apply. Render will prompt
 # for every `sync: false` value below — see docs/runbooks/environment-configuration.md
-# and apps/api/.env.example for what each one is and how to generate it.
+# and apps/api/.env.example / apps/web/.env.example for what each one is
+# and how to generate it. Full field-by-field detail:
+# docs/reports/RENDER_BLUEPRINT_FINAL.md.
 
 services:
   - type: web
@@ -41,11 +49,16 @@ services:
       # public.
       - key: DATABASE_URL
         sync: false
-      # The new Vercel web app's URL (e.g. https://ordervora-web.vercel.app),
-      # or your final production domain once one is attached. Also
-      # sync: false — not a secret, but its real value isn't known until
-      # the Vercel deployment exists, so it can't be a literal in this
-      # file either.
+      # ordervora-web's own URL (e.g. https://ordervora-web.onrender.com),
+      # or your final production domain once one is attached. sync: false
+      # — not a secret, but its real value isn't known until ordervora-web
+      # below has completed its first deploy, so it can't be a literal in
+      # this file (both services are declared in the same Apply, and
+      # Render doesn't resolve a service's own assigned URL as a
+      # fromService target for a sibling service in the same blueprint
+      # run). Paste ordervora-web's URL here once, after both services
+      # exist — see docs/reports/RENDER_BLUEPRINT_FINAL.md's deployment
+      # order.
       - key: FRONTEND_URL
         sync: false
       - key: JWT_ACCESS_SECRET
@@ -101,4 +114,49 @@ services:
       # domain/subdomain you control before relying on the custom-domain
       # feature.
       - key: SITE_PLATFORM_DOMAIN
+        sync: false
+
+  - type: web
+    name: ordervora-web
+    runtime: docker
+    plan: free
+    dockerfilePath: ./apps/web/Dockerfile
+    dockerContext: .
+    # No dedicated /health route exists in apps/web (it's a Next.js app,
+    # not an API) — "/" is a statically prerendered page, matching
+    # apps/web/Dockerfile's own Docker-level HEALTHCHECK, which already
+    # targets the same path.
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      # Internal communication with ordervora-api, over Render's private
+      # network — resolved automatically at every deploy/sync, no manual
+      # value needed in either direction. hostport yields "<internal
+      # host>:<port>" (e.g. "ordervora-api:4000"), matching the same
+      # "host:port" shape docker-compose.yml already uses locally
+      # (API_HOST: "api:4000") for the identical purpose. Render forwards
+      # every Docker-service envVar as a build ARG automatically when the
+      # Dockerfile declares a matching ARG name (both are declared in
+      # apps/web/Dockerfile) — so this reaches next.config.ts's
+      # build-time rewrite manifest AND (via the Dockerfile's own
+      # runtime-stage ENV computed from the same two ARGs) the running
+      # container's process.env.API_URL that lib/server-api.ts reads.
+      - key: API_URL_SCHEME
+        value: http
+      - key: API_HOST
+        fromService:
+          type: web
+          name: ordervora-api
+          property: hostport
+      # Public marketing-site origin, used for sitemap.xml/robots.txt/OG
+      # tags (apps/web/src/app/{sitemap,robots}.ts). sync: false — set
+      # this to your real production domain, or leave it as
+      # ordervora-web's own Render-assigned URL if you don't have a
+      # custom domain yet. Build-time only, like API_URL_SCHEME/API_HOST
+      # above — Next.js inlines every NEXT_PUBLIC_* reference at `next
+      # build` time.
+      - key: NEXT_PUBLIC_SITE_URL
         sync: false

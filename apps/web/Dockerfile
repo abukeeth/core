@@ -29,10 +29,16 @@ FROM fetch AS build
 # next.config.ts, which only ever reads it once, during this build.
 ARG API_URL_SCHEME=http
 ARG API_HOST=localhost:4000
+# Same build-time-only reasoning as API_URL above — sitemap.ts/robots.ts
+# read this via process.env.NEXT_PUBLIC_SITE_URL, but Next.js inlines every
+# NEXT_PUBLIC_* reference at `next build` time regardless of whether the
+# reading code is client- or server-side, so it must be supplied here, not
+# only at container runtime.
+ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
 COPY pnpm-workspace.yaml package.json ./
 COPY apps/web ./apps/web
 RUN pnpm install --offline --frozen-lockfile --filter web...
-RUN API_URL="${API_URL_SCHEME}://${API_HOST}" pnpm --filter web run build
+RUN API_URL="${API_URL_SCHEME}://${API_HOST}" NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL}" pnpm --filter web run build
 
 # ---- runtime --------------------------------------------------------------
 # next build's standalone output does not include public/ or .next/static
@@ -43,6 +49,15 @@ FROM node:${NODE_VERSION}-alpine AS runtime
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+# Re-declared here (Docker ARGs don't cross stage boundaries) so
+# lib/server-api.ts's `process.env.API_URL` — read fresh at server
+# process startup, unlike next.config.ts's build-time-only rewrites
+# above — resolves to the same API address the rewrite manifest was
+# built against, without requiring a separate render.yaml value or an
+# application-code change.
+ARG API_URL_SCHEME=http
+ARG API_HOST=localhost:4000
+ENV API_URL=${API_URL_SCHEME}://${API_HOST}
 WORKDIR /app
 
 COPY --from=build /repo/apps/web/.next/standalone ./

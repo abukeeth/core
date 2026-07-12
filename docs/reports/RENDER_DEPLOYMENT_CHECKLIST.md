@@ -1,5 +1,7 @@
 # Render Deployment Checklist — Phase 2B
 
+> **Superseded for the current architecture.** As of Production Phase 2C, `render.yaml` also deploys `ordervora-web` (`apps/web`) as a second Render service, and Vercel is no longer used at all. The `ordervora-api` detail below remains accurate and unchanged. For the complete, current, two-service checklist, use `docs/reports/RENDER_BLUEPRINT_FINAL.md` instead.
+
 Final, execution-ready checklist for deploying `apps/api` to Render. Built from `docs/reports/RENDER_DEPLOYMENT_GUIDE.md`, `docs/reports/SUPABASE_DEPLOYMENT_CHECKLIST.md`, and a fresh re-read of `render.yaml` performed for this report. `render.yaml`, `apps/api/Dockerfile`, `apps/api/scripts/start.sh`, `apps/api/package.json`, and `pnpm-workspace.yaml` were confirmed unchanged since the original clean-import commit (`4bd0553`) via `git log` on those paths — no drift since the prior Render guide was written. No deployment was performed and no code was modified while producing this report.
 
 ---

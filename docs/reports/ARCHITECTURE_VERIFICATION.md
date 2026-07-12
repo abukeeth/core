@@ -104,3 +104,9 @@ Checked every major Vercel-coupled Next.js feature class:
 ---
 
 ## VERCEL OPTIONAL
+
+---
+
+## Resolution (Production Phase 2C)
+
+Acted on: `render.yaml` now declares `ordervora-web` as a second Render Docker web service (`docs/reports/RENDER_BLUEPRINT_FINAL.md`), using `apps/web/Dockerfile` exactly as identified in §1 above. Two small, additive Dockerfile-only changes (no application source code) were required to make the cross-service env vars declared in `render.yaml` actually take effect: wiring `NEXT_PUBLIC_SITE_URL` into the build (previously not consumed by the Dockerfile at all) and persisting a runtime `API_URL` computed from the same `API_URL_SCHEME`/`API_HOST` build args already in use (so `apps/web/src/lib/server-api.ts`'s existing, unmodified runtime read of `process.env.API_URL` resolves correctly). Vercel is no longer part of this project's deployment configuration.

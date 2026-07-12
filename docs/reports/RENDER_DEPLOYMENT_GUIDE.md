@@ -1,5 +1,7 @@
 # Render Deployment Guide — `ordervora-api`
 
+> **Superseded for the current architecture.** As of Production Phase 2C, `render.yaml` also deploys a second service, `ordervora-web` (`apps/web`), and Vercel is no longer used at all. Everything below about `ordervora-api` remains accurate and unchanged (verified — see `docs/reports/RENDER_BLUEPRINT_FINAL.md`'s own `render.yaml` re-verification), but for the complete, current, two-service picture, use `docs/reports/RENDER_BLUEPRINT_FINAL.md` instead. This document is kept for its still-accurate `ordervora-api` detail, not as the current end-to-end guide.
+
 Deployment Phase 2 — final, screen-by-screen guide for deploying `apps/api` to Render via Blueprint (`render.yaml`). No deployment was performed and no code was modified while producing this report; it is a preparation document only.
 
 Source files reviewed: `render.yaml`, `apps/api/Dockerfile`, `pnpm-workspace.yaml`, `package.json` (root), `apps/api/package.json`, `apps/api/scripts/start.sh`, `apps/api/.env.example`, `apps/api/src/config/env.ts`, `docs/reports/SUPABASE_SETUP_REPORT.md`, `docs/reports/DEPLOYMENT_READINESS_REPORT.md`.
