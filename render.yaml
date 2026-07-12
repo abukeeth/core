@@ -10,13 +10,16 @@
 # specific Postgres provider or SDK; DATABASE_URL is the only thing that
 # matters (see apps/api/prisma/schema.prisma's datasource block).
 #
-# The two services below communicate over Render's private network:
-# ordervora-web's API_HOST is wired via fromService to ordervora-api's
-# internal host:port, so no public internet round-trip and no manually
-# pasted API URL are needed for that direction. ordervora-api's
-# FRONTEND_URL still needs one manual paste after the first deploy (see
-# that variable's own comment below) — Render has no equivalent
-# "resolve after both services exist" mechanism for that direction.
+# ordervora-web reaches ordervora-api over its public HTTPS endpoint, not
+# Render's private network — free-tier web services can send private
+# network requests but cannot receive them (render.com/docs/private-network,
+# render.com/docs/free), so ordervora-api (plan: free) is unreachable via
+# fromService/hostport regardless of correct resolution. This was
+# confirmed via a live deploy that produced zero requests at ordervora-api
+# despite correct config. ordervora-api's FRONTEND_URL still needs one
+# manual paste after the first deploy (see that variable's own comment
+# below) — Render has no "resolve after both services exist" mechanism
+# for either direction once a public URL is involved.
 #
 # Deploy: render.com -> New -> Blueprint -> select this repo -> pick the
 # correct branch explicitly from the branch dropdown (do not accept
@@ -132,12 +135,15 @@ services:
         value: production
       - key: PORT
         value: "3000"
-      # Internal communication with ordervora-api, over Render's private
-      # network — resolved automatically at every deploy/sync, no manual
-      # value needed in either direction. hostport yields "<internal
-      # host>:<port>" (e.g. "ordervora-api:4000"), matching the same
-      # "host:port" shape docker-compose.yml already uses locally
-      # (API_HOST: "api:4000") for the identical purpose. Render forwards
+      # Points at ordervora-api's public HTTPS endpoint, not Render's
+      # private network. Confirmed (not assumed) via Render's own docs:
+      # free-tier web services can SEND private-network requests but
+      # cannot RECEIVE them (render.com/docs/private-network,
+      # render.com/docs/free) — ordervora-api is plan: free, so it is
+      # architecturally unreachable over fromService/hostport regardless
+      # of correct resolution. This is the intended production routing
+      # for two free-tier services, not a workaround; it only changes if
+      # ordervora-api is ever upgraded off the free plan. Render forwards
       # every Docker-service envVar as a build ARG automatically when the
       # Dockerfile declares a matching ARG name (both are declared in
       # apps/web/Dockerfile) — so this reaches next.config.ts's
@@ -145,12 +151,9 @@ services:
       # runtime-stage ENV computed from the same two ARGs) the running
       # container's process.env.API_URL that lib/server-api.ts reads.
       - key: API_URL_SCHEME
-        value: http
+        value: https
       - key: API_HOST
-        fromService:
-          type: web
-          name: ordervora-api
-          property: hostport
+        value: ordervora-api-2gkw.onrender.com
       # Public marketing-site origin, used for sitemap.xml/robots.txt/OG
       # tags (apps/web/src/app/{sitemap,robots}.ts). sync: false — set
       # this to your real production domain, or leave it as
