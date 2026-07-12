@@ -174,7 +174,17 @@ async function apiFetch<T>(path: string, options: RequestInit = {}, timeoutMs: n
   const data = await res.json().catch(() => null);
 
   if (!res.ok) {
-    throw new Error(data?.error ?? "Request failed");
+    // Some endpoints (e.g. PrePublishCheckFailedError, 422 from
+    // POST /api/sites/:id/publish) attach a human-readable `issues: string[]`
+    // alongside the generic `error` summary — surfacing only `error` left
+    // callers like the AI Website Builder's "Try again" showing an
+    // unhelpful "Site failed pre-publish checks" with no indication of
+    // what to actually fix (e.g. "Add at least one menu item before
+    // publishing"). Appending issues here fixes every such call site at
+    // once instead of patching each one individually.
+    const issues = Array.isArray(data?.issues) ? data.issues.filter((i: unknown): i is string => typeof i === "string") : [];
+    const base = data?.error ?? "Request failed";
+    throw new Error(issues.length > 0 ? `${base}: ${issues.join(" ")}` : base);
   }
 
   return data as T;
@@ -807,7 +817,7 @@ export function getMySite() {
 }
 
 export function createSite() {
-  return apiFetch<{ site: WebsiteSite }>("/api/sites", { method: "POST" });
+  return apiFetch<{ site: WebsiteSite; url: string; temporaryDomain: string }>("/api/sites", { method: "POST" });
 }
 
 /** PATCH /api/sites/:id — currently only used to edit the temporary domain's slug before publishing. */

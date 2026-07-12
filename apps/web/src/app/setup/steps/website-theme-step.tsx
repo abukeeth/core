@@ -21,7 +21,19 @@ export function WebsiteThemeStep({ onDone }: { onDone: (restaurant: Restaurant) 
     try {
       const { site } = await createSite();
       await startGeneration(site.id);
-      await advance();
+      // Deliberately does NOT call advance()/onDone() here. advance()
+      // updates this /setup page's own `restaurant` state to setupStep:
+      // DONE, which re-renders this same page to <FinishStep> — whose
+      // effect immediately router.replace()s to /dashboard/launch. That
+      // redirect raced router.push("/dashboard/builder") below and
+      // reliably won regardless of call order (router.push doesn't
+      // synchronously stop this page from re-rendering first), so
+      // onboarding silently finished with no generation screen ever
+      // shown. Calling setSetupStep directly — still marking the wizard
+      // DONE server-side — without touching local state means
+      // <FinishStep> never mounts on this page at all, removing the race
+      // by construction instead of by timing.
+      await setSetupStep("DONE");
       router.push("/dashboard/builder");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start building your website");
