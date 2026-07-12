@@ -6,7 +6,16 @@
 ARG NODE_VERSION=22.22.2
 
 # ---- fetch ------------------------------------------------------------
+# CI=true — same as apps/api/Dockerfile's fetch stage. Without it, pnpm
+# can decide an existing node_modules needs to be purged and reinstalled
+# and prompts for interactive confirmation; a Docker build has no TTY to
+# answer that prompt, so pnpm aborts with
+# ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY instead of proceeding. CI=true
+# is pnpm's own documented non-interactive-environment signal — it skips
+# the prompt and proceeds with the purge/reinstall automatically, exactly
+# the behavior a headless CI/build environment needs.
 FROM node:${NODE_VERSION}-alpine AS fetch
+ENV CI=true
 RUN corepack enable
 WORKDIR /repo
 COPY pnpm-lock.yaml ./
