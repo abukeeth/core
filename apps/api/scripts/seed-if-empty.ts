@@ -1,26 +1,26 @@
 import "dotenv/config";
 import path from "node:path";
 import { execFileSync } from "node:child_process";
+import { Role } from "@prisma/client";
 import { prisma } from "../src/lib/prisma";
 
 /**
  * A hosting platform's pre-deploy hook (e.g. Render's `preDeployCommand`)
- * runs on every deploy, not just the first — but `prisma/seed-beta.ts`
- * itself isn't safe to re-run unconditionally (most of its rows have no
- * upsert-by-name guard and would duplicate). This wrapper makes chaining
- * it into a pre-deploy hook safe: it only invokes the real seed once,
- * the first time the database is empty, and is a no-op on every deploy
- * after that.
+ * runs on every deploy, not just the first. This wrapper makes chaining
+ * the production bootstrap (`prisma/seed.ts`, which creates the single
+ * ADMIN_EMAIL-based platform admin — see render.yaml) into a pre-deploy
+ * hook safe: it only invokes it once, the first time no ADMIN user
+ * exists, and is a no-op on every deploy after that.
  */
 async function main() {
-  const existing = await prisma.restaurant.count();
-  if (existing > 0) {
-    console.log(`seed-if-empty: ${existing} restaurant(s) already present, skipping beta seed.`);
+  const existingAdmins = await prisma.user.count({ where: { role: Role.ADMIN } });
+  if (existingAdmins > 0) {
+    console.log(`seed-if-empty: ${existingAdmins} ADMIN user(s) already present, skipping bootstrap seed.`);
     return;
   }
 
-  console.log("seed-if-empty: database is empty, running beta seed...");
-  execFileSync(process.execPath, [path.join(__dirname, "../prisma/seed-beta.js")], { stdio: "inherit" });
+  console.log("seed-if-empty: no ADMIN user found, running production bootstrap seed...");
+  execFileSync(process.execPath, [path.join(__dirname, "../prisma/seed.js")], { stdio: "inherit" });
 }
 
 main()
