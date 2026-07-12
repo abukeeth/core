@@ -79,10 +79,28 @@ export async function createRestaurant(ownerId: string, input: CreateRestaurantI
 /**
  * Advances (or rewinds) which wizard step the owner should resume at —
  * the single source of truth for "where was I" across logins/devices.
+ *
+ * Reaching DONE also publishes the restaurant. Nothing else in the
+ * onboarding wizard ever sets `isPublished` (the AI Website Builder path
+ * in website-theme-step.tsx only creates/generates a Site, and the "Skip
+ * for now" path calls straight through to here) — without this, every
+ * newly onboarded restaurant stayed unpublished, and the QR code /
+ * "Customer website" link the Launch Center shows immediately after
+ * onboarding (apps/web/src/app/dashboard/launch/launch-center.tsx,
+ * pointing at /order/:restaurantId) 404'd with "Restaurant not found"
+ * (getPublicMenu, public-menu.service.ts, which treats an unpublished
+ * restaurant identically to a nonexistent one by design). This call site
+ * is reached exactly once per restaurant in normal use — website-theme-
+ * step.tsx's advance() is the only place setupStep transitions to DONE —
+ * so this doesn't risk re-publishing a restaurant an owner deliberately
+ * unpublished later via Restaurant Settings.
  */
 export async function setSetupStep(userId: string, setupStep: Restaurant["setupStep"]): Promise<Restaurant> {
   const restaurant = await getOwnRestaurant(userId);
-  return prisma.restaurant.update({ where: { id: restaurant.id }, data: { setupStep } });
+  return prisma.restaurant.update({
+    where: { id: restaurant.id },
+    data: { setupStep, ...(setupStep === "DONE" ? { isPublished: true } : {}) },
+  });
 }
 
 export async function listReferrals(restaurantId: string): Promise<Pick<Restaurant, "id" | "name" | "isPublished" | "createdAt">[]> {

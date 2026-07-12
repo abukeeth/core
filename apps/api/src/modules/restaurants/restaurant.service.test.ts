@@ -227,4 +227,18 @@ describe("setSetupStep", () => {
       data: { setupStep: "LOCATION" },
     });
   });
+
+  it("publishes the restaurant when setupStep advances to DONE", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: "rest-1" } as never);
+    mockPrisma.restaurant.findUnique.mockResolvedValue({ id: "rest-1" } as never);
+    mockPrisma.restaurant.update.mockResolvedValue({ id: "rest-1", setupStep: "DONE", isPublished: true } as never);
+
+    const result = await setSetupStep("owner-1", "DONE");
+
+    expect(result.isPublished).toBe(true);
+    expect(mockPrisma.restaurant.update).toHaveBeenCalledWith({
+      where: { id: "rest-1" },
+      data: { setupStep: "DONE", isPublished: true },
+    });
+  });
 });
