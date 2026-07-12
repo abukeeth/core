@@ -46,7 +46,20 @@ ARG API_HOST=localhost:4000
 ARG NEXT_PUBLIC_SITE_URL=http://localhost:3000
 COPY pnpm-workspace.yaml package.json ./
 COPY apps/web ./apps/web
-RUN pnpm install --offline --frozen-lockfile --filter web...
+# No --offline: matches apps/api/Dockerfile's own filtered installs (build
+# and prod-deps stages, neither uses --offline), which is why apps/api
+# never hit this. `pnpm fetch` above still pre-warms the store so this
+# resolves almost entirely from the local store and stays fast/cacheable
+# — --offline only additionally forbids ever reaching the registry for
+# anything the store turns out not to have, with no fallback. pnpm fetch
+# is documented to populate the store from the lockfile alone, but is not
+# guaranteed gap-free for every resolved entry (e.g. peer-dependency-
+# suffixed resolutions like @stripe/react-stripe-js's) — --frozen-lockfile
+# still pins the exact dependency tree either way, so determinism and
+# lockfile correctness are unaffected; only the offline-only constraint is
+# removed, letting the install self-heal from the registry instead of
+# hard-failing on any such gap.
+RUN pnpm install --frozen-lockfile --filter web...
 RUN API_URL="${API_URL_SCHEME}://${API_HOST}" NEXT_PUBLIC_SITE_URL="${NEXT_PUBLIC_SITE_URL}" pnpm --filter web run build
 
 # ---- runtime --------------------------------------------------------------
