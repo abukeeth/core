@@ -99,6 +99,29 @@ describe("ReviewEditor (Sprint 10)", () => {
   });
 });
 
+describe("ReviewEditor — onApproved/onRejected overrides (reused inline by the setup wizard)", () => {
+  it("calls onApproved with the approved job instead of navigating, when provided", async () => {
+    const onApproved = vi.fn();
+    mockApprove.mockResolvedValue({ job: { ...job(), status: "APPROVED" } });
+    render(<ReviewEditor job={job()} onApproved={onApproved} />);
+
+    fireEvent.click(screen.getByText("Approve & continue"));
+
+    await waitFor(() => expect(onApproved).toHaveBeenCalledWith(expect.objectContaining({ status: "APPROVED" })));
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("calls onRejected instead of navigating to /dashboard/import, when provided", async () => {
+    const onRejected = vi.fn();
+    render(<ReviewEditor job={job()} onRejected={onRejected} />);
+
+    fireEvent.click(screen.getByText("Reject import"));
+
+    await waitFor(() => expect(onRejected).toHaveBeenCalled());
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+});
+
 describe("ReviewEditor — bulk selection (Sprint 18 Part 5)", () => {
   it("shows a bulk action bar only once an item is selected", () => {
     render(<ReviewEditor job={job()} />);

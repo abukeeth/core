@@ -16,6 +16,12 @@ export class ImportJobNotReadyError extends Error {
   }
 }
 
+export class ImportJobEmptyMenuError extends Error {
+  constructor() {
+    super("Add at least one product before approving this import — an empty menu can't be saved.");
+  }
+}
+
 export class UnsupportedFileError extends Error {
   constructor() {
     super("Unsupported file type or size");

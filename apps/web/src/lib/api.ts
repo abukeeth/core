@@ -21,6 +21,11 @@ function isTimeoutError(err: unknown): boolean {
 const TIMEOUT_MESSAGE = "The server is taking longer than expected to respond — it may be waking up. Please try again in a moment.";
 const NETWORK_MESSAGE = "Couldn't reach the server. Check your connection and try again.";
 
+/** Lets a caller distinguish "the request timed out client-side" (the server may have still finished the work) from any other failure, without hardcoding/duplicating TIMEOUT_MESSAGE's exact text. */
+export function isTimeoutMessage(message: string): boolean {
+  return message === TIMEOUT_MESSAGE;
+}
+
 export interface PublicUser {
   id: string;
   email: string;
@@ -530,6 +535,14 @@ export async function createImportJob(
   }
 
   return data as { job: ImportJob };
+}
+
+export function getImportJob(id: string) {
+  return apiFetch<{ job: ImportJob }>(`/api/imports/${id}`);
+}
+
+export function listImportJobs() {
+  return apiFetch<{ jobs: ImportJob[] }>("/api/imports");
 }
 
 export function approveImportJob(id: string) {

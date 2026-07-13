@@ -57,7 +57,15 @@ function confidenceClass(confidence: number): string {
   return "bg-red-50 text-red-700";
 }
 
-export function ReviewEditor({ job }: { job: ImportJob }) {
+export function ReviewEditor({
+  job,
+  onApproved,
+  onRejected,
+}: {
+  job: ImportJob;
+  onApproved?: (job: ImportJob) => void;
+  onRejected?: () => void;
+}) {
   const router = useRouter();
   const [items, setItems] = useState<EditableItem[]>(() => flatten(job.extractedData ?? { categories: [] }));
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
@@ -134,7 +142,11 @@ export function ReviewEditor({ job }: { job: ImportJob }) {
     setSubmitting(true);
     try {
       await persistEdits();
-      await approveImportJob(job.id);
+      const { job: approved } = await approveImportJob(job.id);
+      if (onApproved) {
+        onApproved(approved);
+        return;
+      }
       router.push("/dashboard/builder");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to approve import");
@@ -148,6 +160,10 @@ export function ReviewEditor({ job }: { job: ImportJob }) {
     setSubmitting(true);
     try {
       await rejectImportJob(job.id);
+      if (onRejected) {
+        onRejected();
+        return;
+      }
       router.push("/dashboard/import");
       router.refresh();
     } catch (err) {

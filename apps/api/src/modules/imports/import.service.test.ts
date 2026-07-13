@@ -261,7 +261,7 @@ describe("approveJob", () => {
       restaurantId: "my-restaurant",
       status: ImportStatus.AWAITING_REVIEW,
       extractedData: {
-        categories: [],
+        categories: [{ name: "Mains", items: [{ name: "Burger", priceCents: 999 }] }],
         businessProfile: { name: "Joe's Diner", address: "123 Main St" },
       },
     } as never);
@@ -280,7 +280,7 @@ describe("approveJob", () => {
       id: "job-1",
       restaurantId: "my-restaurant",
       status: ImportStatus.AWAITING_REVIEW,
-      extractedData: { categories: [] },
+      extractedData: { categories: [{ name: "Mains", items: [{ name: "Burger", priceCents: 999 }] }] },
     } as never);
     mockPrisma.importJob.update.mockResolvedValue({ id: "job-1", status: ImportStatus.APPROVED } as never);
 

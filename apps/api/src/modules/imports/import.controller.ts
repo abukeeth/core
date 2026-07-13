@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { NoRestaurantError } from "../restaurants/restaurant.errors";
 import { getOwnRestaurantId } from "../restaurants/restaurant.service";
 import { importAdapterRegistry } from "./adapters/registry";
-import { ImportJobNotFoundError, ImportJobNotReadyError, ImportJobNotRerunnableError } from "./import.errors";
+import { ImportJobEmptyMenuError, ImportJobNotFoundError, ImportJobNotReadyError, ImportJobNotRerunnableError } from "./import.errors";
 import { approveJob, createImportJob, getJob, listJobs, rejectJob, rerunJob, updateJobData } from "./import.service";
 import { extractedMenuDataSchema } from "./types";
 import { createImportSchema } from "./import.validation";
@@ -123,6 +123,10 @@ export async function approve(req: Request, res: Response): Promise<void> {
     }
     if (err instanceof ImportJobNotReadyError) {
       res.status(409).json({ error: err.message });
+      return;
+    }
+    if (err instanceof ImportJobEmptyMenuError) {
+      res.status(422).json({ error: err.message });
       return;
     }
     throw err;
