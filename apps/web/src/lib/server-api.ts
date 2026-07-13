@@ -6,25 +6,43 @@ import { cookies } from "next/headers";
 // is read from the runtime environment.
 const apiUrl = process.env.API_URL ?? "http://localhost:4000";
 
-export type ServerFetchResult<T> = { ok: true; data: T } | { ok: false; status: number };
+// A Server Component awaiting serverFetch blocks that page's entire
+// server-side render — a hung call here (e.g. a cold-started backend)
+// reads to the browser as a stalled navigation, not just a stuck button.
+// Same reasoning as apps/web/src/lib/api.ts's DEFAULT_TIMEOUT_MS: generous
+// enough to survive a slow cold start rather than fight it, bounded so it
+// never hangs forever.
+const DEFAULT_TIMEOUT_MS = 25_000;
+
+export type ServerFetchFailureReason = "timeout" | "network" | "http";
+
+export type ServerFetchResult<T> =
+  | { ok: true; data: T }
+  | { ok: false; status: number; reason: ServerFetchFailureReason };
+
+function isTimeoutError(err: unknown): boolean {
+  return err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError");
+}
 
 export async function serverFetch<T>(path: string, init: RequestInit = {}): Promise<ServerFetchResult<T>> {
   const cookieStore = await cookies();
 
+  let res: Response;
   try {
-    const res = await fetch(`${apiUrl}${path}`, {
+    res = await fetch(`${apiUrl}${path}`, {
       ...init,
       headers: { cookie: cookieStore.toString(), ...init.headers },
       cache: "no-store",
+      signal: AbortSignal.timeout(DEFAULT_TIMEOUT_MS),
     });
-
-    if (!res.ok) {
-      return { ok: false, status: res.status };
-    }
-
-    const data = (await res.json()) as T;
-    return { ok: true, data };
-  } catch {
-    return { ok: false, status: 503 };
+  } catch (err) {
+    return { ok: false, status: 503, reason: isTimeoutError(err) ? "timeout" : "network" };
   }
+
+  if (!res.ok) {
+    return { ok: false, status: res.status, reason: "http" };
+  }
+
+  const data = (await res.json()) as T;
+  return { ok: true, data };
 }

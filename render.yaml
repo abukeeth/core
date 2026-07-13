@@ -1,8 +1,18 @@
 # Render Blueprint — deploys both apps/api and apps/web as Docker web
-# services on Render's free plan. Render is the only production platform
-# for this project (docs/reports/ARCHITECTURE_VERIFICATION.md verified no
-# code-level dependency on Vercel exists — both apps already ship a
-# Dockerfile/start.sh that work identically on any Docker host).
+# services on Render's free plan. Render remains ordervora-api's platform
+# regardless of where ordervora-web ends up; see
+# docs/runbooks/vercel-deployment.md for the (not-yet-adopted, this file's
+# ordervora-web service is unchanged and still deploys) alternative of
+# hosting apps/web on Vercel instead, and
+# docs/reports/INFRA_HARDENING_LOGIN_FIX.md for the full reasoning.
+#
+# `plan: free` on ordervora-api is the confirmed root cause of this app's
+# cold-start/sleep symptoms (idle Render free-tier services spin down and
+# take 30-60s+ to wake). Upgrading to a paid instance type (Starter or
+# Standard) eliminates it outright — see the report above for the
+# recommendation and cost comparison. Not changed in this file yet: that
+# upgrade is a billing decision, made in the Render dashboard when ready,
+# not something to flip silently in this config.
 #
 # Database: any PostgreSQL instance you provision yourself (Supabase,
 # Render's own managed Postgres, Neon, RDS, etc.) — paste its connection
@@ -37,11 +47,26 @@ services:
     dockerfilePath: ./apps/api/Dockerfile
     dockerContext: .
     healthCheckPath: /health
-    # No preDeployCommand: migrations + the idempotent beta seed now run
-    # inside apps/api/scripts/start.sh itself (the container's own
-    # entrypoint), not via a Render-specific hook — so this exact image
-    # deploys identically on any Docker host, not just Render.
+    # preDeployCommand only runs on paid Render instance types — it is a
+    # documented no-op on `plan: free` (the plan this blueprint still uses
+    # today), so this line is inert until the plan above is upgraded. Left
+    # in place (rather than added later) so the two changes it depends on
+    # stay together: bumping `plan:` off free AND setting
+    # SKIP_STARTUP_MIGRATIONS=true below are a matched pair — do not set
+    # SKIP_STARTUP_MIGRATIONS without first confirming (via a real deploy
+    # log) that this command actually ran and applied migrations, or
+    # migrations will silently never run at all. See
+    # docs/reports/INFRA_HARDENING_LOGIN_FIX.md for the full rationale
+    # and activation steps.
+    preDeployCommand: ./node_modules/.bin/prisma migrate deploy
     envVars:
+      # Deliberately NOT set here yet — start.sh's default (migrations run
+      # on every container start, unaffected by the above) stays in effect
+      # until this is explicitly added as "true" *after* verifying
+      # preDeployCommand above ran successfully at least once on a paid
+      # plan. See start.sh's own comment for what each value does.
+      # - key: SKIP_STARTUP_MIGRATIONS
+      #   value: "true"
       - key: NODE_ENV
         value: production
       - key: PORT
@@ -117,6 +142,25 @@ services:
       # domain/subdomain you control before relying on the custom-domain
       # feature.
       - key: SITE_PLATFORM_DOMAIN
+        sync: false
+      # Required in production — src/index.ts refuses to boot with
+      # NODE_ENV=production and this unset (see
+      # lib/object-storage-client.ts's assertProductionObjectStorageConfigured
+      # and docs/runbooks/object-storage.md). Local disk is ephemeral on
+      # Render and gets wiped on every redeploy/restart; uploaded menu
+      # photos/PDFs/site assets need real durable storage. Supabase
+      # Storage's S3-compatible endpoint works here with no code change —
+      # see docs/runbooks/object-storage.md's "Supabase Storage" section
+      # for the exact values.
+      - key: OBJECT_STORAGE_BUCKET
+        sync: false
+      - key: OBJECT_STORAGE_REGION
+        sync: false
+      - key: OBJECT_STORAGE_ENDPOINT
+        sync: false
+      - key: OBJECT_STORAGE_ACCESS_KEY_ID
+        sync: false
+      - key: OBJECT_STORAGE_SECRET_ACCESS_KEY
         sync: false
 
   - type: web

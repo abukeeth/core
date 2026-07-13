@@ -1,3 +1,26 @@
+// A hung fetch previously had no upper bound at all — on a cold-started
+// backend (e.g. Render free tier waking from sleep) this left callers like
+// the login button stuck on "Logging in…" indefinitely, with no feedback,
+// until whatever proxy/browser timeout happened to apply eventually gave
+// up. 25s is generous relative to a warm request (normally well under 1s)
+// so it survives a slow cold start rather than fighting it, while still
+// giving the user a clear, actionable message instead of an infinite
+// spinner. A plain retry after a timeout will usually succeed immediately,
+// since the backend is now warm — worth saying so in the error text.
+const DEFAULT_TIMEOUT_MS = 25_000;
+// File uploads (menu PDFs/photos, site assets) are multi-megabyte and can
+// legitimately take much longer on a slow connection — the default budget
+// above would produce spurious failures for a real, still-in-progress
+// upload, not just a hung one.
+const UPLOAD_TIMEOUT_MS = 120_000;
+
+function isTimeoutError(err: unknown): boolean {
+  return err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError");
+}
+
+const TIMEOUT_MESSAGE = "The server is taking longer than expected to respond — it may be waking up. Please try again in a moment.";
+const NETWORK_MESSAGE = "Couldn't reach the server. Check your connection and try again.";
+
 export interface PublicUser {
   id: string;
   email: string;
@@ -135,12 +158,18 @@ export interface ImportJob {
   createdAt: string;
 }
 
-async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(path, {
-    ...options,
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...options.headers },
-  });
+async function apiFetch<T>(path: string, options: RequestInit = {}, timeoutMs: number = DEFAULT_TIMEOUT_MS): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      ...options,
+      credentials: "include",
+      headers: { "Content-Type": "application/json", ...options.headers },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (err) {
+    throw new Error(isTimeoutError(err) ? TIMEOUT_MESSAGE : NETWORK_MESSAGE);
+  }
 
   const data = await res.json().catch(() => null);
 
@@ -472,11 +501,17 @@ export async function createImportJob(
     formData.append("sourceUrl", source.url);
   }
 
-  const res = await fetch("/api/imports", {
-    method: "POST",
-    credentials: "include",
-    body: formData,
-  });
+  let res: Response;
+  try {
+    res = await fetch("/api/imports", {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new Error(isTimeoutError(err) ? TIMEOUT_MESSAGE : NETWORK_MESSAGE);
+  }
 
   const data = await res.json().catch(() => null);
 
@@ -855,11 +890,17 @@ export async function uploadSiteAsset(siteId: string, kind: SiteAssetKind, file:
   formData.append("kind", kind);
   formData.append("file", file);
 
-  const res = await fetch(`/api/sites/${siteId}/assets`, {
-    method: "POST",
-    credentials: "include",
-    body: formData,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`/api/sites/${siteId}/assets`, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new Error(isTimeoutError(err) ? TIMEOUT_MESSAGE : NETWORK_MESSAGE);
+  }
 
   const data = await res.json().catch(() => null);
   if (!res.ok) {
