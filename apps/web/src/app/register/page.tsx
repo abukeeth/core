@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { register } from "@/lib/api";
+import { isTimeoutMessage, login, register } from "@/lib/api";
 import { setStoredReferralCode } from "@/lib/referral-storage";
 
 export default function RegisterPage() {
@@ -21,17 +21,37 @@ export default function RegisterPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (submitting) return; // Prevent a second submit while the first is still in flight or being verified.
     setError(null);
     setSubmitting(true);
     try {
       await register(email, password, name);
       router.push("/dashboard");
       router.refresh();
+      // Keep submitting=true — the component is about to unmount on navigation.
+      return;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
-    } finally {
-      setSubmitting(false);
+      const message = err instanceof Error ? err.message : "Registration failed";
+      // §17 — a client-side timeout doesn't mean the account wasn't actually
+      // created; the server may have finished the work (including setting
+      // the session cookie on a response our aborted fetch never received)
+      // regardless. There's no session to just re-check yet in that case,
+      // but logging in fresh with the same credentials the owner just typed
+      // works whether the account was created a moment ago or not — and if
+      // it wasn't, this simply fails like any bad-credentials login would.
+      if (isTimeoutMessage(message)) {
+        try {
+          await login(email, password);
+          router.push("/dashboard");
+          router.refresh();
+          return;
+        } catch {
+          // Genuinely not created — fall through to the error below.
+        }
+      }
+      setError(message);
     }
+    setSubmitting(false);
   }
 
   return (
