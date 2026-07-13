@@ -37,9 +37,9 @@ const STATUS_COPY: Record<SiteStatus, { label: string; tone: BadgeTone; message:
 };
 
 const NO_SITE = {
-  label: "Setting up",
-  tone: "warning" as BadgeTone,
-  message: (name: string) => `${name}'s AI-designed website foundation is ready. Brand concepts and live generation launch soon.`,
+  label: "Not started",
+  tone: "neutral" as BadgeTone,
+  message: (name: string) => `${name} doesn't have a website yet — generate one with AI to get started.`,
 };
 
 export function WebsiteStatusCard({ restaurantName, status }: { restaurantName: string; status: SiteStatus | null }) {

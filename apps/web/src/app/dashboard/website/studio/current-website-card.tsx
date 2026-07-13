@@ -49,51 +49,59 @@ export function CurrentWebsiteCard({ domain, status }: { domain: string; status:
         </div>
       </div>
 
-      <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-        <a
-          href={domain}
-          target="_blank"
-          rel="noreferrer"
-          className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#171512] px-4 text-sm font-bold text-white transition active:scale-[0.99]"
-        >
-          <ExternalLink className="h-4 w-4" aria-hidden="true" />
-          Open Website
-        </a>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#E7DDCF] bg-white px-4 text-sm font-bold text-[#171512] transition active:scale-[0.99]"
-        >
-          <Copy className="h-4 w-4" aria-hidden="true" />
-          {copied ? "Copied!" : "Copy Link"}
-        </button>
-        <button
-          type="button"
-          onClick={handleShare}
-          className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#E7DDCF] bg-white px-4 text-sm font-bold text-[#171512] transition active:scale-[0.99]"
-        >
-          <Share2 className="h-4 w-4" aria-hidden="true" />
-          Share
-        </button>
-        <button
-          type="button"
-          onClick={() => setShowQr((v) => !v)}
-          aria-expanded={showQr}
-          className={`flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition active:scale-[0.99] ${
-            showQr ? "border-[#171512] bg-[#171512] text-white" : "border-[#E7DDCF] bg-white text-[#171512]"
-          }`}
-        >
-          <QrCode className="h-4 w-4" aria-hidden="true" />
-          QR Code
-        </button>
-      </div>
-
-      {showQr && (
-        <div className="mt-5 flex justify-center rounded-2xl border border-[#E7DDCF] bg-[#FBF7F1] p-6">
-          <div className="rounded-2xl border border-[#E7DDCF] bg-white p-4">
-            <QRCodeSVG value={domain} size={160} />
+      {isLive ? (
+        <>
+          <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <a
+              href={domain}
+              target="_blank"
+              rel="noreferrer"
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#171512] px-4 text-sm font-bold text-white transition active:scale-[0.99]"
+            >
+              <ExternalLink className="h-4 w-4" aria-hidden="true" />
+              Open Website
+            </a>
+            <button
+              type="button"
+              onClick={handleCopy}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#E7DDCF] bg-white px-4 text-sm font-bold text-[#171512] transition active:scale-[0.99]"
+            >
+              <Copy className="h-4 w-4" aria-hidden="true" />
+              {copied ? "Copied!" : "Copy Link"}
+            </button>
+            <button
+              type="button"
+              onClick={handleShare}
+              className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[#E7DDCF] bg-white px-4 text-sm font-bold text-[#171512] transition active:scale-[0.99]"
+            >
+              <Share2 className="h-4 w-4" aria-hidden="true" />
+              Share
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowQr((v) => !v)}
+              aria-expanded={showQr}
+              className={`flex min-h-11 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-bold transition active:scale-[0.99] ${
+                showQr ? "border-[#171512] bg-[#171512] text-white" : "border-[#E7DDCF] bg-white text-[#171512]"
+              }`}
+            >
+              <QrCode className="h-4 w-4" aria-hidden="true" />
+              QR Code
+            </button>
           </div>
-        </div>
+
+          {showQr && (
+            <div className="mt-5 flex justify-center rounded-2xl border border-[#E7DDCF] bg-[#FBF7F1] p-6">
+              <div className="rounded-2xl border border-[#E7DDCF] bg-white p-4">
+                <QRCodeSVG value={domain} size={160} />
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <p className="mt-5 rounded-2xl border border-[#E7DDCF] bg-[#FBF7F1] px-4 py-3 text-sm text-[#756B5D]">
+          Publish your website to get your live link, QR code, and share options.
+        </p>
       )}
     </Card>
   );
