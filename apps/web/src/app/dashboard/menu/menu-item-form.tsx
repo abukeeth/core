@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { deleteItem, updateItem, createItem, type MenuItem, type ModifierGroup } from "@/lib/api";
 import { ItemDetailEditor } from "./item-detail-editor";
+import { MenuImageUpload } from "./image-upload";
 
 function formatPrice(cents: number): string {
   return (cents / 100).toFixed(2);
@@ -110,6 +111,7 @@ export function ItemRow({ item, modifierGroups }: { item: MenuItem; modifierGrou
           </button>
         </span>
       </div>
+      <MenuImageUpload entity="item" entityId={item.id} imageUrl={item.imageUrl} />
       {expanded && <ItemDetailEditor item={item} modifierGroups={modifierGroups} />}
     </li>
   );

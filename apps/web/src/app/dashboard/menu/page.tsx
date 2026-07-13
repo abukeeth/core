@@ -2,6 +2,7 @@ import { PageShell } from "@/components/ui";
 import type { MenuCategory, ModifierGroup } from "@/lib/api";
 import { serverFetch } from "@/lib/server-api";
 import { AddCategoryForm, DeleteCategoryButton } from "./category-form";
+import { MenuImageUpload } from "./image-upload";
 import { AddItemForm, ItemRow } from "./menu-item-form";
 import { ModifierGroupsManager } from "./modifier-groups-manager";
 
@@ -38,6 +39,8 @@ export default async function MenuPage() {
                   <h2 className="text-lg font-semibold text-black dark:text-zinc-50">{category.name}</h2>
                   <DeleteCategoryButton categoryId={category.id} />
                 </div>
+
+                <MenuImageUpload entity="category" entityId={category.id} imageUrl={category.imageUrl} />
 
                 <ul className="flex flex-col divide-y divide-black/[.08] dark:divide-white/[.145]">
                   {category.items.map((item) => (
