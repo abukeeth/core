@@ -14,7 +14,7 @@ import {
   renderDraftPreview,
   resolveSiteUrl,
   rollbackSite,
-  temporaryDomainFor,
+  temporaryStorefrontUrl,
   unpublishSite,
   updateSite,
   validatePublishReadiness,
@@ -28,7 +28,7 @@ export async function getMine(req: Request, res: Response): Promise<void> {
   try {
     const site = await getOwnSite(restaurantId);
     const url = await resolveSiteUrl(site);
-    const temporaryDomain = `https://${temporaryDomainFor(site)}`;
+    const temporaryDomain = temporaryStorefrontUrl(site);
     res.status(200).json({ site, url, temporaryDomain });
   } catch (err) {
     if (!mapSiteError(err, res)) throw err;
@@ -51,7 +51,7 @@ export async function create(req: Request, res: Response): Promise<void> {
     // deployment that set a real SITE_PLATFORM_DOMAIN silently showing
     // the placeholder default instead of the owner's actual domain.
     const url = await resolveSiteUrl(site);
-    const temporaryDomain = `https://${temporaryDomainFor(site)}`;
+    const temporaryDomain = temporaryStorefrontUrl(site);
     res.status(201).json({ site, url, temporaryDomain });
   } catch (err) {
     if (!mapSiteError(err, res)) throw err;

@@ -17,6 +17,7 @@
     "prisma:seed": "prisma db seed",
     "test": "vitest run",
     "storage:migrate-to-s3": "tsx scripts/migrate-storage-to-s3.ts",
+    "backfill:published-restaurants": "tsx scripts/backfill-published-restaurants.ts",
     "seed:beta": "tsx prisma/seed-beta.ts",
     "seed:beta:orders": "tsx scripts/seed-beta-orders.ts",
     "seed:beta:delivery-order": "tsx scripts/demo-place-delivery-order.ts",

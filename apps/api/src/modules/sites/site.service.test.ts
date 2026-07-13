@@ -36,6 +36,7 @@ import {
   resolveSiteUrl,
   revalidatePublishedSite,
   rollbackSite,
+  temporaryStorefrontUrl,
   unpublishSite,
   updateSite,
 } from "./site.service";
@@ -122,6 +123,37 @@ describe("createSite", () => {
 
     expect(mockPrisma.site.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ slug: "trattoria-bella-2" }) }));
   });
+
+  it.each(["www", "app", "admin", "api", "dashboard", "support", "billing", "status"])(
+    "never assigns the reserved subdomain %s — a restaurant that slugifies to it is bumped to a numeric suffix, same as any other collision",
+    async (reserved) => {
+      mockPrisma.site.findUnique.mockResolvedValueOnce(null); // existing-site check
+      // findAvailableSlug never even queries the DB for a reserved candidate, so the
+      // very next findUnique call is for the "<reserved>-2" fallback.
+      mockPrisma.site.findUnique.mockResolvedValueOnce(null);
+      mockPrisma.site.create.mockResolvedValue({ id: "site-1" } as never);
+
+      await createSite("restaurant-1", reserved);
+
+      expect(mockPrisma.site.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ slug: `${reserved}-2` }) }),
+      );
+      // Confirms the reserved name itself was never even checked against the DB —
+      // the loop skips straight to the suffixed candidate.
+      expect(mockPrisma.site.findUnique).toHaveBeenCalledTimes(2);
+    },
+  );
+
+  it("still resolves a reserved-name collision to a free suffix if the first numeric suffix is also taken", async () => {
+    mockPrisma.site.findUnique.mockResolvedValueOnce(null); // existing-site check
+    mockPrisma.site.findUnique.mockResolvedValueOnce({ id: "other" } as never); // "admin-2" taken
+    mockPrisma.site.findUnique.mockResolvedValueOnce(null); // "admin-3" free
+    mockPrisma.site.create.mockResolvedValue({ id: "site-1" } as never);
+
+    await createSite("restaurant-1", "Admin");
+
+    expect(mockPrisma.site.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ slug: "admin-3" }) }));
+  });
 });
 
 describe("updateSite / listVersions / getVersion (tenant isolation)", () => {
@@ -177,6 +209,17 @@ describe("updateSite — temporary domain (slug) editing (Sprint 20A Task 4)", (
     // No extra findUnique for the uniqueness check — same slug is a no-op, not a lookup.
     expect(mockPrisma.site.findUnique).toHaveBeenCalledTimes(1);
     expect(mockPrisma.site.update).toHaveBeenCalledWith({ where: { id: "site-1" }, data: {} });
+  });
+
+  it("bumps a manually-entered reserved subdomain to a numeric suffix instead of allowing it through", async () => {
+    mockPrisma.site.findUnique
+      .mockResolvedValueOnce({ id: "site-1", restaurantId: "restaurant-1", slug: "trattoria-bella", status: "DRAFT" } as never)
+      .mockResolvedValueOnce(null); // "dashboard-2" free — "dashboard" itself is never queried
+    mockPrisma.site.update.mockResolvedValue({ id: "site-1", slug: "dashboard-2" } as never);
+
+    await updateSite("restaurant-1", "site-1", { slug: "dashboard" });
+
+    expect(mockPrisma.site.update).toHaveBeenCalledWith({ where: { id: "site-1" }, data: { slug: "dashboard-2" } });
   });
 
   it("throws SlugNotEditableError once the site is no longer a DRAFT", async () => {
@@ -290,7 +333,7 @@ describe("publishSite", () => {
     await publishSite("restaurant-1", "site-1", "user-1");
 
     expect(mockRenderAllPages).toHaveBeenCalledWith(
-      expect.objectContaining({ siteId: "site-1", restaurantId: "restaurant-1", siteUrl: "https://trattoria-bella.sites.ordervora.example" }),
+      expect.objectContaining({ siteId: "site-1", restaurantId: "restaurant-1", siteUrl: "http://localhost:3000/store/trattoria-bella" }),
     );
     expect(mockReleaseStorage.savePage).toHaveBeenCalledWith("site-1", "draft-1", "/", "<html>home</html>");
     expect(mockReleaseStorage.saveAsset).toHaveBeenCalledWith("site-1", "draft-1", "sitemap.xml", expect.any(String));
@@ -370,14 +413,16 @@ describe("listReleases / rollbackSite / unpublishSite", () => {
   });
 });
 
-describe("resolveSiteUrl", () => {
-  it("falls back to the platform subdomain when there's no verified primary domain", async () => {
+describe("resolveSiteUrl / temporaryStorefrontUrl (§M)", () => {
+  it("falls back to the /store/<slug> route (not the not-yet-resolving wildcard subdomain) when there's no verified primary domain", async () => {
     mockPrisma.domain.findFirst.mockResolvedValue(null);
     const url = await resolveSiteUrl({ id: "site-1", slug: "trattoria-bella" } as never);
-    expect(url).toBe("https://trattoria-bella.sites.ordervora.example");
+    // FRONTEND_URL defaults to http://localhost:3000 in this test process (no override set) — real
+    // deployments read it from the actual configured env var (e.g. https://ordervora.com).
+    expect(url).toBe("http://localhost:3000/store/trattoria-bella");
   });
 
-  it("prefers a verified primary custom domain over the platform subdomain", async () => {
+  it("prefers a verified primary custom domain over the temporary storefront URL", async () => {
     mockPrisma.domain.findFirst.mockResolvedValue({ hostname: "menu.trattoriabella.com" } as never);
     const url = await resolveSiteUrl({ id: "site-1", slug: "trattoria-bella" } as never);
     expect(url).toBe("https://menu.trattoriabella.com");
@@ -388,6 +433,26 @@ describe("resolveSiteUrl", () => {
     expect(mockPrisma.domain.findFirst).toHaveBeenCalledWith({
       where: { siteId: "site-1", isPrimary: true, verificationStatus: "VERIFIED" },
     });
+  });
+
+  it("temporaryStorefrontUrl itself also returns the /store/<slug> fallback by default, with no DB lookup involved", () => {
+    expect(temporaryStorefrontUrl({ slug: "trattoria-bella" })).toBe("http://localhost:3000/store/trattoria-bella");
+  });
+
+  it("switches to the real wildcard subdomain once SITE_WILDCARD_DNS_ACTIVE=true is explicitly set", async () => {
+    const originalWildcard = process.env.SITE_WILDCARD_DNS_ACTIVE;
+    const originalPlatformDomain = process.env.SITE_PLATFORM_DOMAIN;
+    process.env.SITE_WILDCARD_DNS_ACTIVE = "true";
+    process.env.SITE_PLATFORM_DOMAIN = "ordervora.com";
+    vi.resetModules();
+    try {
+      const fresh = await import("./site.service.js");
+      expect(fresh.temporaryStorefrontUrl({ slug: "trattoria-bella" })).toBe("https://trattoria-bella.ordervora.com");
+    } finally {
+      process.env.SITE_WILDCARD_DNS_ACTIVE = originalWildcard;
+      process.env.SITE_PLATFORM_DOMAIN = originalPlatformDomain;
+      vi.resetModules();
+    }
   });
 });
 
