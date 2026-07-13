@@ -37,6 +37,14 @@ const nextConfig: NextConfig = {
       // inside the iframe rather than against the dashboard's own origin.
       { source: "/preview/:path*", destination: `${apiUrl}/preview/:path*` },
       { source: "/assets/:path*", destination: `${apiUrl}/assets/:path*` },
+      // §M pre-wildcard-DNS fallback storefront — proxies straight to the
+      // API's storeRouter (public-render.routes.ts), which returns a
+      // complete HTML document rendered by the exact same renderer as a
+      // real *.ordervora.com visit would use. No Next.js page/route exists
+      // for this path deliberately — it's a pure proxy, same pattern as
+      // /preview and /assets above, so there is only ever one storefront
+      // renderer, never a competing one.
+      { source: "/store/:path*", destination: `${apiUrl}/store/:path*` },
     ];
   },
 };

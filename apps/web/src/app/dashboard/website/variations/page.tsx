@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui";
 import type { GenerationJob, SiteVersion, WebsiteSite } from "@/lib/api";
 import { serverFetch } from "@/lib/server-api";
+import { DevicePreview } from "./[id]/device-preview";
 import { GenerationProgress } from "./generation-progress";
 import { SelectButton } from "./select-button";
 
@@ -55,6 +56,8 @@ export default async function VariationsPage() {
                       </span>
                     )}
                   </div>
+
+                  <DevicePreview siteId={site.id} variationId={variation.id} hideDeviceSwitcher frameHeightClassName="h-[220px]" />
 
                   <p className="text-sm italic text-[#756B5D]">&ldquo;{definition.tagline}&rdquo;</p>
 
