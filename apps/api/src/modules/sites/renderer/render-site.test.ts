@@ -66,6 +66,72 @@ describe("resolveLiveMenu", () => {
     const result = await resolveLiveMenu("r1");
     expect(result).toEqual([{ name: "Mains", items: [{ name: "Spaghetti", description: undefined, priceCents: 1500, isAvailable: true }] }]);
   });
+
+  it("§Website Builder: resolves category/item imageKey to a real URL via the same assetUrl() seam as site assets", async () => {
+    mockListCategories.mockResolvedValue([
+      {
+        id: "c1",
+        restaurantId: "r1",
+        name: "Mains",
+        sortOrder: 0,
+        imageKey: "/uploads/category.png",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        items: [
+          {
+            id: "i1",
+            restaurantId: "r1",
+            categoryId: "c1",
+            name: "Spaghetti",
+            description: null,
+            priceCents: 1500,
+            isAvailable: true,
+            sortOrder: 0,
+            imageKey: "/uploads/item.png",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+      },
+    ] as never);
+
+    const result = await resolveLiveMenu("r1");
+    expect(result[0].imageUrl).toBe("/assets/category.png");
+    expect(result[0].items[0].imageUrl).toBe("/assets/item.png");
+  });
+
+  it("leaves imageUrl undefined for categories/items with no uploaded photo", async () => {
+    mockListCategories.mockResolvedValue([
+      {
+        id: "c1",
+        restaurantId: "r1",
+        name: "Mains",
+        sortOrder: 0,
+        imageKey: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        items: [
+          {
+            id: "i1",
+            restaurantId: "r1",
+            categoryId: "c1",
+            name: "Spaghetti",
+            description: null,
+            priceCents: 1500,
+            isAvailable: true,
+            sortOrder: 0,
+            imageKey: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+      },
+    ] as never);
+
+    const result = await resolveLiveMenu("r1");
+    expect(result[0].imageUrl).toBeUndefined();
+    expect(result[0].items[0].imageUrl).toBeUndefined();
+  });
 });
 
 describe("resolveRenderAssets", () => {

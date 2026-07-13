@@ -2,7 +2,8 @@ import type { SiteDefinition } from "../types";
 
 export interface LiveMenuCategory {
   name: string;
-  items: { name: string; description?: string; priceCents: number; isAvailable: boolean }[];
+  imageUrl?: string;
+  items: { name: string; description?: string; priceCents: number; isAvailable: boolean; imageUrl?: string }[];
 }
 
 export interface RenderAssets {

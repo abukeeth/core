@@ -101,12 +101,16 @@ export interface MenuItem {
   priceCents: number;
   isAvailable: boolean;
   sortOrder: number;
+  imageKey: string | null;
+  imageUrl: string | null;
 }
 
 export interface MenuCategory {
   id: string;
   name: string;
   sortOrder: number;
+  imageKey: string | null;
+  imageUrl: string | null;
   items: MenuItem[];
 }
 
@@ -371,6 +375,43 @@ export function updateItem(id: string, input: Partial<MenuItemInput>) {
 
 export function deleteItem(id: string) {
   return apiFetch<void>(`/api/menu/items/${id}`, { method: "DELETE" });
+}
+
+/** Bypasses apiFetch's forced JSON Content-Type — same reasoning as uploadSiteAsset below. */
+async function uploadMenuImage<T extends "category" | "item">(
+  entity: T,
+  id: string,
+  file: File,
+): Promise<T extends "category" ? { category: MenuCategory } : { item: MenuItem }> {
+  const formData = new FormData();
+  formData.append("file", file);
+  const path = entity === "category" ? `/api/menu/categories/${id}/image` : `/api/menu/items/${id}/image`;
+
+  let res: Response;
+  try {
+    res = await fetch(path, {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new Error(isTimeoutError(err) ? TIMEOUT_MESSAGE : NETWORK_MESSAGE);
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new Error(data?.error ?? "Upload failed");
+  }
+  return data;
+}
+
+export function uploadCategoryImage(categoryId: string, file: File) {
+  return uploadMenuImage("category", categoryId, file);
+}
+
+export function uploadMenuItemImage(itemId: string, file: File) {
+  return uploadMenuImage("item", itemId, file);
 }
 
 // --- Variants -----------------------------------------------------------------

@@ -1,7 +1,9 @@
+import type { MenuCategory, MenuItem } from "@prisma/client";
 import { waitUntil } from "@vercel/functions";
 import type { Request, Response } from "express";
 import { NoRestaurantError } from "../restaurants/restaurant.errors";
 import { getOwnRestaurantId } from "../restaurants/restaurant.service";
+import { assetUrl } from "../sites/renderer/asset-url";
 import { revalidatePublishedSite } from "../sites/site.service";
 import { CategoryNotFoundError, ItemNotFoundError } from "./menu.errors";
 import {
@@ -12,11 +14,30 @@ import {
   listCategories,
   updateCategory,
   updateItem,
+  uploadCategoryImage,
+  uploadItemImage,
 } from "./menu.service";
 import { createCategorySchema, createItemSchema, updateCategorySchema, updateItemSchema } from "./menu.validation";
 
 function paramId(req: Request): string {
   return req.params.id as string;
+}
+
+/**
+ * §Website Builder — imageKey is a raw fileStorage key, never meant to
+ * leave the API as-is (same reasoning as asset.controller.ts's withUrl):
+ * every response carries the resolved imageUrl instead/alongside it.
+ */
+function withItemImageUrl(item: MenuItem) {
+  return { ...item, imageUrl: item.imageKey ? assetUrl(item.imageKey) : null };
+}
+
+function withCategoryImageUrl(category: MenuCategory) {
+  return { ...category, imageUrl: category.imageKey ? assetUrl(category.imageKey) : null };
+}
+
+function serializeCategoryWithItems(category: MenuCategory & { items: MenuItem[] }) {
+  return { ...withCategoryImageUrl(category), items: category.items.map(withItemImageUrl) };
 }
 
 async function requireOwnRestaurantId(req: Request, res: Response): Promise<string | null> {
@@ -48,7 +69,7 @@ export async function listCategoriesHandler(req: Request, res: Response): Promis
   if (!restaurantId) return;
 
   const categories = await listCategories(restaurantId);
-  res.status(200).json({ categories });
+  res.status(200).json({ categories: categories.map(serializeCategoryWithItems) });
 }
 
 export async function createCategoryHandler(req: Request, res: Response): Promise<void> {
@@ -63,7 +84,7 @@ export async function createCategoryHandler(req: Request, res: Response): Promis
 
   const category = await createCategory(restaurantId, parsed.data);
   revalidateInBackground(restaurantId);
-  res.status(201).json({ category });
+  res.status(201).json({ category: withCategoryImageUrl(category) });
 }
 
 export async function updateCategoryHandler(req: Request, res: Response): Promise<void> {
@@ -79,7 +100,32 @@ export async function updateCategoryHandler(req: Request, res: Response): Promis
   try {
     const category = await updateCategory(restaurantId, paramId(req), parsed.data);
     revalidateInBackground(restaurantId);
-    res.status(200).json({ category });
+    res.status(200).json({ category: withCategoryImageUrl(category) });
+  } catch (err) {
+    if (err instanceof CategoryNotFoundError) {
+      res.status(404).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
+}
+
+export async function uploadCategoryImageHandler(req: Request, res: Response): Promise<void> {
+  const restaurantId = await requireOwnRestaurantId(req, res);
+  if (!restaurantId) return;
+
+  if (!req.file) {
+    res.status(400).json({ error: "A file upload is required" });
+    return;
+  }
+
+  try {
+    const category = await uploadCategoryImage(restaurantId, paramId(req), {
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+    });
+    revalidateInBackground(restaurantId);
+    res.status(200).json({ category: withCategoryImageUrl(category) });
   } catch (err) {
     if (err instanceof CategoryNotFoundError) {
       res.status(404).json({ error: err.message });
@@ -119,7 +165,7 @@ export async function createItemHandler(req: Request, res: Response): Promise<vo
   try {
     const item = await createItem(restaurantId, parsed.data);
     revalidateInBackground(restaurantId);
-    res.status(201).json({ item });
+    res.status(201).json({ item: withItemImageUrl(item) });
   } catch (err) {
     if (err instanceof CategoryNotFoundError) {
       res.status(400).json({ error: err.message });
@@ -142,7 +188,7 @@ export async function updateItemHandler(req: Request, res: Response): Promise<vo
   try {
     const item = await updateItem(restaurantId, paramId(req), parsed.data);
     revalidateInBackground(restaurantId);
-    res.status(200).json({ item });
+    res.status(200).json({ item: withItemImageUrl(item) });
   } catch (err) {
     if (err instanceof ItemNotFoundError) {
       res.status(404).json({ error: err.message });
@@ -150,6 +196,31 @@ export async function updateItemHandler(req: Request, res: Response): Promise<vo
     }
     if (err instanceof CategoryNotFoundError) {
       res.status(400).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
+}
+
+export async function uploadItemImageHandler(req: Request, res: Response): Promise<void> {
+  const restaurantId = await requireOwnRestaurantId(req, res);
+  if (!restaurantId) return;
+
+  if (!req.file) {
+    res.status(400).json({ error: "A file upload is required" });
+    return;
+  }
+
+  try {
+    const item = await uploadItemImage(restaurantId, paramId(req), {
+      buffer: req.file.buffer,
+      originalName: req.file.originalname,
+    });
+    revalidateInBackground(restaurantId);
+    res.status(200).json({ item: withItemImageUrl(item) });
+  } catch (err) {
+    if (err instanceof ItemNotFoundError) {
+      res.status(404).json({ error: err.message });
       return;
     }
     throw err;

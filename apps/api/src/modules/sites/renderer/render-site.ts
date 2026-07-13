@@ -19,11 +19,13 @@ export async function resolveLiveMenu(restaurantId: string): Promise<LiveMenuCat
   const categories = await listCategories(restaurantId);
   return categories.map((category) => ({
     name: category.name,
+    imageUrl: category.imageKey ? assetUrl(category.imageKey) : undefined,
     items: category.items.map((item) => ({
       name: item.name,
       description: item.description ?? undefined,
       priceCents: item.priceCents,
       isAvailable: item.isAvailable,
+      imageUrl: item.imageKey ? assetUrl(item.imageKey) : undefined,
     })),
   }));
 }
