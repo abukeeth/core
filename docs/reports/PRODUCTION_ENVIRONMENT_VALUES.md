@@ -47,12 +47,12 @@ Order matches exactly how Render's Blueprint prompts for them — the same order
 
 | | |
 |---|---|
-| Where it comes from | `ordervora-web`'s own Render-assigned URL (not known until that service completes its first deploy) |
-| Already available? | No — doesn't exist until `ordervora-web`'s deploy happens |
-| Must be generated? | No — assigned by Render |
-| Do you already own it? | No, not yet |
-| Example format | `https://ordervora-web.onrender.com` |
-| Action needed | Paste a **temporary placeholder** now (e.g. `https://placeholder.example`); return to Render's Environment tab and set the real value after `ordervora-web`'s deploy |
+| Where it comes from | The real, customer-facing frontend origin — as of the Vercel migration, this is `https://www.ordervora.com`, not a Render-assigned URL |
+| Already available? | Yes, once the domain is attached to the Vercel project (see `docs/runbooks/vercel-deployment.md`) |
+| Must be generated? | No |
+| Do you already own it? | Yes, once `ordervora.com`/`www.ordervora.com` are attached in Vercel |
+| Example format | `https://www.ordervora.com` |
+| Action needed | Set this to the real value directly — **never paste a temporary placeholder like `https://placeholder.example` here.** A prior version of this workbook suggested that as a stopgap "for now" (back when the frontend was going to be a second Render service); it was never corrected on a real deployment and leaked directly into every generated storefront URL and password-reset/verification email link (`FRONTEND_URL` is used verbatim by `temporaryStorefrontUrl()` in `site.service.ts` and by `auth.service.ts`'s reset/verify link builders). `site.service.ts` now also refuses to build a link from this value if it matches that known-bad string, but the correct fix is to just set the real value here and never resort to a placeholder. |
 
 ### 5. `JWT_ACCESS_SECRET`
 

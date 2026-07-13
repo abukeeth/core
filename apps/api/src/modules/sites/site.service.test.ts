@@ -449,10 +449,71 @@ describe("resolveSiteUrl / temporaryStorefrontUrl (§M)", () => {
       const fresh = await import("./site.service.js");
       expect(fresh.temporaryStorefrontUrl({ slug: "trattoria-bella" })).toBe("https://trattoria-bella.ordervora.com");
     } finally {
-      process.env.SITE_WILDCARD_DNS_ACTIVE = originalWildcard;
-      process.env.SITE_PLATFORM_DOMAIN = originalPlatformDomain;
+      // Assigning `undefined` stringifies to "undefined" instead of
+      // deleting the key — would otherwise poison these vars for later
+      // test files sharing this worker if they weren't actually set before.
+      if (originalWildcard === undefined) delete process.env.SITE_WILDCARD_DNS_ACTIVE;
+      else process.env.SITE_WILDCARD_DNS_ACTIVE = originalWildcard;
+      if (originalPlatformDomain === undefined) delete process.env.SITE_PLATFORM_DOMAIN;
+      else process.env.SITE_PLATFORM_DOMAIN = originalPlatformDomain;
       vi.resetModules();
     }
+  });
+});
+
+describe("temporaryStorefrontUrl / resolveSiteUrl — §11/§12/§13/§14: never a placeholder domain, never a double slash", () => {
+  async function withFrontendUrl<T>(value: string, fn: (fresh: typeof import("./site.service")) => Promise<T>): Promise<T> {
+    const original = process.env.FRONTEND_URL;
+    process.env.FRONTEND_URL = value;
+    vi.resetModules();
+    try {
+      const fresh = await import("./site.service.js");
+      return await fn(fresh);
+    } finally {
+      // Assigning `undefined` to a process.env key stringifies it to the
+      // literal string "undefined" instead of deleting it — silently
+      // poisoning FRONTEND_URL for every later test file sharing this
+      // worker process if the var wasn't actually set before this ran.
+      if (original === undefined) delete process.env.FRONTEND_URL;
+      else process.env.FRONTEND_URL = original;
+      vi.resetModules();
+    }
+  }
+
+  it("falls back to https://www.ordervora.com if FRONTEND_URL is still the known-bad placeholder.example value", async () => {
+    await withFrontendUrl("https://placeholder.example", async (fresh) => {
+      expect(fresh.temporaryStorefrontUrl({ slug: "trattoria-bella" })).toBe("https://www.ordervora.com/store/trattoria-bella");
+    });
+  });
+
+  it("never produces a double slash when FRONTEND_URL has a trailing slash (the exact reported production bug)", async () => {
+    await withFrontendUrl("https://placeholder.example/", async (fresh) => {
+      const url = fresh.temporaryStorefrontUrl({ slug: "trattoria-bella" });
+      expect(url).not.toContain("//store/");
+      expect(url).toBe("https://www.ordervora.com/store/trattoria-bella");
+    });
+  });
+
+  it("strips a trailing slash from a real, legitimate FRONTEND_URL too", async () => {
+    await withFrontendUrl("https://www.ordervora.com/", async (fresh) => {
+      expect(fresh.temporaryStorefrontUrl({ slug: "trattoria-bella" })).toBe("https://www.ordervora.com/store/trattoria-bella");
+    });
+  });
+
+  it("never returns a sites.ordervora.example or old Render frontend URL", async () => {
+    for (const bad of ["https://sites.ordervora.example", "https://ordervora-web.onrender.com", "https://ordervora-web.vercel.app"]) {
+      await withFrontendUrl(bad, async (fresh) => {
+        const url = fresh.temporaryStorefrontUrl({ slug: "trattoria-bella" });
+        expect(url).toBe("https://www.ordervora.com/store/trattoria-bella");
+      });
+    }
+  });
+
+  it("resolveSiteUrl ignores a 'verified' Domain row whose hostname is itself a known-bad placeholder value", async () => {
+    mockPrisma.domain.findFirst.mockResolvedValue({ hostname: "placeholder.example" } as never);
+    const url = await resolveSiteUrl({ id: "site-1", slug: "trattoria-bella" } as never);
+    expect(url).toBe("http://localhost:3000/store/trattoria-bella");
+    expect(url).not.toContain("placeholder.example");
   });
 });
 

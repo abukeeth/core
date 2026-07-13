@@ -1,9 +1,9 @@
 import { randomBytes } from "node:crypto";
 import { Role, type User } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
-import { getStringEnv } from "../../config/env";
 import { generateRefreshToken, hashToken, signAccessToken } from "../../lib/jwt";
 import { hashPassword, verifyPassword } from "../../lib/password";
+import { safeFrontendOrigin } from "../../lib/safe-frontend-url";
 import { sendEmailVerificationEmail, sendOwnerPasswordResetEmail } from "../commerce/notifications/notifications.service";
 import {
   AccountDeactivatedError,
@@ -217,7 +217,7 @@ export async function requestPasswordReset(email: string): Promise<void> {
   const expiresAt = new Date(Date.now() + PASSWORD_RESET_TTL_MS);
   await prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
 
-  const resetLink = `${getStringEnv("FRONTEND_URL", "")}/reset-password?token=${token}`;
+  const resetLink = `${safeFrontendOrigin()}/reset-password?token=${token}`;
   await sendOwnerPasswordResetEmail(user.email, resetLink);
 }
 
@@ -274,7 +274,7 @@ export async function sendEmailVerification(userId: string): Promise<SendEmailVe
   const expiresAt = new Date(Date.now() + EMAIL_VERIFICATION_TTL_MS);
   await prisma.emailVerificationToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
 
-  const verifyLink = `${getStringEnv("FRONTEND_URL", "")}/verify-email?token=${token}`;
+  const verifyLink = `${safeFrontendOrigin()}/verify-email?token=${token}`;
   const result = await sendEmailVerificationEmail(user.email, verifyLink);
   return { sent: result.success, errorMessage: result.errorMessage };
 }
