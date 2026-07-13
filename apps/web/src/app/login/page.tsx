@@ -15,15 +15,21 @@ export default function LoginPage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (submitting) return; // Prevent a duplicate submit while the first request/redirect is still in flight.
     setError(null);
     setSubmitting(true);
     try {
       await login(email, password, rememberMe);
       router.replace("/dashboard");
       router.refresh();
+      // Deliberately don't reset submitting here — router.replace/refresh
+      // don't resolve when navigation visually completes, only when they're
+      // scheduled, so resetting immediately reverted the button/"Logging
+      // in…" state well before the dashboard actually appeared. Leaving it
+      // true keeps the button disabled and the loading label visible for
+      // the whole navigation; this component unmounts once it finishes.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
-    } finally {
       setSubmitting(false);
     }
   }

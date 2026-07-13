@@ -13,7 +13,7 @@ vi.mock("@/lib/api", () => ({
   createImportJob: (...args: unknown[]) => mockCreateImportJob(...args),
 }));
 
-import { ImportHub } from "./import-hub";
+import { ceilingFor, ImportHub, ProgressCard } from "./import-hub";
 import type { ImportJob } from "@/lib/api";
 
 function job(overrides: Partial<ImportJob> = {}): ImportJob {
@@ -214,5 +214,33 @@ describe("ImportHub — live progress and completion, in place", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("ceilingFor — §9/§15: a failed job must never claim 96-100% progress", () => {
+  it("returns 0 for FAILED and REJECTED, never the 100% default", () => {
+    expect(ceilingFor("FAILED")).toBe(0);
+    expect(ceilingFor("REJECTED")).toBe(0);
+  });
+
+  it("still returns 100 for AWAITING_REVIEW/APPROVED — genuine completion", () => {
+    expect(ceilingFor("AWAITING_REVIEW")).toBe(100);
+    expect(ceilingFor("APPROVED")).toBe(100);
+  });
+
+  it("caps in-progress statuses below 100", () => {
+    expect(ceilingFor("UPLOADING")).toBeLessThan(100);
+    expect(ceilingFor("PENDING")).toBeLessThan(100);
+    expect(ceilingFor("PROCESSING")).toBeLessThan(100);
+  });
+});
+
+describe("ProgressCard — never visually shows near-100% for a failed job", () => {
+  it("renders at 0% immediately for a FAILED job, never animating toward 96-100%", async () => {
+    render(<ProgressCard job={job({ status: "FAILED" })} uploading={false} otherActiveCount={0} batchSummary={null} />);
+
+    // Even after several animation ticks (250ms each), a FAILED job's ceiling is 0 — it never climbs.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(screen.getByText("0%")).toBeInTheDocument();
   });
 });

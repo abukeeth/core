@@ -61,11 +61,18 @@ const MAX_IMAGE_FILES = 20;
 
 const STAGES = ["Uploading", "OCR Reading", "AI Understanding", "Building Categories", "Building Products", "Generating Descriptions", "Saving Database", "Completed"] as const;
 
-/** Ceiling this phase animates toward — never claims 100% until the job is truly AWAITING_REVIEW. */
-function ceilingFor(status: ImportJob["status"] | "UPLOADING"): number {
+/**
+ * Ceiling this phase animates toward — never claims 100% until the job is
+ * truly AWAITING_REVIEW, and never claims progress at all for a job that
+ * has actually failed or been rejected (§9: "progress must reflect actual
+ * backend job state, not simulated timing" — a FAILED/REJECTED job showing
+ * 96-100% would tell the owner the opposite of what happened).
+ */
+export function ceilingFor(status: ImportJob["status"] | "UPLOADING"): number {
   if (status === "UPLOADING") return 12;
   if (status === "PENDING") return 20;
   if (status === "PROCESSING") return 94;
+  if (status === "FAILED" || status === "REJECTED") return 0;
   return 100;
 }
 
@@ -105,7 +112,7 @@ function useAnimatedPercent(status: ImportJob["status"] | "UPLOADING" | null) {
   return Math.round(percent);
 }
 
-function ProgressCard({
+export function ProgressCard({
   job,
   uploading,
   otherActiveCount,

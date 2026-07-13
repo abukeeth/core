@@ -2,6 +2,7 @@ import type { Prisma, Site, SiteVersion } from "@prisma/client";
 import { getStringEnv } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { releaseStorage } from "../../lib/release-storage";
+import { isKnownBadHost, safeFrontendOrigin } from "../../lib/safe-frontend-url";
 import { getAssetSummary } from "./asset-summary";
 import { renderOgImageSvg } from "./renderer/og-image";
 import { renderAllPages, renderSitePage } from "./renderer/render-site";
@@ -20,7 +21,6 @@ import { THEME_CATALOG } from "./theme-catalog";
 import { brandProfileSchema, siteDefinitionSchema, type AssetSummary, type SiteDefinition } from "./types";
 
 const PLATFORM_DOMAIN = getStringEnv("SITE_PLATFORM_DOMAIN", "sites.ordervora.example");
-const FRONTEND_URL = getStringEnv("FRONTEND_URL", "http://localhost:3000");
 // §M — explicit, ops-controlled cutover: *.{PLATFORM_DOMAIN}'s wildcard DNS
 // is a real-world activation step (see docs/runbooks/wildcard-subdomains.md)
 // that can't be inferred from PLATFORM_DOMAIN's own value alone (it could
@@ -47,18 +47,24 @@ export function temporaryDomainFor(site: Pick<Site, "slug">): string {
  * serve once it's live (both paths call the exact same serveSiteRelease).
  */
 export function temporaryStorefrontUrl(site: Pick<Site, "slug">): string {
-  if (WILDCARD_DNS_ACTIVE) {
+  if (WILDCARD_DNS_ACTIVE && !isKnownBadHost(PLATFORM_DOMAIN)) {
     return `https://${temporaryDomainFor(site)}`;
   }
-  return `${FRONTEND_URL}/store/${site.slug}`;
+  return `${safeFrontendOrigin()}/store/${site.slug}`;
 }
 
-/** §20 — a verified, primary custom domain wins; otherwise the temporary storefront URL (see temporaryStorefrontUrl). */
+/**
+ * §20 — a verified, primary custom domain wins; otherwise the temporary
+ * storefront URL (see temporaryStorefrontUrl). A "verified" Domain row is
+ * only trusted if its hostname doesn't match a known-bad placeholder value
+ * — one could have been inserted/verified before this safeguard existed,
+ * and a hostname like that should never win over the safe fallback.
+ */
 export async function resolveSiteUrl(site: Site): Promise<string> {
   const primaryDomain = await prisma.domain.findFirst({
     where: { siteId: site.id, isPrimary: true, verificationStatus: "VERIFIED" },
   });
-  if (primaryDomain) {
+  if (primaryDomain && !isKnownBadHost(primaryDomain.hostname)) {
     return `https://${primaryDomain.hostname}`;
   }
   return temporaryStorefrontUrl(site);
@@ -384,12 +390,17 @@ export async function publishSite(restaurantId: string, siteId: string, publishe
       });
     }
 
+    // The SiteVersion itself is marked PUBLISHED here (needed so this
+    // release is addressable/retained correctly), but `Site.status` is
+    // deliberately NOT flipped to PUBLISHED in this same transaction — see
+    // below. A GET /api/sites/me between here and the real static files
+    // existing must keep reporting PUBLISHING/REPUBLISHING, never claim
+    // "Live" for a site whose real storefront route can't resolve yet.
     const published = await prisma.$transaction(async (tx) => {
       const updated = await tx.siteVersion.update({
         where: { id: draft.id },
         data: { status: "PUBLISHED", publishedAt: new Date(), publishedById },
       });
-      await tx.site.update({ where: { id: site.id }, data: { status: "PUBLISHED", publishedVersionId: updated.id } });
       // Sprint 20A Task 5: publishing a draft must not leave the owner
       // without one to keep editing. Leave behind a fresh DRAFT copy of
       // the just-published definition so the Customization Studio (and
@@ -411,6 +422,11 @@ export async function publishSite(restaurantId: string, siteId: string, publishe
     });
 
     await materializeStaticRelease(site, published.id, definition);
+    // §10 — only now, with every page actually rendered and written to
+    // release storage, does the site get to claim "Live." If
+    // materializeStaticRelease above throws, this line never runs and the
+    // catch below correctly marks the site FAILED instead.
+    await prisma.site.update({ where: { id: site.id }, data: { status: "PUBLISHED", publishedVersionId: published.id } });
     await pruneOldReleases(site.id);
 
     return { version: published, scoreDelta, warning };

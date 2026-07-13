@@ -5,7 +5,7 @@ import { createLogger } from "../../lib/logger";
 import { prisma } from "../../lib/prisma";
 import { createCategory, createItem } from "../menu/menu.service";
 import { updateRestaurantById } from "../restaurants/restaurant.service";
-import { ImportJobNotFoundError, ImportJobNotReadyError, ImportJobNotRerunnableError } from "./import.errors";
+import { ImportJobEmptyMenuError, ImportJobNotFoundError, ImportJobNotReadyError, ImportJobNotRerunnableError } from "./import.errors";
 import type { CreateImportInput } from "./import.validation";
 import { importJobRunner } from "./job-runner";
 import { extractedMenuDataSchema, type ExtractedMenuData, type ImportSourceInput } from "./types";
@@ -89,6 +89,11 @@ export async function approveJob(restaurantId: string, jobId: string): Promise<I
   }
 
   const extracted = extractedMenuDataSchema.parse(job.extractedData);
+
+  const totalItemCount = extracted.categories.reduce((sum, category) => sum + category.items.length, 0);
+  if (totalItemCount === 0) {
+    throw new ImportJobEmptyMenuError();
+  }
 
   for (const category of extracted.categories) {
     const createdCategory = await createCategory(restaurantId, { name: category.name });

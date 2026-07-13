@@ -53,7 +53,7 @@ describe("FinaleReveal", () => {
     expect(screen.queryByText(/sites\.ordervora\.example/)).not.toBeInTheDocument();
   });
 
-  it("falls back to the canonical ordervora.com/store/<slug> URL if siteDomain is somehow unavailable", () => {
+  it("falls back to the canonical www.ordervora.com/store/<slug> URL if siteDomain is somehow unavailable", () => {
     render(
       <FinaleReveal
         restaurantName="Joe's Diner"
@@ -66,7 +66,7 @@ describe("FinaleReveal", () => {
       />,
     );
 
-    expect(screen.getByText("ordervora.com/store/joes-diner")).toBeInTheDocument();
+    expect(screen.getByText("www.ordervora.com/store/joes-diner")).toBeInTheDocument();
     expect(screen.queryByText(/sites\.ordervora\.example/)).not.toBeInTheDocument();
   });
 

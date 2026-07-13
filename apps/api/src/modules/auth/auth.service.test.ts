@@ -150,6 +150,29 @@ describe("requestPasswordReset", () => {
     );
     expect(mockSendOwnerPasswordResetEmail).toHaveBeenCalledWith("a@b.com", expect.stringContaining("/reset-password?token="));
   });
+
+  it("§19/§20: the reset link never contains a placeholder domain, even if FRONTEND_URL is still misconfigured to one", async () => {
+    const original = process.env.FRONTEND_URL;
+    process.env.FRONTEND_URL = "https://placeholder.example";
+    vi.resetModules();
+    try {
+      const fresh = await import("./auth.service.js");
+      mockPrisma.user.findUnique.mockResolvedValue({ id: "u1", email: "a@b.com" } as never);
+
+      await fresh.requestPasswordReset("a@b.com");
+
+      const [, link] = mockSendOwnerPasswordResetEmail.mock.calls.at(-1)!;
+      expect(link).toContain("https://www.ordervora.com/reset-password?token=");
+      expect(link).not.toContain("placeholder.example");
+    } finally {
+      // Assigning `undefined` stringifies to "undefined" instead of
+      // deleting the key — would otherwise poison FRONTEND_URL for later
+      // test files sharing this worker if it wasn't actually set before.
+      if (original === undefined) delete process.env.FRONTEND_URL;
+      else process.env.FRONTEND_URL = original;
+      vi.resetModules();
+    }
+  });
 });
 
 describe("resetPassword", () => {
@@ -244,6 +267,29 @@ describe("sendEmailVerification", () => {
     const result = await sendEmailVerification("u1");
 
     expect(result).toEqual({ sent: false, errorMessage: "SMTP connection refused" });
+  });
+
+  it("§19/§20: the verify link never contains a placeholder domain, even if FRONTEND_URL is still misconfigured to one", async () => {
+    const original = process.env.FRONTEND_URL;
+    process.env.FRONTEND_URL = "https://placeholder.example";
+    vi.resetModules();
+    try {
+      const fresh = await import("./auth.service.js");
+      mockPrisma.user.findUnique.mockResolvedValue({ id: "u1", email: "a@b.com", emailVerified: false } as never);
+
+      await fresh.sendEmailVerification("u1");
+
+      const [, link] = mockSendEmailVerificationEmail.mock.calls.at(-1)!;
+      expect(link).toContain("https://www.ordervora.com/verify-email?token=");
+      expect(link).not.toContain("placeholder.example");
+    } finally {
+      // Assigning `undefined` stringifies to "undefined" instead of
+      // deleting the key — would otherwise poison FRONTEND_URL for later
+      // test files sharing this worker if it wasn't actually set before.
+      if (original === undefined) delete process.env.FRONTEND_URL;
+      else process.env.FRONTEND_URL = original;
+      vi.resetModules();
+    }
   });
 });
 
