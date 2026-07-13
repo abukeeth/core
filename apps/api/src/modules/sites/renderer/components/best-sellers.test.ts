@@ -62,4 +62,18 @@ describe("renderBestSellers", () => {
     const html = renderBestSellers({ type: "bestSellers", props: {} }, ctx([{ menuItemId: "m1", name: "<script>x</script>", quantitySold: 1 }]));
     expect(html).not.toContain("<script>x</script>");
   });
+
+  it("§Website Builder: renders a real uploaded item photo when one exists", () => {
+    const html = renderBestSellers(
+      { type: "bestSellers", props: {} },
+      ctx([{ menuItemId: "m1", name: "Spaghetti", quantitySold: 42, imageUrl: "/assets/spaghetti.png" }]),
+    );
+    expect(html).toContain('<img src="/assets/spaghetti.png"');
+  });
+
+  it("§Website Builder: falls back to a polished non-photographic tile when an item has no uploaded photo", () => {
+    const html = renderBestSellers({ type: "bestSellers", props: {} }, ctx([{ menuItemId: "m1", name: "Spaghetti", quantitySold: 42 }]));
+    expect(html).not.toContain("<img");
+    expect(html).toContain(">S<");
+  });
 });

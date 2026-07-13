@@ -69,4 +69,31 @@ describe("renderMenuSection", () => {
     expect(html).not.toContain("<script>x</script>");
     expect(html).not.toContain("<img onerror=alert(1)>");
   });
+
+  it("§Website Builder: renders a real uploaded item photo when one exists", () => {
+    const html = renderMenuSection({ type: "menu", props: {} }, ctx([
+      { name: "Mains", items: [{ name: "Spaghetti", priceCents: 1500, isAvailable: true, imageUrl: "/assets/spaghetti.png" }] },
+    ]));
+    expect(html).toContain('<img src="/assets/spaghetti.png"');
+  });
+
+  it("§Website Builder: falls back to a polished non-photographic tile when an item has no uploaded photo", () => {
+    const html = renderMenuSection({ type: "menu", props: {} }, ctx([
+      { name: "Mains", items: [{ name: "Spaghetti", priceCents: 1500, isAvailable: true }] },
+    ]));
+    expect(html).not.toContain("<img");
+    expect(html).toContain(">S<");
+  });
+
+  it("§Website Builder: renders a real uploaded category photo, or a fallback tile when there is none", () => {
+    const withPhoto = renderMenuSection({ type: "menu", props: {} }, ctx([
+      { name: "Mains", imageUrl: "/assets/mains.png", items: [{ name: "Spaghetti", priceCents: 1500, isAvailable: true }] },
+    ]));
+    expect(withPhoto).toContain('<img src="/assets/mains.png"');
+
+    const withoutPhoto = renderMenuSection({ type: "menu", props: {} }, ctx([
+      { name: "Mains", items: [{ name: "Spaghetti", priceCents: 1500, isAvailable: true }] },
+    ]));
+    expect(withoutPhoto).toContain(">M<");
+  });
 });

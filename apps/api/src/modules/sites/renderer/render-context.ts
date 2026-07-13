@@ -20,6 +20,7 @@ export interface BestSellerItem {
   menuItemId: string;
   name: string;
   quantitySold: number;
+  imageUrl?: string;
 }
 
 /** Real, currently-redeemable coupons — see coupons.service.ts's listActiveCoupons. */

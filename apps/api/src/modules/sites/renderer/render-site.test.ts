@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../lib/prisma", () => ({
-  prisma: { siteAsset: { findMany: vi.fn() } },
+  prisma: { siteAsset: { findMany: vi.fn() }, menuItem: { findMany: vi.fn() } },
 }));
 
 vi.mock("../../menu/menu.service", () => ({ listCategories: vi.fn() }));
@@ -50,6 +50,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockListCategories.mockResolvedValue([]);
   mockPrisma.siteAsset.findMany.mockResolvedValue([]);
+  mockPrisma.menuItem.findMany.mockResolvedValue([]);
   mockGetTopItems.mockResolvedValue([]);
   mockListActiveCoupons.mockResolvedValue([]);
   mockGetProgram.mockResolvedValue(null);
@@ -199,6 +200,24 @@ describe("renderSitePage", () => {
 
     const html = await renderSitePage({ siteId: "site-1", restaurantId: "r1", definition: definition(), siteUrl: "https://example.com" }, "/menu");
     expect(html).toContain("Spaghetti");
+  });
+
+  it("§Website Builder: resolves a best-seller's imageKey (looked up separately from order history) to a real URL", async () => {
+    mockGetTopItems.mockResolvedValue([{ menuItemId: "m1", name: "Spaghetti", quantitySold: 42, revenueCents: 63000 }] as never);
+    mockPrisma.menuItem.findMany.mockResolvedValue([{ id: "m1", imageKey: "/uploads/spaghetti.png" }] as never);
+
+    const withBestSellers: SiteDefinition = {
+      ...definition(),
+      pages: [{ slug: "/", title: "Home", metaDescription: "x", sections: [{ type: "bestSellers", props: {} }] }],
+    };
+
+    const html = await renderSitePage(
+      { siteId: "site-1", restaurantId: "r1", definition: withBestSellers, siteUrl: "https://example.com" },
+      "/",
+    );
+
+    expect(mockPrisma.menuItem.findMany).toHaveBeenCalledWith({ where: { id: { in: ["m1"] } }, select: { id: true, imageKey: true } });
+    expect(html).toContain('<img src="/assets/spaghetti.png"');
   });
 });
 

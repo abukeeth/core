@@ -55,7 +55,21 @@ export async function resolveRenderAssets(siteId: string): Promise<RenderAssets>
 
 async function resolveBestSellers(restaurantId: string): Promise<BestSellerItem[]> {
   const items = await getTopItems(restaurantId, BEST_SELLERS_WINDOW_DAYS, BEST_SELLERS_LIMIT);
-  return items.map((item) => ({ menuItemId: item.menuItemId, name: item.name, quantitySold: item.quantitySold }));
+  if (items.length === 0) return [];
+
+  // A second, targeted lookup (not a join inside analytics.service.ts's
+  // order-history query) — keeps the storefront's image concern in the
+  // renderer module rather than reaching into the commerce/analytics one.
+  const menuItems = await prisma.menuItem.findMany({
+    where: { id: { in: items.map((item) => item.menuItemId) } },
+    select: { id: true, imageKey: true },
+  });
+  const imageKeyByItemId = new Map(menuItems.map((item) => [item.id, item.imageKey]));
+
+  return items.map((item) => {
+    const imageKey = imageKeyByItemId.get(item.menuItemId);
+    return { menuItemId: item.menuItemId, name: item.name, quantitySold: item.quantitySold, imageUrl: imageKey ? assetUrl(imageKey) : undefined };
+  });
 }
 
 async function resolveActiveOffers(restaurantId: string): Promise<RenderOffer[]> {

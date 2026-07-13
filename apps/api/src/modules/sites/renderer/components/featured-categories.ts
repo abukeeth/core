@@ -1,4 +1,5 @@
 import { escapeHtml } from "../html-escape";
+import { renderImageOrFallback } from "../image-fallback";
 import type { RenderContext } from "../render-context";
 import type { SectionBlock } from "../../types";
 
@@ -6,7 +7,13 @@ function slugifyCategory(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 }
 
-/** Sprint 20A Task 5 — reads the real, live menu (same source as "menu"/"featuredProducts"), never fabricated categories. */
+/**
+ * Sprint 20A Task 5 — reads the real, live menu (same source as "menu"/
+ * "featuredProducts"), never fabricated categories. §Website Builder —
+ * each card shows the category's real uploaded photo, or the same
+ * polished deterministic fallback tile used everywhere else, so this
+ * section never renders as a text-only grid of buttons.
+ */
 export function renderFeaturedCategories(section: SectionBlock, ctx: RenderContext): string {
   const title = typeof section.props.title === "string" ? section.props.title : "Explore the Menu";
   const subtitle = typeof section.props.subtitle === "string" ? section.props.subtitle : "";
@@ -18,7 +25,8 @@ export function renderFeaturedCategories(section: SectionBlock, ctx: RenderConte
   const cards = categories
     .map(
       (category) => `<a href="/menu#${slugifyCategory(category.name)}" class="card" style="display:block;padding:1.25rem;text-decoration:none;color:inherit;background:var(--color-surface-100);">
-      <h3 style="margin:0;">${escapeHtml(category.name)}</h3>
+      ${renderImageOrFallback(category.name, category.imageUrl, "4/3")}
+      <h3 style="margin:0.75rem 0 0;">${escapeHtml(category.name)}</h3>
       <p style="margin:0.25rem 0 0;color:var(--color-text-700);">${category.items.filter((i) => i.isAvailable).length} items</p>
     </a>`,
     )
