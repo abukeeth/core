@@ -83,6 +83,7 @@ export function BuilderExperience({ restaurantName }: { restaurantName: string }
         restaurantName={restaurantName}
         siteId={state.siteId!}
         siteSlug={state.siteSlug ?? "your-restaurant"}
+        siteDomain={state.siteDomain}
         publishedVersionId={state.publishedVersionId}
         qrToken={state.qrToken}
         qrError={state.qrError}

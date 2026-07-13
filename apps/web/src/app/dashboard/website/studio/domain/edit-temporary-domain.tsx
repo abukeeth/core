@@ -4,14 +4,35 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateSite } from "@/lib/api";
 
-function extractSlug(domain: string): string {
-  const hostname = domain.replace(/^https?:\/\//, "");
-  return hostname.split(".")[0] ?? "";
+/**
+ * §M — `current` is the real API-returned temporary domain, which today is
+ * `https://<FRONTEND_URL>/store/<slug>` (the pre-wildcard-DNS fallback) and
+ * will become `https://<slug>.<PLATFORM_DOMAIN>` once SITE_WILDCARD_DNS_ACTIVE
+ * is flipped on — the slug's *position* in the string differs between the
+ * two (path-suffix vs. subdomain-prefix). Locating the slug as a substring,
+ * rather than assuming either fixed shape, keeps this editable-slug input
+ * correct across both without needing to know which mode is active.
+ */
+function splitAroundSlug(current: string, slug: string): { before: string; after: string } {
+  const withoutScheme = current.replace(/^https?:\/\//, "");
+  const idx = withoutScheme.indexOf(slug);
+  if (idx === -1) return { before: withoutScheme, after: "" };
+  return { before: withoutScheme.slice(0, idx), after: withoutScheme.slice(idx + slug.length) };
+}
+
+/** Best-effort guess at the current slug for the input's initial value — the fixed before/after text around it is recomputed from the real `current` string once the owner starts typing, not assumed from a hardcoded suffix. */
+function guessSlug(current: string): string {
+  const withoutScheme = current.replace(/^https?:\/\//, "");
+  const storeMatch = withoutScheme.match(/\/store\/([^/?#]+)/);
+  if (storeMatch) return storeMatch[1] ?? "";
+  return withoutScheme.split(".")[0] ?? "";
 }
 
 export function EditTemporaryDomain({ siteId, current, onDone }: { siteId: string; current: string; onDone: () => void }) {
   const router = useRouter();
-  const [value, setValue] = useState(extractSlug(current));
+  const initialSlug = guessSlug(current);
+  const { before, after } = splitAroundSlug(current, initialSlug);
+  const [value, setValue] = useState(initialSlug);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,6 +62,7 @@ export function EditTemporaryDomain({ siteId, current, onDone }: { siteId: strin
   return (
     <div className="mt-2">
       <div className="flex items-center overflow-hidden rounded-xl border border-[#E7DDCF] bg-white focus-within:border-[#B97824]">
+        {before && <span className="shrink-0 truncate pl-3 font-mono text-xs text-[#8A7D6C]">{before}</span>}
         <input
           type="text"
           value={value}
@@ -48,7 +70,7 @@ export function EditTemporaryDomain({ siteId, current, onDone }: { siteId: strin
           className="min-h-10 min-w-0 flex-1 bg-transparent px-3 font-mono text-sm text-[#171512] outline-none"
           autoFocus
         />
-        <span className="shrink-0 pr-3 font-mono text-xs text-[#8A7D6C]">.ordervora.app</span>
+        {after && <span className="shrink-0 pr-3 font-mono text-xs text-[#8A7D6C]">{after}</span>}
       </div>
       {error && <p className="mt-1.5 text-xs font-medium text-red-600">{error}</p>}
       <div className="mt-2 flex gap-2">

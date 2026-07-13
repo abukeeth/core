@@ -242,6 +242,12 @@ const KNOWN_ENV_KEYS = [
   "OBJECT_STORAGE_ACCESS_KEY_ID",
   "OBJECT_STORAGE_SECRET_ACCESS_KEY",
   "OBJECT_STORAGE_PUBLIC_URL_BASE",
+  // §M — deliberately outside the core schema: defaults to "false"/unset,
+  // meaning every temporary storefront URL uses the /store/<slug> fallback
+  // until this is explicitly flipped once *.SITE_PLATFORM_DOMAIN's wildcard
+  // DNS is actually activated — see site.service.ts's temporaryStorefrontUrl
+  // and docs/runbooks/wildcard-subdomains.md.
+  "SITE_WILDCARD_DNS_ACTIVE",
   // Production Hardening Phase 9 — deliberately outside the core schema:
   // both are optional. LOG_LEVEL unset defaults to "info" (lib/logger.ts);
   // SENTRY_DSN unset means error tracking no-ops (lib/error-tracker.ts) —

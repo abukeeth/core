@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { DashboardDrawer } from "@/components/dashboard-drawer";
+import { fallbackStorefrontUrl } from "@/lib/site-url";
 import { DevicePreview } from "../website/variations/[id]/device-preview";
 import { usePrefersReducedMotion } from "./use-prefers-reduced-motion";
 
@@ -49,6 +50,7 @@ export function FinaleReveal({
   restaurantName,
   siteId,
   siteSlug,
+  siteDomain,
   publishedVersionId,
   qrToken,
   qrError,
@@ -56,6 +58,7 @@ export function FinaleReveal({
   restaurantName: string;
   siteId: string;
   siteSlug: string;
+  siteDomain: string | null;
   publishedVersionId: string | null;
   qrToken: string | null;
   qrError: string | null;
@@ -125,7 +128,7 @@ export function FinaleReveal({
             )}
           </div>
           <p className="mt-3 text-xs text-[#8A7D6C]">
-            Live at <span className="font-mono">{siteSlug}.sites.ordervora.example</span>
+            Live at <span className="font-mono">{siteDomain ? siteDomain.replace(/^https?:\/\//, "") : fallbackStorefrontUrl(siteSlug).replace(/^https?:\/\//, "")}</span>
           </p>
         </div>
 

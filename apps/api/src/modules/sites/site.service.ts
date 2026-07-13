@@ -20,19 +20,48 @@ import { THEME_CATALOG } from "./theme-catalog";
 import { brandProfileSchema, siteDefinitionSchema, type AssetSummary, type SiteDefinition } from "./types";
 
 const PLATFORM_DOMAIN = getStringEnv("SITE_PLATFORM_DOMAIN", "sites.ordervora.example");
+const FRONTEND_URL = getStringEnv("FRONTEND_URL", "http://localhost:3000");
+// §M — explicit, ops-controlled cutover: *.{PLATFORM_DOMAIN}'s wildcard DNS
+// is a real-world activation step (see docs/runbooks/wildcard-subdomains.md)
+// that can't be inferred from PLATFORM_DOMAIN's own value alone (it could
+// already be set to the real "ordervora.com" while the DNS record and
+// certificate behind it aren't live yet). Defaults to false — every
+// temporary-domain URL uses the /store/<slug> fallback until this is
+// explicitly flipped, never speculatively.
+const WILDCARD_DNS_ACTIVE = getStringEnv("SITE_WILDCARD_DNS_ACTIVE", "false") === "true";
 
-/** The auto-generated `businessname.ordervora.app`-style domain (Sprint 20A Task 4) — always available, editable pre-publish, and stored via `Site.slug`. */
+/** The `<slug>.<PLATFORM_DOMAIN>` hostname (Sprint 20A Task 4) — the real wildcard-subdomain form, always computed, regardless of whether that wildcard DNS is actually active yet (see temporaryStorefrontUrl for the URL that's actually safe to link to right now). */
 export function temporaryDomainFor(site: Pick<Site, "slug">): string {
   return `${site.slug}.${PLATFORM_DOMAIN}`;
 }
 
-/** §20 — a verified, primary custom domain wins; otherwise the platform subdomain. */
+/**
+ * The real, clickable/shareable URL for a site with no verified custom
+ * domain yet — used for every owner-facing link (QR, copy link, share,
+ * Open Website, Test order, setup completion, Website Studio, domain
+ * management). Before SITE_WILDCARD_DNS_ACTIVE is flipped on,
+ * `<slug>.<PLATFORM_DOMAIN>` would not actually resolve for a visitor, so
+ * this returns the /store/<slug> fallback instead — served by this same
+ * API (public-render.routes.ts's storeRouter) through apps/web's own
+ * domain, with byte-identical output to what the real subdomain will
+ * serve once it's live (both paths call the exact same serveSiteRelease).
+ */
+export function temporaryStorefrontUrl(site: Pick<Site, "slug">): string {
+  if (WILDCARD_DNS_ACTIVE) {
+    return `https://${temporaryDomainFor(site)}`;
+  }
+  return `${FRONTEND_URL}/store/${site.slug}`;
+}
+
+/** §20 — a verified, primary custom domain wins; otherwise the temporary storefront URL (see temporaryStorefrontUrl). */
 export async function resolveSiteUrl(site: Site): Promise<string> {
   const primaryDomain = await prisma.domain.findFirst({
     where: { siteId: site.id, isPrimary: true, verificationStatus: "VERIFIED" },
   });
-  const host = primaryDomain ? primaryDomain.hostname : temporaryDomainFor(site);
-  return `https://${host}`;
+  if (primaryDomain) {
+    return `https://${primaryDomain.hostname}`;
+  }
+  return temporaryStorefrontUrl(site);
 }
 
 const RELEASE_RETENTION_COUNT = 10;
@@ -50,13 +79,27 @@ function slugify(name: string): string {
   return base || "restaurant";
 }
 
+/**
+ * Every one of these is a real subdomain this platform (or a browser/CDN
+ * convention) already needs or will need under `*.${SITE_PLATFORM_DOMAIN}` —
+ * a restaurant slug colliding with one would either break that platform
+ * function or let a tenant's storefront be mistaken for an official
+ * OrderVora page. Checked as a plain collision (same numeric-suffix
+ * resolution as an actual taken slug, not a separate error path) so e.g. a
+ * restaurant literally named "Admin's Diner" just becomes `admin-2`,
+ * consistent with how any other name collision already resolves.
+ */
+const RESERVED_SUBDOMAINS = new Set(["www", "app", "admin", "api", "dashboard", "support", "billing", "status"]);
+
 /** SEO-friendly, unique, auto-resolves conflicts by appending a numeric suffix (Sprint 20A Task 4 §1) — `excludeSiteId` lets a site keep its own current slug when re-checking availability during an edit. */
 async function findAvailableSlug(base: string, excludeSiteId?: string): Promise<string> {
   let candidate = base;
   let suffix = 1;
   for (;;) {
-    const existing = await prisma.site.findUnique({ where: { slug: candidate } });
-    if (!existing || existing.id === excludeSiteId) return candidate;
+    if (!RESERVED_SUBDOMAINS.has(candidate)) {
+      const existing = await prisma.site.findUnique({ where: { slug: candidate } });
+      if (!existing || existing.id === excludeSiteId) return candidate;
+    }
     suffix += 1;
     candidate = `${base}-${suffix}`;
   }

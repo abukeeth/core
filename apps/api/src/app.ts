@@ -33,7 +33,7 @@ import { importRouter } from "./modules/imports/import.routes";
 import { menuRouter } from "./modules/menu/menu.routes";
 import { adminAuditLogRouter } from "./modules/admin/audit-log.routes";
 import { adminRestaurantRouter, restaurantRouter } from "./modules/restaurants/restaurant.routes";
-import { previewRouter, siteEdgeMiddleware } from "./modules/sites/public-render.routes";
+import { previewRouter, siteEdgeMiddleware, storeRouter } from "./modules/sites/public-render.routes";
 import { publicSiteRouter, siteRouter } from "./modules/sites/site.routes";
 
 const EXTENSION_CONTENT_TYPES: Record<string, string> = {
@@ -274,6 +274,12 @@ export function createApp() {
   app.use(siteEdgeMiddleware);
 
   app.use("/preview", previewRouter);
+  // §M pre-wildcard-DNS fallback — identical serving logic to
+  // siteEdgeMiddleware above (see storeRouteHandler's own comment), reached
+  // by slug-in-path instead of Host header so the storefront works today
+  // at https://ordervora.com/store/<slug> without *.ordervora.com's
+  // wildcard DNS being active yet.
+  app.use("/store", storeRouter);
   app.use("/api/auth", authRouter);
   app.use("/api/restaurants", restaurantRouter);
   app.use("/api/restaurants", fulfillmentRouter);

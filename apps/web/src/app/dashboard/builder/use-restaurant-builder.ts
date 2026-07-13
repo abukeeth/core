@@ -50,6 +50,8 @@ export interface BuilderState {
   job: GenerationJob | null;
   siteId: string | null;
   siteSlug: string | null;
+  /** The real https://<slug>.<SITE_PLATFORM_DOMAIN> URL, from the API (getMine/create both return it) — never hardcode this suffix on the frontend, it varies per deployment. */
+  siteDomain: string | null;
   publishedVersionId: string | null;
   /** Which of the post-generation client-orchestrated steps is active — only meaningful while phase is "finishing" or "finish_failed". */
   finishStepId: FinishStepId;
@@ -89,6 +91,7 @@ export function useRestaurantBuilder(): BuilderState {
   const [job, setJob] = useState<GenerationJob | null>(null);
   const [siteId, setSiteId] = useState<string | null>(null);
   const [siteSlug, setSiteSlug] = useState<string | null>(null);
+  const [siteDomain, setSiteDomain] = useState<string | null>(null);
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null);
   const [finishStepId, setFinishStepId] = useState<FinishStepId>("SELECTING");
   const [finishFailure, setFinishFailure] = useState<FinishFailure | null>(null);
@@ -161,11 +164,12 @@ export function useRestaurantBuilder(): BuilderState {
     setBootstrapError(null);
 
     let site;
+    let temporaryDomain: string | null = null;
     try {
-      ({ site } = await getMySite());
+      ({ site, temporaryDomain } = await getMySite());
     } catch {
       try {
-        ({ site } = await createSite());
+        ({ site, temporaryDomain } = await createSite());
       } catch (err) {
         setBootstrapError(errorMessage(err, "Couldn't start building your restaurant"));
         setPhase("bootstrap_failed");
@@ -174,6 +178,7 @@ export function useRestaurantBuilder(): BuilderState {
     }
 
     setSiteId(site.id);
+    setSiteDomain(temporaryDomain);
     setSiteSlug(site.slug);
 
     if (site.status === "PUBLISHED") {
@@ -275,6 +280,7 @@ export function useRestaurantBuilder(): BuilderState {
     job,
     siteId,
     siteSlug,
+    siteDomain,
     publishedVersionId,
     finishStepId,
     finishFailure,

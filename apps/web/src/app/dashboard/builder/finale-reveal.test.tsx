@@ -25,6 +25,7 @@ describe("FinaleReveal", () => {
         restaurantName="Joe's Diner"
         siteId="site-1"
         siteSlug="joes-diner"
+        siteDomain="https://joes-diner.sites.ordervora.example"
         publishedVersionId="v-1"
         qrToken="tok-abc"
         qrError={null}
@@ -35,12 +36,47 @@ describe("FinaleReveal", () => {
     expect(screen.getByTestId("device-preview")).toHaveTextContent("v-1");
   });
 
+  it("shows the real siteDomain from the API, not a hardcoded platform-domain suffix", () => {
+    render(
+      <FinaleReveal
+        restaurantName="Joe's Diner"
+        siteId="site-1"
+        siteSlug="joes-diner"
+        siteDomain="https://joes-diner.sites.example-deployment.com"
+        publishedVersionId="v-1"
+        qrToken="tok-abc"
+        qrError={null}
+      />,
+    );
+
+    expect(screen.getByText("joes-diner.sites.example-deployment.com")).toBeInTheDocument();
+    expect(screen.queryByText(/sites\.ordervora\.example/)).not.toBeInTheDocument();
+  });
+
+  it("falls back to the canonical ordervora.com/store/<slug> URL if siteDomain is somehow unavailable", () => {
+    render(
+      <FinaleReveal
+        restaurantName="Joe's Diner"
+        siteId="site-1"
+        siteSlug="joes-diner"
+        siteDomain={null}
+        publishedVersionId="v-1"
+        qrToken="tok-abc"
+        qrError={null}
+      />,
+    );
+
+    expect(screen.getByText("ordervora.com/store/joes-diner")).toBeInTheDocument();
+    expect(screen.queryByText(/sites\.ordervora\.example/)).not.toBeInTheDocument();
+  });
+
   it("renders a QR code encoding the customer ordering URL when a token exists", () => {
     render(
       <FinaleReveal
         restaurantName="Joe's Diner"
         siteId="site-1"
         siteSlug="joes-diner"
+        siteDomain="https://joes-diner.sites.ordervora.example"
         publishedVersionId="v-1"
         qrToken="tok-abc"
         qrError={null}
@@ -56,6 +92,7 @@ describe("FinaleReveal", () => {
         restaurantName="Joe's Diner"
         siteId="site-1"
         siteSlug="joes-diner"
+        siteDomain="https://joes-diner.sites.ordervora.example"
         publishedVersionId="v-1"
         qrToken={null}
         qrError="table service down"
@@ -68,7 +105,7 @@ describe("FinaleReveal", () => {
 
   it("offers next-step CTAs to the website, tables, and dashboard — with the restaurant itself as the primary payoff", () => {
     render(
-      <FinaleReveal restaurantName="Joe's Diner" siteId="site-1" siteSlug="joes-diner" publishedVersionId={null} qrToken={null} qrError={null} />,
+      <FinaleReveal restaurantName="Joe's Diner" siteId="site-1" siteSlug="joes-diner" siteDomain="https://joes-diner.sites.ordervora.example" publishedVersionId={null} qrToken={null} qrError={null} />,
     );
 
     expect(screen.getByText("Open My Restaurant")).toBeInTheDocument();
@@ -82,6 +119,7 @@ describe("FinaleReveal", () => {
         restaurantName="Joe's Diner"
         siteId="site-1"
         siteSlug="joes-diner"
+        siteDomain="https://joes-diner.sites.ordervora.example"
         publishedVersionId="v-1"
         qrToken="tok-abc"
         qrError={null}
