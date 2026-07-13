@@ -3,6 +3,7 @@ import { assertStartupEnv, getEnv, getSafeEnvSummary } from "./config/env";
 import { createApp } from "./app";
 import { errorTracker } from "./lib/error-tracker";
 import { createLogger } from "./lib/logger";
+import { assertProductionObjectStorageConfigured } from "./lib/object-storage-client";
 import { prisma } from "./lib/prisma";
 import { redis } from "./lib/redis";
 import { startOutboxWorker } from "./modules/commerce/events/outbox-scheduler";
@@ -43,6 +44,15 @@ process.on("unhandledRejection", (reason) => {
 // check either way: getEnv() memoizes, so whichever path validates first
 // produces the same result.)
 assertStartupEnv();
+
+// Production Hardening — refuses to boot in production with uploaded
+// files silently headed for ephemeral local disk (see
+// assertProductionObjectStorageConfigured's own doc comment). Same
+// fail-fast-before-app.listen() placement and rationale as
+// assertStartupEnv() above, kept as a separate call rather than folded
+// into the core env schema since it depends on lib/object-storage-
+// client.ts's isObjectStorageConfigured(), not a plain required variable.
+assertProductionObjectStorageConfigured();
 
 // Safe to log: getSafeEnvSummary() reports only which keys are present,
 // never their values — "no secret values can appear in logs" (Phase 3).

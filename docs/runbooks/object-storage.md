@@ -41,6 +41,24 @@ Three mutually exclusive paths, decided by `renderer/asset-url.ts` and mirrored 
 2. **Direct-from-CDN** (`OBJECT_STORAGE_PUBLIC_URL_BASE` set) — **the recommended path** once real object storage is configured, per the master spec's own recommendation ("Recommend direct-from-CDN for this codebase's public content"). Nothing is mounted at `/assets` at all; `assetUrl()` returns the full storage key appended to the configured public base, served straight from the bucket/CDN domain, never touching this API. Faster, offloads the API entirely.
 3. **Proxied through the API** (object storage configured, no public URL base yet — e.g. a private bucket with no CDN in front) — a thin dynamic route at `/assets/*` reads the object back via the same `fileStorage.read()` every other caller uses (not a second, storage-backend-specific code path) and serves it with a best-effort `Content-Type` guessed from the file extension. Simpler auth story, slower, and the fallback this codebase's own local `docker-compose.yml` MinIO setup actually uses (see below).
 
+## Supabase Storage
+
+Supabase Storage exposes an S3-compatible API, so it works through the exact same `S3FileStorage`/`getS3Client()` code path above — no separate adapter, no code change, just the right values for the generic `OBJECT_STORAGE_*` variables:
+
+| Variable | Value |
+|---|---|
+| `OBJECT_STORAGE_BUCKET` | The Storage bucket name you create in the Supabase dashboard (Storage → New bucket). Keep it private — this app serves assets either proxied through the API or via a CDN in front of it, never by making the bucket itself public. |
+| `OBJECT_STORAGE_REGION` | Your Supabase project's region (Project Settings → General). |
+| `OBJECT_STORAGE_ENDPOINT` | `https://<project-ref>.supabase.co/storage/v1/s3` — the project ref is the same one in your Supabase project URL/`DATABASE_URL`. |
+| `OBJECT_STORAGE_ACCESS_KEY_ID` / `OBJECT_STORAGE_SECRET_ACCESS_KEY` | Generated separately from your Postgres credentials: Storage → S3 Access Keys → New access key. These are scoped to Storage only, not the database. |
+| `OBJECT_STORAGE_PUBLIC_URL_BASE` | Leave unset (proxied-through-API strategy) unless you put a CDN in front of the bucket. |
+
+Because `OBJECT_STORAGE_ENDPOINT` is set, `getS3Client()` automatically enables `forcePathStyle` (see the code above) — this is required for Supabase's S3-compatible endpoint, not optional.
+
+## Production safety guard
+
+`assertProductionObjectStorageConfigured()` (`lib/object-storage-client.ts`, called from `src/index.ts` right after `assertStartupEnv()`) refuses to boot the process when `NODE_ENV=production` and `OBJECT_STORAGE_BUCKET` is unset. Before this guard existed, an unconfigured production deployment would silently fall back to local disk — functionally fine until the next redeploy or restart, which wipes it, with no warning at any point in between. If a host genuinely has a persistent volume mounted at the local-disk path and local storage is a deliberate choice, set `ALLOW_LOCAL_DISK_STORAGE_IN_PRODUCTION=true` to opt back out of this guard explicitly.
+
 ## Local development: MinIO
 
 `docker-compose.yml` adds a `minio` service (S3-compatible, for local production simulation) plus a one-shot `minio-init` service that creates the bucket at stack-up time (MinIO doesn't auto-create buckets). Unlike `pnpm dev` outside Docker — which always stays on local disk, since nothing sets `OBJECT_STORAGE_BUCKET` there — the `api` service in `docker-compose.yml` *is* wired to MinIO by default, so `docker compose up` genuinely exercises the S3 code path, not just the default. `OBJECT_STORAGE_PUBLIC_URL_BASE` is deliberately left unset there (`http://minio:9000` only resolves inside the compose network, not from a browser), so assets are proxied through the API — a real deployment behind an actual CDN/public bucket domain would set it.

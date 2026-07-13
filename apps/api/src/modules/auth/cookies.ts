@@ -6,20 +6,26 @@ export const REFRESH_TOKEN_COOKIE = "refresh_token";
 const isProduction = process.env.NODE_ENV === "production";
 
 /**
- * apps/web (Vercel) and apps/api (Render) are deployed on two separate
- * domains — cross-site for cookie purposes whenever a browser calls the
- * API directly (originally surfaced as RC-1 M3, when both apps were on
- * separate *.vercel.app domains; the same cross-site issue applies to
- * any two-domain split, Render included). Browsers never attach a
- * SameSite=Lax cookie to a cross-site fetch/XHR request, so every API
- * call after login would look unauthenticated. SameSite=None (which
- * requires Secure, already true in production) is what makes the auth
- * cookie actually reach the API from a different origin.
+ * Was previously SameSite=None in production — a holdover from a period
+ * when a browser could call apps/api directly cross-site. That's no
+ * longer how this app is deployed: apps/web's next.config.ts rewrites()
+ * proxies every /api/* call server-side (confirmed unconditional, not
+ * gated behind process.env.VERCEL — same behavior whether apps/web runs
+ * on Render or Vercel), so the browser only ever talks to apps/web's own
+ * origin. This cookie is same-origin from the browser's perspective
+ * regardless of which separate host apps/api itself lives on, so Lax is
+ * correct and sufficient — and matches every other cookie this codebase
+ * sets (customer-cookies.ts, guest-session.ts are both already Lax; this
+ * was the one outlier). If a genuine cross-site caller is ever added
+ * (e.g. a public third-party integration authenticating via this same
+ * cookie), that specific caller needs None+Secure on its own — it should
+ * not be the default for every caller to support a case that doesn't
+ * exist today.
  */
 const baseOptions: CookieOptions = {
   httpOnly: true,
   secure: isProduction,
-  sameSite: isProduction ? "none" : "lax",
+  sameSite: "lax",
 };
 
 export function setAccessTokenCookie(res: Response, token: string, expiresAt?: Date): void {

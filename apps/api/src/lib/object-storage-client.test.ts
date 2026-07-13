@@ -96,3 +96,39 @@ describe("getS3Client", () => {
     expect(seenConfigs[1].endpoint).toBeUndefined();
   });
 });
+
+describe("assertProductionObjectStorageConfigured", () => {
+  it("does nothing outside production, even with no bucket configured", async () => {
+    process.env.NODE_ENV = "development";
+    delete process.env.OBJECT_STORAGE_BUCKET;
+    vi.resetModules();
+    const { assertProductionObjectStorageConfigured } = await import("./object-storage-client.js");
+    expect(() => assertProductionObjectStorageConfigured()).not.toThrow();
+  });
+
+  it("does nothing in production when object storage is configured", async () => {
+    process.env.NODE_ENV = "production";
+    process.env.OBJECT_STORAGE_BUCKET = "prod-bucket";
+    vi.resetModules();
+    const { assertProductionObjectStorageConfigured } = await import("./object-storage-client.js");
+    expect(() => assertProductionObjectStorageConfigured()).not.toThrow();
+  });
+
+  it("refuses to boot in production with no bucket configured — the silent-local-disk-fallback bug", async () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.OBJECT_STORAGE_BUCKET;
+    delete process.env.ALLOW_LOCAL_DISK_STORAGE_IN_PRODUCTION;
+    vi.resetModules();
+    const { assertProductionObjectStorageConfigured } = await import("./object-storage-client.js");
+    expect(() => assertProductionObjectStorageConfigured()).toThrow(/OBJECT_STORAGE_BUCKET is not set/);
+  });
+
+  it("allows the explicit escape hatch for a host with a genuine persistent volume", async () => {
+    process.env.NODE_ENV = "production";
+    delete process.env.OBJECT_STORAGE_BUCKET;
+    process.env.ALLOW_LOCAL_DISK_STORAGE_IN_PRODUCTION = "true";
+    vi.resetModules();
+    const { assertProductionObjectStorageConfigured } = await import("./object-storage-client.js");
+    expect(() => assertProductionObjectStorageConfigured()).not.toThrow();
+  });
+});
