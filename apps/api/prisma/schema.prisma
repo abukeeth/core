@@ -185,6 +185,12 @@ model MenuCategory {
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
   name         String
   sortOrder    Int      @default(0)
+  // Nullable, backward-compatible — storage key for an uploaded category
+  // photo (same fileStorage/object-storage system as SiteAsset), resolved
+  // to a real URL via assetUrl() at render time. Null means "no photo
+  // uploaded yet," not "broken" — the renderer falls back to a polished
+  // deterministic (non-photographic) treatment in that case.
+  imageKey     String?
 
   items MenuItem[]
 
@@ -205,6 +211,9 @@ model MenuItem {
   priceCents   Int
   isAvailable  Boolean  @default(true)
   sortOrder    Int      @default(0)
+  // Nullable, backward-compatible — storage key for an uploaded product
+  // photo, same pattern/rationale as MenuCategory.imageKey above.
+  imageKey     String?
 
   // --- Commerce & Fulfillment Engine (Sprint 07) ---
   variants       MenuItemVariant[]
