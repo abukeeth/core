@@ -33,12 +33,16 @@ describe("renderHero", () => {
     expect(html).toContain("The dining room");
   });
 
-  it("falls back to typographic even with a hero image if the variant is minimal-typographic", () => {
+  it("§Website Builder: shows a real hero photo as a restrained inset image even for minimal-typographic, never discarding it", () => {
     const html = renderHero(
       { type: "hero", variant: "minimal-typographic", props: { headline: "Welcome" } },
       ctx({ heroUrl: "/assets/hero.png" }),
     );
-    expect(html).not.toContain("<img");
+    // Text-forward identity preserved (no full-bleed background-image layer)...
+    expect(html).not.toContain("width:100%;height:");
+    // ...but the real uploaded photo is still shown, just smaller/inset.
+    expect(html).toContain('<img src="/assets/hero.png"');
+    expect(html).toContain("max-width:280px");
   });
 
   it("applies the given scrim opacity to the overlay", () => {

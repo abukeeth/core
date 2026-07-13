@@ -104,7 +104,7 @@ describe("selectVariation", () => {
 
     expect(result).toEqual({ id: "v1", status: "DRAFT" });
     expect(mockPrisma.siteVersion.update).toHaveBeenCalledWith({ where: { id: "v1" }, data: { status: "DRAFT" } });
-    expect(mockPrisma.site.update).toHaveBeenCalledWith({ where: { id: "site-1" }, data: { status: "DRAFT" } });
+    expect(mockPrisma.site.update).toHaveBeenCalledWith({ where: { id: "site-1" }, data: { status: "DRAFT", previewApprovedAt: null } });
   });
 });
 

@@ -35,7 +35,15 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   const variant = section.variant ?? "minimal-typographic";
 
   const backgroundUrl = ctx.assets.heroBackgroundUrl ?? (variant === "fullbleed-image" ? ctx.assets.heroUrl : undefined);
-  const insetImageUrl = variant === "split" ? ctx.assets.heroUrl : undefined;
+  // §Website Builder — minimal-typographic previously discarded a real
+  // uploaded hero photo entirely (no image element of any kind), even when
+  // one existed, unconditionally for every MINIMAL-family theme. It keeps
+  // its text-forward identity (no full-bleed background) but now shows the
+  // real photo as a smaller, restrained inset image instead of showing
+  // nothing — "mostly text and buttons" should never be true just because
+  // a theme happens to be in this family.
+  const insetImageUrl = variant === "split" || variant === "minimal-typographic" ? ctx.assets.heroUrl : undefined;
+  const insetImageMaxWidth = variant === "minimal-typographic" ? "280px" : "480px";
   const hasFullBleedImage = variant !== "minimal-typographic" && Boolean(backgroundUrl);
 
   const badgeHtml = badge ? `<span style="display:inline-block;background:var(--color-accent-600);color:#fff;border-radius:999px;padding:0.25rem 0.75rem;font-size:var(--step--1);font-weight:600;margin-bottom:0.75rem;">${escapeHtml(badge)}</span>` : "";
@@ -60,7 +68,7 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   }
 
   const insetImageHtml = insetImageUrl
-    ? `<img src="${escapeHtml(insetImageUrl)}" alt="${escapeHtml(ctx.assets.heroAlt ?? ctx.definition.restaurantName)}" style="width:100%;max-width:480px;border-radius:var(--radius);box-shadow:var(--shadow);" />`
+    ? `<img src="${escapeHtml(insetImageUrl)}" alt="${escapeHtml(ctx.assets.heroAlt ?? ctx.definition.restaurantName)}" style="width:100%;max-width:${insetImageMaxWidth};border-radius:var(--radius);box-shadow:var(--shadow);" />`
     : "";
 
   return `<section class="hero hero--${escapeHtml(variant)}" style="min-height:${minHeight};display:flex;align-items:center;padding:2rem 1rem;gap:2rem;flex-wrap:wrap;justify-content:${

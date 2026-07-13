@@ -764,6 +764,7 @@ export interface WebsiteSite {
   publishedVersionId: string | null;
   brandProfile: SiteBrandProfile | null;
   settings: Record<string, unknown> | null;
+  previewApprovedAt: string | null;
 }
 
 export interface GenerationJob {
@@ -874,6 +875,11 @@ export function patchDraft(siteId: string, patch: Partial<WebsiteSiteDefinition>
     method: "PATCH",
     body: JSON.stringify(patch),
   });
+}
+
+/** The explicit PREVIEW_APPROVED step — publishSite refuses to run without this having been called for the current draft. */
+export function approvePreview(siteId: string) {
+  return apiFetch<{ site: WebsiteSite }>(`/api/sites/${siteId}/approve-preview`, { method: "POST" });
 }
 
 /** Customization Studio live preview (Sprint 20A Task 5) — renders an unsaved candidate definition with the real renderer; never persists it. */

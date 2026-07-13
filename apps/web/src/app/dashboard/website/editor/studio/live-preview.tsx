@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Laptop, Loader2, Maximize2, Smartphone, Tablet, X } from "lucide-react";
+import { Check, Laptop, Loader2, Maximize2, Smartphone, Tablet, X } from "lucide-react";
 import { renderDraftPreview, type WebsiteSiteDefinition } from "@/lib/api";
 
 type Viewport = "mobile" | "tablet" | "desktop";
@@ -14,13 +14,36 @@ const FRAME_WIDTH: Record<Viewport, string> = {
 
 const DEBOUNCE_MS = 350;
 
-export function LivePreview({ siteId, definition, activePath }: { siteId: string; definition: WebsiteSiteDefinition; activePath: string }) {
+export function LivePreview({
+  siteId,
+  definition,
+  activePath,
+  approved,
+  onApprove,
+}: {
+  siteId: string;
+  definition: WebsiteSiteDefinition;
+  activePath: string;
+  /** §Website Builder PREVIEW_APPROVED — whether the owner has explicitly approved this exact draft (cleared server-side on every edit). */
+  approved: boolean;
+  onApprove: () => void | Promise<void>;
+}) {
   const [viewport, setViewport] = useState<Viewport>("mobile");
   const [fullscreen, setFullscreen] = useState(false);
   const [html, setHtml] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [approving, setApproving] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function handleApproveClick() {
+    setApproving(true);
+    try {
+      await onApprove();
+    } finally {
+      setApproving(false);
+    }
+  }
 
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -73,14 +96,32 @@ export function LivePreview({ siteId, definition, activePath }: { siteId: string
           <ViewportButton icon={Tablet} label="Tablet" active={viewport === "tablet"} onClick={() => setViewport("tablet")} />
           <ViewportButton icon={Laptop} label="Desktop" active={viewport === "desktop"} onClick={() => setViewport("desktop")} />
         </div>
-        <button
-          type="button"
-          onClick={() => setFullscreen(true)}
-          className="flex min-h-9 items-center gap-1.5 rounded-full border border-[#E7DDCF] bg-white px-3 text-xs font-bold text-[#171512]"
-        >
-          <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
-          Fullscreen
-        </button>
+        <div className="flex items-center gap-2">
+          {approved ? (
+            <span className="flex min-h-9 items-center gap-1.5 rounded-full bg-emerald-50 px-3 text-xs font-bold text-emerald-700">
+              <Check className="h-3.5 w-3.5" aria-hidden="true" />
+              Preview approved
+            </span>
+          ) : (
+            <button
+              type="button"
+              onClick={handleApproveClick}
+              disabled={approving || loading || Boolean(error)}
+              className="flex min-h-9 items-center gap-1.5 rounded-full bg-[#171512] px-3 text-xs font-bold text-white disabled:opacity-50"
+            >
+              <Check className="h-3.5 w-3.5" aria-hidden="true" />
+              {approving ? "Approving…" : "Approve preview"}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setFullscreen(true)}
+            className="flex min-h-9 items-center gap-1.5 rounded-full border border-[#E7DDCF] bg-white px-3 text-xs font-bold text-[#171512]"
+          >
+            <Maximize2 className="h-3.5 w-3.5" aria-hidden="true" />
+            Fullscreen
+          </button>
+        </div>
       </div>
 
       <div style={{ width: FRAME_WIDTH[viewport], maxWidth: "100%" }} className="mx-auto w-full transition-[width] duration-200">

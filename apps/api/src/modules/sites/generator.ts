@@ -91,7 +91,12 @@ class InProcessGenerationJobRunner implements GenerationJobRunner {
         scored.push({ family, definition, score });
       }
 
-      await this.setStage(jobId, "FINALIZE");
+      // §1 — FINALIZE is deliberately NOT set here, before this transaction
+      // runs: doing so let the frontend's stage-weight table read 100%
+      // while the SiteVersion/SiteScore rows this batch depends on didn't
+      // exist yet and `status` was still RUNNING. `stage` only becomes
+      // FINALIZE atomically together with `status: COMPLETED` inside the
+      // transaction below, once every row is actually committed.
       await prisma.$transaction(async (tx) => {
         // Any variations left over from an earlier batch that weren't
         // selected are superseded by this fresh batch (§2a: "Regenerating

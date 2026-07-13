@@ -393,6 +393,13 @@ model Site {
   // Plain pointer (not a relation) to the currently-live SiteVersion.id —
   // avoids a circular Site<->SiteVersion relation; resolved in application code.
   publishedVersionId String?
+  // §Website Builder state machine — set only by an explicit owner action
+  // (approvePreview) after selecting a design and opening the full preview;
+  // cleared on any draft edit, on selecting a different design, and after a
+  // successful publish (the fresh draft copy publishSite leaves behind was
+  // never itself approved). publishSite refuses to run while this is null —
+  // see validatePublishReadiness's PREVIEW_APPROVAL issue.
+  previewApprovedAt DateTime?
   // Brand Profile persisted here (not just per-version) so it survives
   // variation selection/regeneration and is reused by section regeneration.
   brandProfile       Json?

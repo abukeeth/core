@@ -5,6 +5,7 @@ import type { WebsiteSiteDefinition } from "@/lib/api";
 
 const mockPatchDraft = vi.fn();
 const mockRenderDraftPreview = vi.fn();
+const mockApprovePreview = vi.fn();
 
 vi.mock("@/lib/api", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api")>("@/lib/api");
@@ -12,6 +13,7 @@ vi.mock("@/lib/api", async () => {
     ...actual,
     patchDraft: (...args: unknown[]) => mockPatchDraft(...args),
     renderDraftPreview: (...args: unknown[]) => mockRenderDraftPreview(...args),
+    approvePreview: (...args: unknown[]) => mockApprovePreview(...args),
   };
 });
 
@@ -61,7 +63,7 @@ afterEach(() => {
 
 describe("CustomizationStudio — autosave", () => {
   it("does not save immediately on a single edit — waits out the debounce window", async () => {
-    render(<CustomizationStudio siteId="site-1" siteStatus="DRAFT" liveUrl="https://example.com" lastPublishedAt={null} initialDefinition={baseDefinition()} initialAssets={[]} />);
+    render(<CustomizationStudio siteId="site-1" siteStatus="DRAFT" liveUrl="https://example.com" lastPublishedAt={null} initialDefinition={baseDefinition()} initialAssets={[]} initialPreviewApprovedAt={null} />);
 
     fireEvent.click(screen.getByText("Sections"));
     fireEvent.click(screen.getByText("Hero"));
@@ -80,7 +82,7 @@ describe("CustomizationStudio — autosave", () => {
   });
 
   it("coalesces rapid edits into a single save after the debounce settles", async () => {
-    render(<CustomizationStudio siteId="site-1" siteStatus="DRAFT" liveUrl="https://example.com" lastPublishedAt={null} initialDefinition={baseDefinition()} initialAssets={[]} />);
+    render(<CustomizationStudio siteId="site-1" siteStatus="DRAFT" liveUrl="https://example.com" lastPublishedAt={null} initialDefinition={baseDefinition()} initialAssets={[]} initialPreviewApprovedAt={null} />);
 
     fireEvent.click(screen.getByText("Sections"));
     fireEvent.click(screen.getByText("Hero"));
@@ -106,7 +108,7 @@ describe("CustomizationStudio — autosave", () => {
   });
 
   it("shows a saving/saved indicator around the persisted save", async () => {
-    render(<CustomizationStudio siteId="site-1" siteStatus="DRAFT" liveUrl="https://example.com" lastPublishedAt={null} initialDefinition={baseDefinition()} initialAssets={[]} />);
+    render(<CustomizationStudio siteId="site-1" siteStatus="DRAFT" liveUrl="https://example.com" lastPublishedAt={null} initialDefinition={baseDefinition()} initialAssets={[]} initialPreviewApprovedAt={null} />);
 
     fireEvent.click(screen.getByText("Sections"));
     fireEvent.click(screen.getByText("Hero"));
@@ -122,7 +124,7 @@ describe("CustomizationStudio — autosave", () => {
 
 describe("CustomizationStudio — undo/redo", () => {
   it("undo reverts the most recent change; redo re-applies it", async () => {
-    render(<CustomizationStudio siteId="site-1" siteStatus="DRAFT" liveUrl="https://example.com" lastPublishedAt={null} initialDefinition={baseDefinition()} initialAssets={[]} />);
+    render(<CustomizationStudio siteId="site-1" siteStatus="DRAFT" liveUrl="https://example.com" lastPublishedAt={null} initialDefinition={baseDefinition()} initialAssets={[]} initialPreviewApprovedAt={null} />);
 
     fireEvent.click(screen.getByText("Sections"));
     fireEvent.click(screen.getByText("Hero"));
@@ -139,7 +141,7 @@ describe("CustomizationStudio — undo/redo", () => {
   });
 
   it("disables Undo when there's no history behind the current state", () => {
-    render(<CustomizationStudio siteId="site-1" siteStatus="DRAFT" liveUrl="https://example.com" lastPublishedAt={null} initialDefinition={baseDefinition()} initialAssets={[]} />);
+    render(<CustomizationStudio siteId="site-1" siteStatus="DRAFT" liveUrl="https://example.com" lastPublishedAt={null} initialDefinition={baseDefinition()} initialAssets={[]} initialPreviewApprovedAt={null} />);
     expect(screen.getByLabelText("Undo")).toBeDisabled();
   });
 });

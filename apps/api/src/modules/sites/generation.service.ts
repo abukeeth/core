@@ -49,7 +49,9 @@ export async function selectVariation(restaurantId: string, siteId: string, vers
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.siteVersion.update({ where: { id: version.id }, data: { status: "DRAFT" } });
-    await tx.site.update({ where: { id: site.id }, data: { status: "DRAFT" } });
+    // previewApprovedAt cleared: selecting a (possibly different) design
+    // means any prior approval was for a different draft and no longer applies.
+    await tx.site.update({ where: { id: site.id }, data: { status: "DRAFT", previewApprovedAt: null } });
     return updated;
   });
 }

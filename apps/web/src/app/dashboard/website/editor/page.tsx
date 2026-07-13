@@ -48,6 +48,7 @@ export default async function EditorPage() {
         lastPublishedAt={published?.publishedAt ?? null}
         initialDefinition={draft.definition}
         initialAssets={assets}
+        initialPreviewApprovedAt={site.previewApprovedAt}
       />
     </PageShell>
   );

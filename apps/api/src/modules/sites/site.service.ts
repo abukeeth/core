@@ -211,7 +211,30 @@ export async function patchDraft(restaurantId: string, siteId: string, patch: Pa
   const merged = { ...current, ...patch };
   const validated = siteDefinitionSchema.parse(merged);
 
-  return prisma.siteVersion.update({ where: { id: draft.id }, data: { definition: toJson(validated) } });
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.siteVersion.update({ where: { id: draft.id }, data: { definition: toJson(validated) } });
+    // §Website Builder — any edit invalidates a prior preview approval; the
+    // owner must re-approve after changing anything (see approvePreview).
+    await tx.site.update({ where: { id: site.id }, data: { previewApprovedAt: null } });
+    return updated;
+  });
+}
+
+/**
+ * POST /api/sites/:id/approve-preview — the explicit "PREVIEW_APPROVED"
+ * step of the Website Builder state machine (MENU_READY -> ... ->
+ * PREVIEW_READY -> PREVIEW_APPROVED -> PUBLISHING -> LIVE). Requires a real
+ * DRAFT to exist (a design must actually be selected first); publishSite
+ * refuses to run without this having been set — see
+ * validatePublishReadiness's PREVIEW_APPROVAL issue.
+ */
+export async function approvePreview(restaurantId: string, siteId: string): Promise<Site> {
+  const site = await findOwnSiteById(restaurantId, siteId);
+  const draft = await prisma.siteVersion.findFirst({ where: { siteId: site.id, status: "DRAFT" } });
+  if (!draft) {
+    throw new SiteVersionNotFoundError();
+  }
+  return prisma.site.update({ where: { id: site.id }, data: { previewApprovedAt: new Date() } });
 }
 
 /**
@@ -251,7 +274,7 @@ function runPrePublishChecks(assets: AssetSummary): string[] {
 }
 
 export interface PublishIssue {
-  code: "BUSINESS_NAME" | "THEME_SELECTED" | "WEBSITE_CONTENT" | "REQUIRED_PAGES" | "MENU" | "NAVIGATION" | "ASSETS";
+  code: "BUSINESS_NAME" | "THEME_SELECTED" | "WEBSITE_CONTENT" | "REQUIRED_PAGES" | "MENU" | "NAVIGATION" | "ASSETS" | "PREVIEW_APPROVAL";
   message: string;
 }
 
@@ -307,6 +330,15 @@ export async function validatePublishReadiness(restaurantId: string, siteId: str
   const assetIssues = runPrePublishChecks(assets);
   for (const message of assetIssues) {
     issues.push({ code: "ASSETS", message });
+  }
+
+  // §Website Builder state machine — a design being selected (checked
+  // above) is not the same as the owner having actually looked at the full
+  // preview and approved it. This is the PREVIEW_APPROVED gate: publishing
+  // is refused until approvePreview() has been called for this exact draft
+  // (patchDraft/selectVariation both clear it on any change).
+  if (!site.previewApprovedAt) {
+    issues.push({ code: "PREVIEW_APPROVAL", message: "Open the full preview and approve it before publishing." });
   }
 
   return { ready: issues.length === 0, issues };
@@ -426,7 +458,10 @@ export async function publishSite(restaurantId: string, siteId: string, publishe
     // release storage, does the site get to claim "Live." If
     // materializeStaticRelease above throws, this line never runs and the
     // catch below correctly marks the site FAILED instead.
-    await prisma.site.update({ where: { id: site.id }, data: { status: "PUBLISHED", publishedVersionId: published.id } });
+    // previewApprovedAt is cleared here too: the fresh DRAFT copy created
+    // above (so the owner keeps something to edit) was never itself
+    // approved, so the next republish must go through PREVIEW_APPROVED again.
+    await prisma.site.update({ where: { id: site.id }, data: { status: "PUBLISHED", publishedVersionId: published.id, previewApprovedAt: null } });
     await pruneOldReleases(site.id);
 
     return { version: published, scoreDelta, warning };

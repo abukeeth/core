@@ -1,25 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, Check, Rocket, X } from "lucide-react";
 import { checkPublishReadiness, publishSite, type PublishIssue } from "@/lib/api";
 
-const COSMETIC_STAGES = [
-  "Preparing Website",
-  "Optimizing Assets",
-  "Generating Metadata",
-  "Generating SEO",
-  "Creating Sitemap",
-  "Creating Robots.txt",
-  "Assigning Temporary Domain",
-  "Final Validation",
-] as const;
-
-const ALL_STAGES = [...COSMETIC_STAGES, "Publishing", "Completed"] as const;
-const STAGE_DURATION_MS = 450;
-
-type FlowState = "idle" | "checking" | "blocked" | "running" | "completed" | "failed";
+type FlowState = "idle" | "checking" | "blocked" | "publishing" | "completed" | "failed";
 
 interface PublishFlowButtonProps {
   siteId: string | null;
@@ -27,13 +13,18 @@ interface PublishFlowButtonProps {
   variant?: "solid" | "tile";
 }
 
+/**
+ * §1/§9 — every stage shown here must reflect real backend state, never a
+ * client-side timer. publishSite itself is a single request/response (no
+ * incremental backend stages to poll), so the honest representation of "in
+ * progress" is an indeterminate state tied to that request's actual
+ * lifetime — not a staged checklist ticking off items nothing has verified.
+ */
 export function PublishFlowButton({ siteId, alreadyPublished, variant = "solid" }: PublishFlowButtonProps) {
   const router = useRouter();
   const [state, setState] = useState<FlowState>("idle");
   const [issues, setIssues] = useState<PublishIssue[]>([]);
-  const [activeStage, setActiveStage] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function openFlow() {
     if (!siteId) return;
@@ -47,8 +38,7 @@ export function PublishFlowButton({ siteId, alreadyPublished, variant = "solid" 
         setState("blocked");
         return;
       }
-      setActiveStage(0);
-      setState("running");
+      setState("publishing");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't check publish readiness.");
       setState("blocked");
@@ -56,22 +46,11 @@ export function PublishFlowButton({ siteId, alreadyPublished, variant = "solid" 
   }
 
   useEffect(() => {
-    if (state !== "running" || !siteId) return;
-
-    if (activeStage < COSMETIC_STAGES.length) {
-      timerRef.current = setTimeout(() => setActiveStage((s) => s + 1), STAGE_DURATION_MS);
-      return () => {
-        if (timerRef.current) clearTimeout(timerRef.current);
-      };
-    }
-
-    // activeStage === COSMETIC_STAGES.length — the "Publishing" stage. This is the
-    // real network call; every stage before it is cosmetic, this one is not.
+    if (state !== "publishing" || !siteId) return;
     let cancelled = false;
     publishSite(siteId)
       .then(() => {
         if (cancelled) return;
-        setActiveStage(ALL_STAGES.length - 1);
         setState("completed");
         router.refresh();
       })
@@ -83,18 +62,16 @@ export function PublishFlowButton({ siteId, alreadyPublished, variant = "solid" 
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, activeStage, siteId]);
+  }, [state, siteId, router]);
 
   function close() {
     setState("idle");
-    setActiveStage(0);
     setIssues([]);
     setError(null);
   }
 
   const label = alreadyPublished ? "Republish Website" : "Publish Website";
-  const busy = state === "checking" || state === "running";
+  const busy = state === "checking" || state === "publishing";
   const open = state !== "idle";
 
   return (
@@ -188,53 +165,35 @@ export function PublishFlowButton({ siteId, alreadyPublished, variant = "solid" 
               </>
             )}
 
-            {(state === "running" || state === "completed") && (
+            {state === "publishing" && (
               <>
                 <div className="flex justify-center">
                   <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#171512] text-[#E1B56F]">
-                    <Rocket className={`h-7 w-7 ${state === "running" ? "animate-pulse" : ""}`} aria-hidden="true" />
+                    <Rocket className="h-7 w-7 animate-pulse" aria-hidden="true" />
                   </span>
                 </div>
                 <p className="mt-4 text-center text-sm font-bold text-[#171512]">
-                  {state === "completed" ? "Your website is live" : alreadyPublished ? "Republishing your website" : "Publishing your website"}
+                  {alreadyPublished ? "Republishing your website" : "Publishing your website"}
                 </p>
+                <p className="mt-2 text-center text-sm text-[#756B5D]">This usually takes a few seconds.</p>
+              </>
+            )}
 
-                <div className="mt-5 flex flex-col gap-3">
-                  {ALL_STAGES.map((stage, index) => {
-                    const done = state === "completed" || index < activeStage;
-                    const current = state === "running" && index === activeStage;
-                    return (
-                      <div key={stage} className="flex items-center gap-3">
-                        <span
-                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition ${
-                            done
-                              ? "border-emerald-600 bg-emerald-600 text-white"
-                              : current
-                                ? "border-[#B97824] bg-[#FFF8ED]"
-                                : "border-[#E7DDCF] bg-white"
-                          }`}
-                        >
-                          {done ? (
-                            <Check className="h-3.5 w-3.5" aria-hidden="true" />
-                          ) : (
-                            <span className={`h-2 w-2 rounded-full transition ${current ? "animate-pulse bg-[#B97824]" : "bg-[#E7DDCF]"}`} />
-                          )}
-                        </span>
-                        <span className={`text-sm transition ${done || current ? "font-semibold text-[#171512]" : "text-[#B4A896]"}`}>{stage}</span>
-                      </div>
-                    );
-                  })}
+            {state === "completed" && (
+              <>
+                <div className="flex justify-center">
+                  <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+                    <Check className="h-7 w-7" aria-hidden="true" />
+                  </span>
                 </div>
-
-                {state === "completed" && (
-                  <button
-                    type="button"
-                    onClick={close}
-                    className="mt-6 flex min-h-11 w-full items-center justify-center rounded-xl bg-[#171512] px-4 text-sm font-bold text-white"
-                  >
-                    Done
-                  </button>
-                )}
+                <p className="mt-4 text-center text-sm font-bold text-[#171512]">Your website is live</p>
+                <button
+                  type="button"
+                  onClick={close}
+                  className="mt-6 flex min-h-11 w-full items-center justify-center rounded-xl bg-[#171512] px-4 text-sm font-bold text-white"
+                >
+                  Done
+                </button>
               </>
             )}
           </div>

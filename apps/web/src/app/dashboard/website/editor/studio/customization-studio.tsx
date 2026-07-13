@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AlertTriangle, Check, ExternalLink, Loader2, Redo2, Undo2 } from "lucide-react";
 import { FilterPills } from "@/components/ui";
-import { patchDraft, type SiteAsset, type SiteStatus, type WebsiteSiteDefinition } from "@/lib/api";
+import { approvePreview, patchDraft, type SiteAsset, type SiteStatus, type WebsiteSiteDefinition } from "@/lib/api";
 import { PublishFlowButton } from "../../studio/publish-flow";
 import { defaultPropsForType } from "./section-manager";
 import { LivePreview } from "./live-preview";
@@ -43,9 +43,18 @@ interface CustomizationStudioProps {
   lastPublishedAt: string | null;
   initialDefinition: WebsiteSiteDefinition;
   initialAssets: SiteAsset[];
+  initialPreviewApprovedAt: string | null;
 }
 
-export function CustomizationStudio({ siteId, siteStatus, liveUrl, lastPublishedAt, initialDefinition, initialAssets }: CustomizationStudioProps) {
+export function CustomizationStudio({
+  siteId,
+  siteStatus,
+  liveUrl,
+  lastPublishedAt,
+  initialDefinition,
+  initialAssets,
+  initialPreviewApprovedAt,
+}: CustomizationStudioProps) {
   const [historyState, setHistoryState] = useState<HistoryState>({ stack: [initialDefinition], index: 0 });
   const [assets, setAssets] = useState<SiteAsset[]>(initialAssets);
   const [tab, setTab] = useState<Tab>("sections");
@@ -54,6 +63,12 @@ export function CustomizationStudio({ siteId, siteStatus, liveUrl, lastPublished
   const [dirty, setDirty] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [previewOpenOnMobile, setPreviewOpenOnMobile] = useState(false);
+  // §Website Builder — mirrors the server's Site.previewApprovedAt: any edit
+  // clears it (patchDraft clears it server-side on every save; mirrored
+  // here so the UI doesn't need a refetch to reflect that), and an explicit
+  // approve action in LivePreview sets it. publishSite refuses to run
+  // without it regardless of what this client state shows.
+  const [previewApproved, setPreviewApproved] = useState(Boolean(initialPreviewApprovedAt));
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -88,11 +103,18 @@ export function CustomizationStudio({ siteId, siteStatus, liveUrl, lastPublished
       await patchDraft(siteId, toSave);
       setSaveState("saved");
       setDirty(false);
+      // patchDraft clears previewApprovedAt server-side on every save (§Website Builder).
+      setPreviewApproved(false);
       if (savedBannerTimerRef.current) clearTimeout(savedBannerTimerRef.current);
       savedBannerTimerRef.current = setTimeout(() => setSaveState((s) => (s === "saved" ? "idle" : s)), 2500);
     } catch {
       setSaveState("error");
     }
+  }
+
+  async function handleApprovePreview() {
+    await approvePreview(siteId);
+    setPreviewApproved(true);
   }
 
   // Autosave with debounce (Task 5 §10) — every commit restarts the timer; only the final settled definition after a pause gets persisted.
@@ -230,7 +252,13 @@ export function CustomizationStudio({ siteId, siteStatus, liveUrl, lastPublished
 
       {/* Preview column — desktop: sticky sidebar; mobile: toggle sheet */}
       <div className="hidden lg:sticky lg:top-4 lg:block lg:flex-1">
-        <LivePreview siteId={siteId} definition={definition} activePath={activePageSlug} />
+        <LivePreview
+          siteId={siteId}
+          definition={definition}
+          activePath={activePageSlug}
+          approved={previewApproved}
+          onApprove={handleApprovePreview}
+        />
       </div>
 
       <button
@@ -250,7 +278,13 @@ export function CustomizationStudio({ siteId, siteStatus, liveUrl, lastPublished
             </button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto">
-            <LivePreview siteId={siteId} definition={definition} activePath={activePageSlug} />
+            <LivePreview
+          siteId={siteId}
+          definition={definition}
+          activePath={activePageSlug}
+          approved={previewApproved}
+          onApprove={handleApprovePreview}
+        />
           </div>
         </div>
       )}

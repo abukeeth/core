@@ -25,6 +25,7 @@ import {
 } from "./generation.controller";
 import { applyFix, getHistory, getLatest, run as runScoreHandler } from "./score.controller";
 import {
+  approvePreviewHandler,
   checkPublishReadiness,
   create,
   getMine,
@@ -73,6 +74,7 @@ siteRouter.get("/:id/versions", requireAuth, staffOrOwner, listVersionsHandler);
 siteRouter.get("/:id/versions/:vid", requireAuth, staffOrOwner, getVersionHandler);
 siteRouter.patch("/:id/draft", requireAuth, staffOrOwner, patchDraftHandler);
 siteRouter.post("/:id/draft/render", requireAuth, staffOrOwner, renderDraftPreviewHandler);
+siteRouter.post("/:id/approve-preview", requireAuth, staffOrOwner, approvePreviewHandler);
 
 // Scoring
 siteRouter.post("/:id/versions/:vid/score", requireAuth, staffOrOwner, runScoreHandler);

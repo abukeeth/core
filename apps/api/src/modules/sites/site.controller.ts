@@ -3,6 +3,7 @@ import { getOwnRestaurant } from "../restaurants/restaurant.service";
 import { mapSiteError, paramId, requireOwnRestaurantId } from "./controller-helpers";
 import { signPreviewToken } from "./preview-token";
 import {
+  approvePreview,
   createSite,
   getOwnSite,
   getOwnSiteById,
@@ -148,6 +149,19 @@ export async function publish(req: Request, res: Response): Promise<void> {
   try {
     const result = await publishSite(restaurantId, paramId(req), req.user!.id);
     res.status(200).json(result);
+  } catch (err) {
+    if (!mapSiteError(err, res)) throw err;
+  }
+}
+
+/** POST /api/sites/:id/approve-preview — the explicit PREVIEW_APPROVED step; publishSite refuses to run without it. */
+export async function approvePreviewHandler(req: Request, res: Response): Promise<void> {
+  const restaurantId = await requireOwnRestaurantId(req, res);
+  if (!restaurantId) return;
+
+  try {
+    const site = await approvePreview(restaurantId, paramId(req));
+    res.status(200).json({ site });
   } catch (err) {
     if (!mapSiteError(err, res)) throw err;
   }

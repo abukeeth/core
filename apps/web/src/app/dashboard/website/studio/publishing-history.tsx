@@ -1,8 +1,17 @@
 import { History } from "lucide-react";
 import { Badge, Card } from "@/components/ui";
 import type { SiteVersion } from "@/lib/api";
+import { RollbackButton } from "../publish/publish-actions";
 
-export function PublishingHistory({ releases, currentVersionId }: { releases: SiteVersion[]; currentVersionId: string | null }) {
+export function PublishingHistory({
+  siteId,
+  releases,
+  currentVersionId,
+}: {
+  siteId: string | null;
+  releases: SiteVersion[];
+  currentVersionId: string | null;
+}) {
   return (
     <Card>
       <div className="flex items-center gap-2">
@@ -31,6 +40,7 @@ export function PublishingHistory({ releases, currentVersionId }: { releases: Si
                   <span>Published by {release.publishedBy?.name ?? "—"}</span>
                   <span>{release.publishedAt ? new Date(release.publishedAt).toLocaleString() : "—"}</span>
                   <Badge tone="neutral">{release.status}</Badge>
+                  {!isCurrent && siteId && <RollbackButton siteId={siteId} versionId={release.id} />}
                 </div>
               </li>
             );
