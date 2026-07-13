@@ -2,11 +2,18 @@ import { describe, expect, it } from "vitest";
 import { THEME_CATALOG } from "./theme-catalog";
 
 describe("THEME_CATALOG", () => {
-  it("has 2-3 themes in each of the three style families", () => {
+  it("has 2-4 themes in each of the three style families, counting deprecated ones kept for backward compatibility", () => {
     for (const family of ["LUXURY", "MODERN", "MINIMAL"] as const) {
       const count = THEME_CATALOG.filter((t) => t.styleFamily === family).length;
       expect(count).toBeGreaterThanOrEqual(2);
-      expect(count).toBeLessThanOrEqual(3);
+      expect(count).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it("§Website Builder: has exactly one non-deprecated (selectable) design system per style family", () => {
+    for (const family of ["LUXURY", "MODERN", "MINIMAL"] as const) {
+      const active = THEME_CATALOG.filter((t) => t.styleFamily === family && !t.deprecated);
+      expect(active).toHaveLength(1);
     }
   });
 

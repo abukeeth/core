@@ -77,7 +77,10 @@ export function selectThemeForFamily(
   profile: BrandProfile,
   photoCount: number,
 ): ThemeFitResult {
-  const familyThemes = catalog.filter((t) => t.styleFamily === family);
+  // §Website Builder — deprecated themes stay in the catalog forever (so
+  // already-published sites keep rendering byte-identically) but are never
+  // candidates for a fresh generation; see theme-catalog.ts's doc comment.
+  const familyThemes = catalog.filter((t) => t.styleFamily === family && !t.deprecated);
   if (familyThemes.length === 0) {
     throw new Error(`No themes registered for style family ${family}`);
   }

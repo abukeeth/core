@@ -68,20 +68,20 @@ describe("cosineSimilarity / personalitySimilarity", () => {
 });
 
 describe("selectThemesForAllFamilies (golden tests, deterministic)", () => {
-  it("picks fine-dining for an upscale sushi restaurant's Luxury variation", () => {
+  it("picks bold-commerce (the only active Luxury design system) for an upscale sushi restaurant's Luxury variation", () => {
     const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3);
-    expect(result.LUXURY.theme.key).toBe("fine-dining");
+    expect(result.LUXURY.theme.key).toBe("bold-commerce");
     expect(result.LUXURY.reasons.length).toBeGreaterThan(0);
   });
 
-  it("picks street-food for a casual taqueria's Modern variation", () => {
+  it("picks modern-editorial (the only active Modern design system) for a casual taqueria's Modern variation", () => {
     const result = selectThemesForAllFamilies(THEME_CATALOG, CASUAL_TAQUERIA, 3);
-    expect(result.MODERN.theme.key).toBe("street-food");
+    expect(result.MODERN.theme.key).toBe("modern-editorial");
   });
 
-  it("picks fine-dining for a French patisserie's Luxury variation", () => {
+  it("picks bold-commerce (the only active Luxury design system) for a French patisserie's Luxury variation", () => {
     const result = selectThemesForAllFamilies(THEME_CATALOG, FRENCH_PATISSERIE, 3);
-    expect(result.LUXURY.theme.key).toBe("fine-dining");
+    expect(result.LUXURY.theme.key).toBe("bold-commerce");
   });
 
   it("always returns exactly one theme per style family", () => {
@@ -102,19 +102,24 @@ describe("selectThemesForAllFamilies (golden tests, deterministic)", () => {
 
   it("still picks a theme in every family when there are zero photos, via the fallback path", () => {
     const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 0);
-    // Luxury themes all require photos; the fallback still returns the
-    // least photo-dependent one rather than leaving the family empty.
-    expect(result.LUXURY.theme.key).toBe("elegant-dark");
+    // bold-commerce (the sole active Luxury design system) requires a
+    // photo; the fallback still returns it (with a polished non-photo
+    // fallback tile at render time — see image-fallback.ts) rather than
+    // leaving the family empty.
+    expect(result.LUXURY.theme.key).toBe("bold-commerce");
     expect(result.LUXURY.reasons[0]).toMatch(/fallback/i);
     // Minimal themes have no photo constraint, so it's a real (non-fallback) pick.
     expect(result.MINIMAL.reasons[0]).not.toMatch(/fallback/i);
   });
 
-  it("excludes a photo-dependent theme once photoCount drops below its minimum", () => {
-    // coastal (MODERN) requires minPhotos: 2; with exactly 1 photo it must
-    // never be selected over a theme with a lower/no requirement.
-    const withOnePhoto = selectThemesForAllFamilies(THEME_CATALOG, FRENCH_PATISSERIE, 1);
-    expect(withOnePhoto.MODERN.theme.key).not.toBe("coastal");
+  it("never selects a deprecated legacy theme for a fresh generation", () => {
+    const deprecatedKeys = new Set(THEME_CATALOG.filter((t) => t.deprecated).map((t) => t.key));
+    for (const profile of [UPSCALE_SUSHI, CASUAL_TAQUERIA, FRENCH_PATISSERIE]) {
+      const result = selectThemesForAllFamilies(THEME_CATALOG, profile, 3);
+      expect(deprecatedKeys.has(result.LUXURY.theme.key)).toBe(false);
+      expect(deprecatedKeys.has(result.MODERN.theme.key)).toBe(false);
+      expect(deprecatedKeys.has(result.MINIMAL.theme.key)).toBe(false);
+    }
   });
 });
 

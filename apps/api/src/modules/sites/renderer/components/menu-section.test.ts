@@ -97,3 +97,49 @@ describe("renderMenuSection", () => {
     expect(withoutPhoto).toContain(">M<");
   });
 });
+
+describe("renderMenuSection — §Website Builder design-system category layouts", () => {
+  const menu: RenderContext["liveMenu"] = [
+    { name: "Mains", items: [{ name: "Spaghetti", description: "Handmade pasta", priceCents: 1500, isAvailable: true }] },
+  ];
+
+  it("editorial-rows: renders a full-width alternating row layout with no card boxes", () => {
+    const html = renderMenuSection({ type: "menu", variant: "editorial-rows", props: {} }, ctx(menu));
+    expect(html).toContain("Spaghetti");
+    expect(html).toContain("$15.00");
+    expect(html).not.toContain('style="list-style:none;background:var(--color-surface-100)');
+  });
+
+  it("warm-cards: renders items as a grid of soft rounded cards", () => {
+    const html = renderMenuSection({ type: "menu", variant: "warm-cards", props: {} }, ctx(menu));
+    expect(html).toContain("Spaghetti");
+    expect(html).toContain("border-radius:var(--radius);box-shadow:var(--shadow)");
+  });
+
+  it("bold-grid: renders a dense hard-edged grid with the price in a solid badge", () => {
+    const html = renderMenuSection({ type: "menu", variant: "bold-grid", props: {} }, ctx(menu));
+    expect(html).toContain("Spaghetti");
+    expect(html).toContain("border:2px solid var(--color-surface-900)");
+    expect(html).toContain("background:var(--color-primary-600);color:#fff;font-weight:800;");
+  });
+
+  it("the three design-system layouts render materially different markup for the same data", () => {
+    const editorial = renderMenuSection({ type: "menu", variant: "editorial-rows", props: {} }, ctx(menu));
+    const warm = renderMenuSection({ type: "menu", variant: "warm-cards", props: {} }, ctx(menu));
+    const bold = renderMenuSection({ type: "menu", variant: "bold-grid", props: {} }, ctx(menu));
+    const classic = renderMenuSection({ type: "menu", props: {} }, ctx(menu));
+
+    expect(new Set([editorial, warm, bold, classic]).size).toBe(4);
+  });
+
+  it("escapes item names/descriptions across every design-system layout", () => {
+    const dangerous: RenderContext["liveMenu"] = [
+      { name: "Mains", items: [{ name: "<script>x</script>", description: "<img onerror=alert(1)>", priceCents: 100, isAvailable: true }] },
+    ];
+    for (const variant of ["editorial-rows", "warm-cards", "bold-grid"] as const) {
+      const html = renderMenuSection({ type: "menu", variant, props: {} }, ctx(dangerous));
+      expect(html).not.toContain("<script>x</script>");
+      expect(html).not.toContain("<img onerror=alert(1)>");
+    }
+  });
+});

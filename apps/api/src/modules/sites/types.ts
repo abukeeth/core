@@ -302,8 +302,10 @@ export interface ThemeTokens {
 }
 
 export interface ThemeVariants {
-  hero: ("fullbleed-image" | "split" | "minimal-typographic")[];
-  menuLayout: ("classic-list" | "card-grid" | "two-column-elegant")[];
+  hero: ("fullbleed-image" | "split" | "minimal-typographic" | "editorial-split" | "warm-frame" | "bold-block")[];
+  menuLayout: ("classic-list" | "card-grid" | "two-column-elegant" | "editorial-rows" | "warm-cards" | "bold-grid")[];
+  /** §Website Builder — drives header/nav structure (chrome.ts); "standard" is every pre-existing theme's unchanged behavior. */
+  chrome: ("standard" | "editorial" | "warm" | "bold")[];
 }
 
 export interface ThemeLayouts {
@@ -324,6 +326,18 @@ export interface ThemeCatalogEntry {
   tokens: ThemeTokens;
   variants: ThemeVariants;
   layouts: ThemeLayouts;
+  /**
+   * §Website Builder — the 9 original themes (3 per family) shared one
+   * hero/menu/chrome skeleton per family, so every generation looked
+   * nearly identical regardless of which specific theme scored best. Kept
+   * (never deleted) so already-published sites referencing these exact
+   * key+version pairs keep rendering byte-identically (render-page.ts's
+   * "same definition + theme version → identical output" contract) —
+   * but theme-matching.ts excludes them from new selections in favor of
+   * one genuinely distinct design system per family: modern-editorial,
+   * warm-local, bold-commerce.
+   */
+  deprecated?: boolean;
 }
 
 // ---------------------------------------------------------------------------

@@ -40,7 +40,7 @@ export function renderPage(input: RenderPageInput): string {
   });
 
   const css = renderThemeCss(theme, ctx.definition.colorSeed, ctx.definition.brandSettings);
-  const headerNav = renderHeaderNav(ctx);
+  const headerNav = renderHeaderNav(ctx, theme);
   const sections = renderSections(page.sections, ctx);
   const mobileActionBar = renderMobileActionBar(ctx);
 

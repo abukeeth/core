@@ -1,13 +1,23 @@
 import type { ThemeCatalogEntry } from "./types";
 
 /**
- * The curated theme catalog (§1, §2a). Three style families, 2-3 themes
- * each, every family able to serve every cuisine (personality similarity
- * dominates theme fit — see theme-matching.ts — so a family never comes up
- * empty just because a niche cuisine has no explicit affinity entry).
+ * The curated theme catalog (§1, §2a). Three style families, every family
+ * able to serve every cuisine (personality similarity dominates theme fit
+ * — see theme-matching.ts — so a family never comes up empty just because
+ * a niche cuisine has no explicit affinity entry).
  *
  * This is the canonical source of theme data; prisma/seed.ts upserts it
  * into the `Theme` table verbatim (key+version is the upsert key).
+ *
+ * §Website Builder — the original 9 entries below (`deprecated: true`)
+ * shared one hero/menu/chrome skeleton per family, so every generation
+ * looked nearly identical regardless of which specific theme scored
+ * best. They're kept, never deleted or mutated, purely so already-
+ * published sites referencing these exact key+version pairs keep
+ * rendering byte-identically. theme-matching.ts excludes deprecated
+ * themes from new selections — modern-editorial, warm-local, and
+ * bold-commerce (below) are the only themes new generations ever pick,
+ * one genuinely distinct design system per family.
  */
 export const THEME_CATALOG: ThemeCatalogEntry[] = [
   // --- Luxury -------------------------------------------------------------
@@ -31,8 +41,9 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       motion: "subtle",
       typeScaleRatio: 1.333,
     },
-    variants: { hero: ["fullbleed-image"], menuLayout: ["two-column-elegant"] },
+    variants: { hero: ["fullbleed-image"], menuLayout: ["two-column-elegant"], chrome: ["standard"] },
     layouts: { home: ["hero", "aboutTeaser", "signatureDishes", "hoursLocation", "gallery", "ctaBanner", "footer"] },
+    deprecated: true,
   },
   {
     key: "elegant-dark",
@@ -54,8 +65,9 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       motion: "subtle",
       typeScaleRatio: 1.333,
     },
-    variants: { hero: ["fullbleed-image"], menuLayout: ["two-column-elegant"] },
+    variants: { hero: ["fullbleed-image"], menuLayout: ["two-column-elegant"], chrome: ["standard"] },
     layouts: { home: ["hero", "signatureDishes", "aboutTeaser", "gallery", "hoursLocation", "ctaBanner", "footer"] },
+    deprecated: true,
   },
 
   // --- Modern ---------------------------------------------------------------
@@ -79,8 +91,9 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       motion: "energetic",
       typeScaleRatio: 1.25,
     },
-    variants: { hero: ["split"], menuLayout: ["card-grid"] },
+    variants: { hero: ["split"], menuLayout: ["card-grid"], chrome: ["standard"] },
     layouts: { home: ["hero", "signatureDishes", "gallery", "aboutTeaser", "hoursLocation", "ctaBanner", "footer"] },
+    deprecated: true,
   },
   {
     key: "street-food",
@@ -102,8 +115,9 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       motion: "energetic",
       typeScaleRatio: 1.25,
     },
-    variants: { hero: ["split"], menuLayout: ["card-grid"] },
+    variants: { hero: ["split"], menuLayout: ["card-grid"], chrome: ["standard"] },
     layouts: { home: ["hero", "signatureDishes", "gallery", "ctaBanner", "hoursLocation", "aboutTeaser", "footer"] },
+    deprecated: true,
   },
   {
     key: "coastal",
@@ -125,8 +139,9 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       motion: "subtle",
       typeScaleRatio: 1.25,
     },
-    variants: { hero: ["fullbleed-image"], menuLayout: ["card-grid"] },
+    variants: { hero: ["fullbleed-image"], menuLayout: ["card-grid"], chrome: ["standard"] },
     layouts: { home: ["hero", "signatureDishes", "aboutTeaser", "gallery", "hoursLocation", "ctaBanner", "footer"] },
+    deprecated: true,
   },
 
   // --- Minimal --------------------------------------------------------------
@@ -150,8 +165,9 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       motion: "none",
       typeScaleRatio: 1.2,
     },
-    variants: { hero: ["minimal-typographic"], menuLayout: ["classic-list"] },
+    variants: { hero: ["minimal-typographic"], menuLayout: ["classic-list"], chrome: ["standard"] },
     layouts: { home: ["hero", "menu", "aboutTeaser", "hoursLocation", "gallery", "footer"] },
+    deprecated: true,
   },
   {
     key: "casual-family",
@@ -173,8 +189,9 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       motion: "none",
       typeScaleRatio: 1.2,
     },
-    variants: { hero: ["minimal-typographic"], menuLayout: ["classic-list"] },
+    variants: { hero: ["minimal-typographic"], menuLayout: ["classic-list"], chrome: ["standard"] },
     layouts: { home: ["hero", "menu", "signatureDishes", "hoursLocation", "footer"] },
+    deprecated: true,
   },
   {
     key: "rustic-minimal",
@@ -196,7 +213,79 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       motion: "none",
       typeScaleRatio: 1.2,
     },
-    variants: { hero: ["minimal-typographic"], menuLayout: ["classic-list"] },
+    variants: { hero: ["minimal-typographic"], menuLayout: ["classic-list"], chrome: ["standard"] },
     layouts: { home: ["hero", "aboutTeaser", "menu", "hoursLocation", "gallery", "footer"] },
+    deprecated: true,
+  },
+
+  // --- §Website Builder design systems (the only non-deprecated themes) -----
+  {
+    key: "modern-editorial",
+    version: 1,
+    styleFamily: "MODERN",
+    personalityVector: {
+      traditionalContemporary: 0.75,
+      casualFormal: 0.5,
+      playfulSerious: 0.5,
+      understatedBold: 0.55,
+      rusticPolished: 0.55,
+    },
+    cuisineAffinities: { italian: 0.5, american: 0.5, bistro: 0.6, brunch: 0.5, mediterranean: 0.5 },
+    constraints: {},
+    tokens: {
+      colorSeed: "#22223b",
+      typography: { display: "Bricolage Grotesque", body: "Inter" },
+      radius: "sharp",
+      motion: "subtle",
+      typeScaleRatio: 1.3,
+    },
+    variants: { hero: ["editorial-split"], menuLayout: ["editorial-rows"], chrome: ["editorial"] },
+    layouts: { home: ["hero", "aboutTeaser", "signatureDishes", "gallery", "hoursLocation", "ctaBanner", "footer"] },
+  },
+  {
+    key: "warm-local",
+    version: 1,
+    styleFamily: "MINIMAL",
+    personalityVector: {
+      traditionalContemporary: 0.45,
+      casualFormal: 0.2,
+      playfulSerious: 0.4,
+      understatedBold: 0.25,
+      rusticPolished: 0.35,
+    },
+    cuisineAffinities: { cafe: 0.6, bakery: 0.6, "american-diner": 0.5, "comfort-food": 0.6, "farm-to-table": 0.5 },
+    constraints: {},
+    tokens: {
+      colorSeed: "#b5651d",
+      typography: { display: "Lora", body: "Nunito Sans" },
+      radius: "rounded",
+      motion: "subtle",
+      typeScaleRatio: 1.2,
+    },
+    variants: { hero: ["warm-frame"], menuLayout: ["warm-cards"], chrome: ["warm"] },
+    layouts: { home: ["hero", "signatureDishes", "hoursLocation", "aboutTeaser", "gallery", "footer"] },
+  },
+  {
+    key: "bold-commerce",
+    version: 1,
+    styleFamily: "LUXURY",
+    personalityVector: {
+      traditionalContemporary: 0.6,
+      casualFormal: 0.75,
+      playfulSerious: 0.65,
+      understatedBold: 0.9,
+      rusticPolished: 0.6,
+    },
+    cuisineAffinities: { steakhouse: 0.6, "sushi-omakase": 0.5, seafood: 0.5, french: 0.5, japanese: 0.4 },
+    constraints: { minPhotos: 1 },
+    tokens: {
+      colorSeed: "#0a0a0a",
+      typography: { display: "Anton", body: "Inter" },
+      radius: "sharp",
+      motion: "energetic",
+      typeScaleRatio: 1.4,
+    },
+    variants: { hero: ["bold-block"], menuLayout: ["bold-grid"], chrome: ["bold"] },
+    layouts: { home: ["hero", "signatureDishes", "ctaBanner", "gallery", "aboutTeaser", "hoursLocation", "footer"] },
   },
 ];

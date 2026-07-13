@@ -34,6 +34,50 @@ describe("renderHeaderNav", () => {
   });
 });
 
+describe("renderHeaderNav — §Website Builder chrome styles", () => {
+  function theme(chrome: "standard" | "editorial" | "warm" | "bold") {
+    return { variants: { hero: [], menuLayout: [], chrome: [chrome] } } as never;
+  }
+
+  it("defaults to the standard chrome when no theme is passed (backward compatible)", () => {
+    const withTheme = renderHeaderNav(ctx(definition()), theme("standard"));
+    const withoutTheme = renderHeaderNav(ctx(definition()));
+    expect(withoutTheme).toBe(withTheme);
+  });
+
+  it("editorial: renders understated underlined nav links and links to every page", () => {
+    const html = renderHeaderNav(ctx(definition()), theme("editorial"));
+    expect(html).toContain("chrome-editorial");
+    expect(html).toContain('href="/"');
+    expect(html).toContain('href="/menu"');
+    expect(html).toContain("text-decoration:underline");
+  });
+
+  it("warm: renders nav links inside a rounded pill bar", () => {
+    const html = renderHeaderNav(ctx(definition()), theme("warm"));
+    expect(html).toContain("chrome-warm");
+    expect(html).toContain("border-radius:999px");
+    expect(html).toContain('href="/"');
+  });
+
+  it("bold: renders a bold colored sticky header with an uppercase nav collapsed behind a details disclosure", () => {
+    const html = renderHeaderNav(ctx(definition()), theme("bold"));
+    expect(html).toContain("chrome-bold");
+    expect(html).toContain("<details");
+    expect(html).toContain("text-transform:uppercase");
+    expect(html).toContain('href="/"');
+  });
+
+  it("escapes the restaurant name across every chrome style", () => {
+    const def = definition();
+    def.restaurantName = "<script>alert(1)</script>";
+    for (const style of ["standard", "editorial", "warm", "bold"] as const) {
+      const html = renderHeaderNav(ctx(def), theme(style));
+      expect(html).not.toContain("<script>alert(1)</script>");
+    }
+  });
+});
+
 describe("renderMobileActionBar", () => {
   it("includes a Call link only when a phone number exists", () => {
     const withPhone = renderMobileActionBar(ctx(definition({ phone: "555-0100" })));

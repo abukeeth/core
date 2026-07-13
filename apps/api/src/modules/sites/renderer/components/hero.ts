@@ -1,4 +1,5 @@
 import { escapeHtml } from "../html-escape";
+import { deterministicHue } from "../image-fallback";
 import type { RenderContext } from "../render-context";
 import type { SectionBlock } from "../../types";
 
@@ -12,11 +13,26 @@ const HEIGHT_VH: Record<string, string> = {
 const ALIGN_ITEMS: Record<string, string> = { left: "flex-start", center: "center", right: "flex-end" };
 const TEXT_ALIGN: Record<string, string> = { left: "left", center: "center", right: "right" };
 
+const FULL_BLEED_VARIANTS = new Set(["fullbleed-image", "bold-block"]);
+
 function readString(props: Record<string, unknown>, key: string, fallback = ""): string {
   return typeof props[key] === "string" ? (props[key] as string) : fallback;
 }
 
-/** §3 Hero Builder — 3 variants; auto-contrast scrim when a hero photo is present. Sprint 20A Task 5 adds a secondary CTA, a promo badge, alignment/height controls, and a distinct background-image layer. */
+/** A themed gradient tile standing in for an un-uploaded full-bleed photo — never a blank hero. */
+function fullBleedFallback(name: string, minHeight: string): string {
+  const hue = deterministicHue(name);
+  return `<div aria-hidden="true" style="width:100%;height:${minHeight};background:linear-gradient(135deg, hsl(${hue} 45% 30%), hsl(${(hue + 40) % 360} 45% 18%));display:block;"></div>`;
+}
+
+/**
+ * §3 Hero Builder — 3 legacy variants (fullbleed-image/split/minimal-typographic,
+ * unchanged) plus 3 §Website Builder design-system variants (editorial-split/
+ * warm-frame/bold-block) that differ materially in image treatment, text
+ * hierarchy, and layout direction, not only color/font. Every variant now
+ * always shows an image — a real uploaded photo, or the same deterministic
+ * fallback tile used elsewhere — so a hero is never left "mostly text."
+ */
 export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   const props = section.props;
   const headline = readString(props, "headline", ctx.definition.tagline);
@@ -33,53 +49,72 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   const alignment = readString(props, "alignment", "center");
   const height = readString(props, "height", "medium");
   const variant = section.variant ?? "minimal-typographic";
+  const isBold = variant === "bold-block";
+  const isEditorial = variant === "editorial-split";
+  const isWarmFrame = variant === "warm-frame";
 
-  const backgroundUrl = ctx.assets.heroBackgroundUrl ?? (variant === "fullbleed-image" ? ctx.assets.heroUrl : undefined);
-  // §Website Builder — minimal-typographic previously discarded a real
-  // uploaded hero photo entirely (no image element of any kind), even when
-  // one existed, unconditionally for every MINIMAL-family theme. It keeps
-  // its text-forward identity (no full-bleed background) but now shows the
-  // real photo as a smaller, restrained inset image instead of showing
-  // nothing — "mostly text and buttons" should never be true just because
-  // a theme happens to be in this family.
-  const insetImageUrl = variant === "split" || variant === "minimal-typographic" ? ctx.assets.heroUrl : undefined;
-  const insetImageMaxWidth = variant === "minimal-typographic" ? "280px" : "480px";
-  const hasFullBleedImage = variant !== "minimal-typographic" && Boolean(backgroundUrl);
+  const minHeight = HEIGHT_VH[height] ?? HEIGHT_VH.medium;
+  const heroName = ctx.assets.heroAlt ?? ctx.definition.restaurantName;
 
   const badgeHtml = badge ? `<span style="display:inline-block;background:var(--color-accent-600);color:#fff;border-radius:999px;padding:0.25rem 0.75rem;font-size:var(--step--1);font-weight:600;margin-bottom:0.75rem;">${escapeHtml(badge)}</span>` : "";
-  const ctaHtml = `<a class="cta" href="${escapeHtml(ctaLink)}" id="primary-action">${escapeHtml(ctaLabel)}</a>`;
+  const ctaHtml = `<a class="cta" href="${escapeHtml(ctaLink)}" id="primary-action"${isBold ? ' style="font-size:var(--step-1);padding:1rem 2rem;"' : ""}>${escapeHtml(ctaLabel)}</a>`;
   const secondaryCtaHtml = secondaryCtaLabel
     ? `<a href="${escapeHtml(secondaryCtaLink)}" style="margin-left:0.75rem;font-weight:600;color:inherit;text-decoration:underline;">${escapeHtml(secondaryCtaLabel)}</a>`
     : "";
-  const minHeight = HEIGHT_VH[height] ?? HEIGHT_VH.medium;
 
-  if (hasFullBleedImage) {
+  if (FULL_BLEED_VARIANTS.has(variant)) {
+    const backgroundUrl = ctx.assets.heroBackgroundUrl ?? ctx.assets.heroUrl;
+    const imageHtml = backgroundUrl
+      ? `<img src="${escapeHtml(backgroundUrl)}" alt="${escapeHtml(heroName)}" style="width:100%;height:${minHeight};object-fit:cover;display:block;" />`
+      : fullBleedFallback(heroName, minHeight);
+    // bold-block: heavier scrim + uppercase display headline for a punchier, commerce-forward statement.
+    const headlineStyle = isBold
+      ? "color:#ffffff;margin:0 0 0.5rem;text-transform:uppercase;letter-spacing:0.02em;font-size:var(--step-2);"
+      : "color:#ffffff;margin:0 0 0.5rem;";
+
     return `<section class="hero hero--${escapeHtml(variant)}" style="position:relative;">
-  <img src="${escapeHtml(backgroundUrl!)}" alt="${escapeHtml(ctx.assets.heroAlt ?? ctx.definition.restaurantName)}" style="width:100%;height:${minHeight};object-fit:cover;display:block;" />
-  <div style="position:absolute;inset:0;background:rgba(0,0,0,${overlayOpacity});display:flex;flex-direction:column;justify-content:center;align-items:${
+  ${imageHtml}
+  <div style="position:absolute;inset:0;background:rgba(0,0,0,${isBold ? Math.max(overlayOpacity, 0.55) : overlayOpacity});display:flex;flex-direction:column;justify-content:center;align-items:${
     ALIGN_ITEMS[alignment] ?? ALIGN_ITEMS.center
   };padding:2rem;text-align:${TEXT_ALIGN[alignment] ?? TEXT_ALIGN.center};">
     ${badgeHtml}
-    <h1 style="color:#ffffff;margin:0 0 0.5rem;">${escapeHtml(headline)}</h1>
+    <h1 style="${headlineStyle}">${escapeHtml(headline)}</h1>
     <p style="color:#ffffff;margin:0 0 1rem;">${escapeHtml(subhead)}</p>
     <div>${ctaHtml}${secondaryCtaHtml}</div>
   </div>
 </section>`;
   }
 
+  // Inset-image variants: split, minimal-typographic, editorial-split, warm-frame.
+  // A real photo (or the fallback tile) sits beside/above the text, never a
+  // full-bleed background, preserving each variant's text-forward identity.
+  const insetImageUrl = ctx.assets.heroUrl;
+  const insetMaxWidth = variant === "minimal-typographic" ? "280px" : isEditorial ? "560px" : "420px";
+  const hue = deterministicHue(heroName);
+  const frameBorder = isWarmFrame ? "border:8px solid var(--color-surface-50);" : "";
+  const insetFallback = `<div aria-hidden="true" style="width:100%;max-width:${insetMaxWidth};aspect-ratio:4/3;border-radius:var(--radius);box-shadow:var(--shadow);${frameBorder}background:linear-gradient(135deg, hsl(${hue} 45% 90%), hsl(${(hue + 40) % 360} 45% 80%));"></div>`;
   const insetImageHtml = insetImageUrl
-    ? `<img src="${escapeHtml(insetImageUrl)}" alt="${escapeHtml(ctx.assets.heroAlt ?? ctx.definition.restaurantName)}" style="width:100%;max-width:${insetImageMaxWidth};border-radius:var(--radius);box-shadow:var(--shadow);" />`
-    : "";
+    ? `<img src="${escapeHtml(insetImageUrl)}" alt="${escapeHtml(heroName)}" style="width:100%;max-width:${insetMaxWidth};border-radius:var(--radius);box-shadow:var(--shadow);${frameBorder}" />`
+    : insetFallback;
 
-  return `<section class="hero hero--${escapeHtml(variant)}" style="min-height:${minHeight};display:flex;align-items:center;padding:2rem 1rem;gap:2rem;flex-wrap:wrap;justify-content:${
-    variant === "split" ? "space-between" : "center"
-  };">
-  <div style="flex:1;min-width:260px;text-align:${TEXT_ALIGN[alignment] ?? TEXT_ALIGN.center};">
+  const justify = variant === "split" || isEditorial ? "space-between" : "center";
+  const wrapperExtra = isWarmFrame ? "flex-direction:column;align-items:center;text-align:center;" : "";
+  const headlineHtml = isEditorial
+    ? `<h1 style="font-size:var(--step-2);letter-spacing:-0.01em;">${escapeHtml(headline)}</h1>`
+    : `<h1>${escapeHtml(headline)}</h1>`;
+  const textAlign = isWarmFrame ? "center" : TEXT_ALIGN[alignment] ?? TEXT_ALIGN.center;
+
+  const textBlock = `<div style="flex:1;min-width:260px;text-align:${textAlign};">
     ${badgeHtml}
-    <h1>${escapeHtml(headline)}</h1>
+    ${headlineHtml}
     <p>${escapeHtml(subhead)}</p>
     <div>${ctaHtml}${secondaryCtaHtml}</div>
-  </div>
-  ${insetImageHtml}
+  </div>`;
+
+  // editorial-split leads with the (larger) image for an asymmetric magazine layout; every other inset variant keeps the original text-then-image order.
+  const body = isEditorial ? `${insetImageHtml}\n  ${textBlock}` : `${textBlock}\n  ${insetImageHtml}`;
+
+  return `<section class="hero hero--${escapeHtml(variant)}" style="min-height:${minHeight};display:flex;align-items:center;padding:2rem 1rem;gap:${isEditorial ? "3rem" : "2rem"};flex-wrap:wrap;justify-content:${justify};${wrapperExtra}">
+  ${body}
 </section>`;
 }

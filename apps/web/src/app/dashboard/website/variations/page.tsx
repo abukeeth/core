@@ -7,7 +7,7 @@ import { DevicePreview } from "./[id]/device-preview";
 import { GenerationProgress } from "./generation-progress";
 import { SelectButton } from "./select-button";
 
-const FAMILY_LABEL: Record<string, string> = { LUXURY: "Luxury", MODERN: "Modern", MINIMAL: "Minimal" };
+const FAMILY_LABEL: Record<string, string> = { LUXURY: "Bold Commerce", MODERN: "Modern Editorial", MINIMAL: "Warm Local" };
 
 export default async function VariationsPage() {
   const siteResult = await serverFetch<{ site: WebsiteSite }>("/api/sites/me");

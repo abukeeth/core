@@ -8,7 +8,7 @@ import { escapeHtml } from "./html-escape";
  * Deterministic on the name so the same item/category always gets the
  * same look across renders, never a random placeholder.
  */
-function deterministicHue(seed: string): number {
+export function deterministicHue(seed: string): number {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;

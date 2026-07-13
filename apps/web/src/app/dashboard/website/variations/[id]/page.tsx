@@ -4,6 +4,8 @@ import type { SiteVersion, WebsiteSite } from "@/lib/api";
 import { serverFetch } from "@/lib/server-api";
 import { DevicePreview } from "./device-preview";
 
+const FAMILY_LABEL: Record<string, string> = { LUXURY: "Bold Commerce", MODERN: "Modern Editorial", MINIMAL: "Warm Local" };
+
 function formatPrice(cents: number): string {
   return (cents / 100).toFixed(2);
 }
@@ -34,7 +36,7 @@ export default async function VariationPreviewPage({ params }: { params: Promise
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">FULL PREVIEW</p>
             <h1 className="mt-1 text-2xl font-bold">{definition.restaurantName}</h1>
             <p className="mt-1 text-sm text-[#756B5D]">
-              {version.styleFamily} · {definition.cuisine} · {definition.businessType}
+              {FAMILY_LABEL[version.styleFamily ?? ""] ?? version.styleFamily} · {definition.cuisine} · {definition.businessType}
             </p>
             <p className="mt-2 text-sm italic text-[#756B5D]">&ldquo;{definition.tagline}&rdquo;</p>
           </div>
