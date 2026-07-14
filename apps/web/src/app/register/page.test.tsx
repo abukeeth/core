@@ -42,26 +42,39 @@ function fillForm() {
 }
 
 describe("RegisterPage — §17: a client-side timeout must not report failure for a signup that actually succeeded", () => {
-  it("continues to the dashboard on a normal, fast success", async () => {
-    mockRegister.mockResolvedValue({ user: { id: "u1" } });
+  it("routes a newly created owner straight to /setup on a normal, fast success (Priority 4)", async () => {
+    mockRegister.mockResolvedValue({ user: { id: "u1" }, signupState: "ACCOUNT_CREATED" });
+    render(<RegisterPage />);
+    fillForm();
+    fireEvent.click(screen.getByRole("button", { name: "Create business account" }));
+
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/setup"));
+    expect(mockPush).not.toHaveBeenCalledWith("/dashboard");
+    expect(mockRegister).toHaveBeenCalledWith("joe@example.com", "hunter222", "Joe Smith", { idempotencyKey: "signup:key-1" });
+    expect(mockClearAuthRequestKey).toHaveBeenCalledWith("signup", "joe@example.com");
+  });
+
+  it("routes a recovered (already-existing) account to /dashboard so its gate can self-route (Priority 4)", async () => {
+    mockRegister.mockResolvedValue({ user: { id: "u1" }, signupState: "ACCOUNT_RECOVERED" });
     render(<RegisterPage />);
     fillForm();
     fireEvent.click(screen.getByRole("button", { name: "Create business account" }));
 
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard"));
-    expect(mockRegister).toHaveBeenCalledWith("joe@example.com", "hunter222", "Joe Smith", { idempotencyKey: "signup:key-1" });
-    expect(mockClearAuthRequestKey).toHaveBeenCalledWith("signup", "joe@example.com");
+    expect(mockPush).not.toHaveBeenCalledWith("/setup");
   });
 
   it("on timeout, retries signup reconciliation with the same idempotency key", async () => {
     const timeoutError = Object.assign(new Error("Request timed out"), { code: "REQUEST_TIMEOUT" });
-    mockRegister.mockRejectedValueOnce(timeoutError).mockResolvedValueOnce({ user: { id: "u1" } });
+    mockRegister
+      .mockRejectedValueOnce(timeoutError)
+      .mockResolvedValueOnce({ user: { id: "u1" }, signupState: "ACCOUNT_CREATED" });
     render(<RegisterPage />);
     fillForm();
     fireEvent.click(screen.getByRole("button", { name: "Create business account" }));
 
     await waitFor(() => expect(mockRegister).toHaveBeenCalledTimes(2));
-    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith("/setup"));
     expect(mockRegister).toHaveBeenNthCalledWith(1, "joe@example.com", "hunter222", "Joe Smith", { idempotencyKey: "signup:key-1" });
     expect(mockRegister).toHaveBeenNthCalledWith(2, "joe@example.com", "hunter222", "Joe Smith", { idempotencyKey: "signup:key-1" });
   });

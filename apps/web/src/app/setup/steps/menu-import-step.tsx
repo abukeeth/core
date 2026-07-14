@@ -42,10 +42,25 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
   useEffect(() => {
     let cancelled = false;
     listImportJobs()
-      .then(({ jobs }) => {
+      .then(async ({ jobs }) => {
         if (cancelled) return;
         const resumable = jobs.find((candidate) => RESUMABLE_STATUSES.has(candidate.status));
-        if (resumable) setJob(resumable);
+        if (resumable) {
+          setJob(resumable);
+          return;
+        }
+        // Priority 3: reaching this step (MenuImportStep only renders while
+        // setupStep === MENU_IMPORT) with an already-APPROVED job means the
+        // menu was extracted, saved, and approved, but the wizard's advance
+        // to WEBSITE_THEME never landed — e.g. the setSetupStep call right
+        // after approval failed, or the tab closed between the two. The menu
+        // is already built, so continue automatically instead of forcing the
+        // owner to re-import or manually skip.
+        const approved = jobs.find((candidate) => candidate.status === "APPROVED");
+        if (approved) {
+          const { restaurant } = await setSetupStep("WEBSITE_THEME");
+          if (!cancelled) onDone(restaurant);
+        }
       })
       .catch(() => {
         // No existing job reachable — falls through to the picker, same as a genuinely fresh start.
@@ -56,7 +71,7 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [onDone]);
 
   // Real backend-state polling while a job is genuinely pending/processing —
   // never a client-side timer that advances regardless of actual status.
