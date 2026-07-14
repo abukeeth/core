@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { Role, type User } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
+import { createLogger } from "../../lib/logger";
 import { generateRefreshToken, hashToken, signAccessToken } from "../../lib/jwt";
 import { hashPassword, verifyPassword } from "../../lib/password";
 import { safeFrontendOrigin } from "../../lib/safe-frontend-url";
@@ -24,6 +25,10 @@ import type {
 
 const PASSWORD_RESET_TTL_MS = 60 * 60 * 1000; // 1 hour
 const EMAIL_VERIFICATION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const EMAIL_VERIFICATION_RESEND_COOLDOWN_MS = 60 * 1000;
+const SIGNUP_VERIFICATION_RETRY_DELAY_MS = 30 * 1000;
+const SIGNUP_VERIFICATION_MAX_ATTEMPTS = 2;
+const logger = createLogger("auth-service");
 
 export interface TokenPair {
   accessToken: string;
@@ -207,10 +212,10 @@ export async function getUserById(id: string): Promise<User | null> {
  * enumeration-prevention, mirroring customers.service.ts's
  * requestPasswordReset (Sprint 18).
  */
-export async function requestPasswordReset(email: string): Promise<void> {
+export async function requestPasswordReset(email: string): Promise<PasswordResetRequestResult> {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user) {
-    return;
+    return { accountFound: false, sent: true };
   }
   const token = randomBytes(32).toString("hex");
   const tokenHash = hashToken(token);
@@ -218,7 +223,8 @@ export async function requestPasswordReset(email: string): Promise<void> {
   await prisma.passwordResetToken.create({ data: { userId: user.id, tokenHash, expiresAt } });
 
   const resetLink = `${safeFrontendOrigin()}/reset-password?token=${token}`;
-  await sendOwnerPasswordResetEmail(user.email, resetLink);
+  const result = await sendOwnerPasswordResetEmail(user.email, resetLink);
+  return { accountFound: true, sent: result.success, errorMessage: result.errorMessage };
 }
 
 /**
@@ -252,8 +258,19 @@ export async function changePassword(userId: string, input: ChangePasswordInput)
 }
 
 export interface SendEmailVerificationResult {
+  state: "SENT" | "FAILED" | "ALREADY_VERIFIED" | "THROTTLED";
   sent: boolean;
   errorMessage?: string;
+}
+
+export interface PasswordResetRequestResult {
+  accountFound: boolean;
+  sent: boolean;
+  errorMessage?: string;
+}
+
+export interface SendEmailVerificationOptions {
+  enforceResendCooldown?: boolean;
 }
 
 /**
@@ -264,10 +281,28 @@ export interface SendEmailVerificationResult {
  * explicit "Resend email" action) can check the returned result instead
  * of assuming success.
  */
-export async function sendEmailVerification(userId: string): Promise<SendEmailVerificationResult> {
+export async function sendEmailVerification(
+  userId: string,
+  options: SendEmailVerificationOptions = {},
+): Promise<SendEmailVerificationResult> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user || user.emailVerified) {
-    return { sent: true };
+    return { sent: true, state: "ALREADY_VERIFIED" };
+  }
+
+  if (options.enforceResendCooldown) {
+    const recentToken = await prisma.emailVerificationToken.findFirst({
+      where: {
+        userId: user.id,
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+        createdAt: { gte: new Date(Date.now() - EMAIL_VERIFICATION_RESEND_COOLDOWN_MS) },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    if (recentToken) {
+      return { sent: true, state: "THROTTLED" };
+    }
   }
   const token = randomBytes(32).toString("hex");
   const tokenHash = hashToken(token);
@@ -276,7 +311,63 @@ export async function sendEmailVerification(userId: string): Promise<SendEmailVe
 
   const verifyLink = `${safeFrontendOrigin()}/verify-email?token=${token}`;
   const result = await sendEmailVerificationEmail(user.email, verifyLink);
-  return { sent: result.success, errorMessage: result.errorMessage };
+  if (result.success) {
+    return { sent: true, state: "SENT" };
+  }
+  return { sent: false, state: "FAILED", errorMessage: result.errorMessage };
+}
+
+function scheduleSignupVerificationRetry(userId: string, attempt: number): void {
+  if (attempt >= SIGNUP_VERIFICATION_MAX_ATTEMPTS) {
+    return;
+  }
+  setTimeout(() => {
+    runSignupVerificationDispatch(userId, attempt + 1);
+  }, SIGNUP_VERIFICATION_RETRY_DELAY_MS);
+}
+
+function runSignupVerificationDispatch(userId: string, attempt: number): void {
+  const startedAt = Date.now();
+  void sendEmailVerification(userId)
+    .then((result) => {
+      logger.info(
+        {
+          authFlow: "signup",
+          step: "verification_email_dispatch",
+          userId,
+          attempt,
+          deliveryState: result.state,
+          sent: result.sent,
+          durationMs: Date.now() - startedAt,
+        },
+        "Signup verification email dispatch finished",
+      );
+      if (!result.sent) {
+        scheduleSignupVerificationRetry(userId, attempt);
+      }
+    })
+    .catch((err) => {
+      logger.error(
+        {
+          authFlow: "signup",
+          step: "verification_email_dispatch",
+          userId,
+          attempt,
+          durationMs: Date.now() - startedAt,
+          err,
+        },
+        "Signup verification email dispatch crashed",
+      );
+      scheduleSignupVerificationRetry(userId, attempt);
+    });
+}
+
+/**
+ * Non-blocking verification-email dispatch for signup: the response should
+ * only depend on account/session creation.
+ */
+export function dispatchSignupVerificationEmail(userId: string): void {
+  runSignupVerificationDispatch(userId, 1);
 }
 
 export async function verifyEmail(presentedToken: string): Promise<void> {

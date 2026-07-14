@@ -2,22 +2,35 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { forgotPassword } from "@/lib/api";
+import { clearAuthRequestKey, getOrCreateAuthRequestKey } from "@/lib/auth-idempotency";
+import { forgotPassword, hasApiErrorCode } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(
+    "Password reset request accepted. If an account exists, you will receive an email shortly.",
+  );
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     setError(null);
     setSubmitting(true);
+    const identity = email.trim().toLowerCase();
+    const requestKey = getOrCreateAuthRequestKey("forgot-password", identity);
     try {
-      await forgotPassword(email);
+      const response = await forgotPassword(email, { idempotencyKey: requestKey });
+      clearAuthRequestKey("forgot-password", identity);
+      setStatusMessage(response.message);
       setSent(true);
     } catch (err) {
+      if (hasApiErrorCode(err, "REQUEST_TIMEOUT") || hasApiErrorCode(err, "AUTH_REQUEST_IN_PROGRESS")) {
+        setError("Password reset request is still processing. Retry in a moment to confirm the result.");
+        return;
+      }
+      clearAuthRequestKey("forgot-password", identity);
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSubmitting(false);
@@ -39,7 +52,7 @@ export default function ForgotPasswordPage() {
           {sent ? (
             <>
               <p className="mt-3 text-sm leading-6 text-[#756B5D]">
-                If an account exists for that email, a password reset link has been sent. Check your inbox.
+                {statusMessage}
               </p>
               <Link
                 href="/login"

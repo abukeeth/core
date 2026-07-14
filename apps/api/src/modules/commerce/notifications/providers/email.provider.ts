@@ -1,6 +1,7 @@
 import { NotificationChannel } from "@prisma/client";
 import nodemailer from "nodemailer";
 import { requireEnv } from "../../../../config/env";
+import { createLogger } from "../../../../lib/logger";
 import type { NotificationProviderAdapter, SendNotificationInput, SendNotificationResult } from "../types";
 
 /**
@@ -12,8 +13,10 @@ import type { NotificationProviderAdapter, SendNotificationInput, SendNotificati
 export class EmailNotificationProviderAdapter implements NotificationProviderAdapter {
   readonly channel = NotificationChannel.EMAIL;
   readonly implemented = true;
+  private readonly logger = createLogger("email-provider");
 
   async send(input: SendNotificationInput): Promise<SendNotificationResult> {
+    const startedAt = Date.now();
     try {
       const transporter = nodemailer.createTransport({
         host: requireEnv("SMTP_HOST"),
@@ -28,9 +31,29 @@ export class EmailNotificationProviderAdapter implements NotificationProviderAda
         text: input.body,
       });
 
+      this.logger.info(
+        {
+          channel: this.channel,
+          notificationType: input.type,
+          durationMs: Date.now() - startedAt,
+          success: true,
+        },
+        "Email provider send completed",
+      );
       return { success: true, providerMessageId: info.messageId };
     } catch (err) {
-      return { success: false, errorMessage: err instanceof Error ? err.message : "Unknown email send error" };
+      const errorMessage = err instanceof Error ? err.message : "Unknown email send error";
+      this.logger.warn(
+        {
+          channel: this.channel,
+          notificationType: input.type,
+          durationMs: Date.now() - startedAt,
+          success: false,
+          errorMessage,
+        },
+        "Email provider send failed",
+      );
+      return { success: false, errorMessage };
     }
   }
 }

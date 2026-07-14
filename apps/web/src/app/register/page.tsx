@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { isTimeoutMessage, login, register } from "@/lib/api";
+import { clearAuthRequestKey, getOrCreateAuthRequestKey } from "@/lib/auth-idempotency";
+import { hasApiErrorCode, register } from "@/lib/api";
 import { setStoredReferralCode } from "@/lib/referral-storage";
 
 export default function RegisterPage() {
@@ -24,32 +25,35 @@ export default function RegisterPage() {
     if (submitting) return; // Prevent a second submit while the first is still in flight or being verified.
     setError(null);
     setSubmitting(true);
+    const identity = email.trim().toLowerCase();
+    const requestKey = getOrCreateAuthRequestKey("signup", identity);
     try {
-      await register(email, password, name);
+      await register(email, password, name, { idempotencyKey: requestKey });
+      clearAuthRequestKey("signup", identity);
       router.push("/dashboard");
       router.refresh();
       // Keep submitting=true — the component is about to unmount on navigation.
       return;
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Registration failed";
-      // §17 — a client-side timeout doesn't mean the account wasn't actually
-      // created; the server may have finished the work (including setting
-      // the session cookie on a response our aborted fetch never received)
-      // regardless. There's no session to just re-check yet in that case,
-      // but logging in fresh with the same credentials the owner just typed
-      // works whether the account was created a moment ago or not — and if
-      // it wasn't, this simply fails like any bad-credentials login would.
-      if (isTimeoutMessage(message)) {
+      if (hasApiErrorCode(err, "REQUEST_TIMEOUT") || hasApiErrorCode(err, "AUTH_REQUEST_IN_PROGRESS")) {
         try {
-          await login(email, password);
+          await register(email, password, name, { idempotencyKey: requestKey });
+          clearAuthRequestKey("signup", identity);
           router.push("/dashboard");
           router.refresh();
           return;
-        } catch {
-          // Genuinely not created — fall through to the error below.
+        } catch (recoveryErr) {
+          setError(
+            recoveryErr instanceof Error
+              ? recoveryErr.message
+              : "Signup is still being confirmed. Please tap Create business account again in a moment.",
+          );
+          setSubmitting(false);
+          return;
         }
       }
-      setError(message);
+      clearAuthRequestKey("signup", identity);
+      setError(err instanceof Error ? err.message : "Registration failed");
     }
     setSubmitting(false);
   }

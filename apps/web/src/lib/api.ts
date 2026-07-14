@@ -18,12 +18,59 @@ function isTimeoutError(err: unknown): boolean {
   return err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError");
 }
 
-const TIMEOUT_MESSAGE = "The server is taking longer than expected to respond — it may be waking up. Please try again in a moment.";
+const TIMEOUT_MESSAGE = "Request timed out before the server responded. The action may still be processing.";
 const NETWORK_MESSAGE = "Couldn't reach the server. Check your connection and try again.";
+const SERVICE_UNAVAILABLE_MESSAGE = "Service is temporarily unavailable. Please try again in a moment.";
+
+export type ApiErrorCode =
+  | "REQUEST_TIMEOUT"
+  | "NETWORK_UNREACHABLE"
+  | "AUTH_REQUEST_IN_PROGRESS"
+  | "AUTHENTICATION_FAILED"
+  | "EMAIL_DELIVERY_FAILED"
+  | "SERVICE_TEMPORARILY_UNAVAILABLE"
+  | "REQUEST_FAILED"
+  | string;
+
+export class ApiRequestError extends Error {
+  code: ApiErrorCode;
+  status: number | null;
+
+  constructor(message: string, code: ApiErrorCode, status: number | null = null) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.code = code;
+    this.status = status;
+  }
+}
+
+export function isApiRequestError(err: unknown): err is ApiRequestError {
+  return err instanceof ApiRequestError;
+}
+
+export function hasApiErrorCode(err: unknown, code: ApiErrorCode): boolean {
+  return isApiRequestError(err) && err.code === code;
+}
 
 /** Lets a caller distinguish "the request timed out client-side" (the server may have still finished the work) from any other failure, without hardcoding/duplicating TIMEOUT_MESSAGE's exact text. */
 export function isTimeoutMessage(message: string): boolean {
   return message === TIMEOUT_MESSAGE;
+}
+
+function mapServerError(code: ApiErrorCode | null, status: number, fallback: string): string {
+  if (code === "AUTHENTICATION_FAILED") {
+    return "Authentication failed. Check your credentials and try again.";
+  }
+  if (code === "EMAIL_DELIVERY_FAILED") {
+    return "Email delivery failed. Please retry in a moment.";
+  }
+  if (code === "AUTH_REQUEST_IN_PROGRESS") {
+    return "This request is still being processed. Retry in a moment.";
+  }
+  if (status >= 500) {
+    return SERVICE_UNAVAILABLE_MESSAGE;
+  }
+  return fallback;
 }
 
 export interface PublicUser {
@@ -177,7 +224,10 @@ async function apiFetch<T>(path: string, options: RequestInit = {}, timeoutMs: n
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (err) {
-    throw new Error(isTimeoutError(err) ? TIMEOUT_MESSAGE : NETWORK_MESSAGE);
+    if (isTimeoutError(err)) {
+      throw new ApiRequestError(TIMEOUT_MESSAGE, "REQUEST_TIMEOUT");
+    }
+    throw new ApiRequestError(NETWORK_MESSAGE, "NETWORK_UNREACHABLE");
   }
 
   const data = await res.json().catch(() => null);
@@ -193,24 +243,85 @@ async function apiFetch<T>(path: string, options: RequestInit = {}, timeoutMs: n
     // once instead of patching each one individually.
     const issues = Array.isArray(data?.issues) ? data.issues.filter((i: unknown): i is string => typeof i === "string") : [];
     const base = data?.error ?? "Request failed";
-    throw new Error(issues.length > 0 ? `${base}: ${issues.join(" ")}` : base);
+    const code = typeof data?.code === "string" ? (data.code as ApiErrorCode) : res.status >= 500 ? "SERVICE_TEMPORARILY_UNAVAILABLE" : "REQUEST_FAILED";
+    const mapped = mapServerError(code, res.status, base);
+    const message = issues.length > 0 ? `${mapped}: ${issues.join(" ")}` : mapped;
+    throw new ApiRequestError(message, code, res.status);
   }
 
   return data as T;
 }
 
-export function login(email: string, password: string, rememberMe = true) {
-  return apiFetch<{ user: PublicUser }>("/api/auth/login", {
-    method: "POST",
-    body: JSON.stringify({ email, password, rememberMe }),
-  });
+export interface AuthRequestOptions {
+  idempotencyKey?: string;
 }
 
-export function register(email: string, password: string, name: string) {
-  return apiFetch<{ user: PublicUser }>("/api/auth/register", {
+export interface LoginResponse {
+  user: PublicUser;
+  loginState: "AUTHENTICATED";
+}
+
+export interface SignupResponse {
+  user: PublicUser;
+  signupState: "ACCOUNT_CREATED" | "ACCOUNT_RECOVERED";
+  verificationEmail: {
+    state: "PENDING" | "SENT" | "FAILED";
+    message: string;
+  };
+}
+
+export interface PasswordResetRequestResponse {
+  ok: true;
+  state: "REQUEST_ACCEPTED";
+  delivery: "PENDING";
+  message: string;
+}
+
+export interface ResendVerificationResponse {
+  ok: true;
+  state: "SENT" | "ACCEPTED";
+  code: "EMAIL_SENT" | "EMAIL_RESEND_THROTTLED" | "EMAIL_DELIVERY_PENDING";
+  message: string;
+}
+
+function withAuthIdempotency(options?: AuthRequestOptions): HeadersInit | undefined {
+  if (!options?.idempotencyKey) {
+    return undefined;
+  }
+  return { "Idempotency-Key": options.idempotencyKey };
+}
+
+function throwIfPendingAuthResponse(payload: unknown, fallbackStatus: number | null = null): void {
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "code" in payload &&
+    (payload as { code?: unknown }).code === "AUTH_REQUEST_IN_PROGRESS"
+  ) {
+    const pendingError = (payload as { error?: unknown }).error;
+    const message = typeof pendingError === "string" ? pendingError : "This request is still being processed. Retry in a moment.";
+    throw new ApiRequestError(message, "AUTH_REQUEST_IN_PROGRESS", fallbackStatus);
+  }
+}
+
+export async function login(email: string, password: string, rememberMe = true, options?: AuthRequestOptions) {
+  const response = await apiFetch<LoginResponse | { code: string; error?: string }>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password, rememberMe }),
+    headers: withAuthIdempotency(options),
+  });
+  throwIfPendingAuthResponse(response);
+  return response as LoginResponse;
+}
+
+export async function register(email: string, password: string, name: string, options?: AuthRequestOptions) {
+  const response = await apiFetch<SignupResponse | { code: string; error?: string }>("/api/auth/register", {
     method: "POST",
     body: JSON.stringify({ email, password, name }),
+    headers: withAuthIdempotency(options),
   });
+  throwIfPendingAuthResponse(response);
+  return response as SignupResponse;
 }
 
 export function logout() {
@@ -225,10 +336,11 @@ export function getMe() {
   return apiFetch<{ user: PublicUser }>("/api/auth/me");
 }
 
-export function forgotPassword(email: string) {
-  return apiFetch<{ ok: true }>("/api/auth/forgot-password", {
+export function forgotPassword(email: string, options?: AuthRequestOptions) {
+  return apiFetch<PasswordResetRequestResponse>("/api/auth/forgot-password", {
     method: "POST",
     body: JSON.stringify({ email }),
+    headers: withAuthIdempotency(options),
   });
 }
 
@@ -253,8 +365,11 @@ export function verifyEmail(token: string) {
   });
 }
 
-export function resendVerification() {
-  return apiFetch<{ ok: true }>("/api/auth/resend-verification", { method: "POST" });
+export function resendVerification(options?: AuthRequestOptions) {
+  return apiFetch<ResendVerificationResponse>("/api/auth/resend-verification", {
+    method: "POST",
+    headers: withAuthIdempotency(options),
+  });
 }
 
 export function updateProfile(input: { name?: string; phone?: string | null }) {
@@ -396,7 +511,10 @@ async function uploadMenuImage<T extends "category" | "item">(
       signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
     });
   } catch (err) {
-    throw new Error(isTimeoutError(err) ? TIMEOUT_MESSAGE : NETWORK_MESSAGE);
+    if (isTimeoutError(err)) {
+      throw new ApiRequestError(TIMEOUT_MESSAGE, "REQUEST_TIMEOUT");
+    }
+    throw new ApiRequestError(NETWORK_MESSAGE, "NETWORK_UNREACHABLE");
   }
 
   const data = await res.json().catch(() => null);
@@ -566,7 +684,10 @@ export async function createImportJob(
       signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
     });
   } catch (err) {
-    throw new Error(isTimeoutError(err) ? TIMEOUT_MESSAGE : NETWORK_MESSAGE);
+    if (isTimeoutError(err)) {
+      throw new ApiRequestError(TIMEOUT_MESSAGE, "REQUEST_TIMEOUT");
+    }
+    throw new ApiRequestError(NETWORK_MESSAGE, "NETWORK_UNREACHABLE");
   }
 
   const data = await res.json().catch(() => null);
@@ -969,7 +1090,10 @@ export async function uploadSiteAsset(siteId: string, kind: SiteAssetKind, file:
       signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
     });
   } catch (err) {
-    throw new Error(isTimeoutError(err) ? TIMEOUT_MESSAGE : NETWORK_MESSAGE);
+    if (isTimeoutError(err)) {
+      throw new ApiRequestError(TIMEOUT_MESSAGE, "REQUEST_TIMEOUT");
+    }
+    throw new ApiRequestError(NETWORK_MESSAGE, "NETWORK_UNREACHABLE");
   }
 
   const data = await res.json().catch(() => null);
