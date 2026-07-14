@@ -97,6 +97,27 @@ describe("apiFetch — timeout and network error mapping", () => {
     });
   });
 
+  it("surfaces the HTTP status when the failure body isn't the API's structured JSON error (e.g. a proxy 404 HTML page)", async () => {
+    // Reproduces the production symptom: a trailing-slash API_URL made the
+    // rewrite proxy to `//api/auth/register`, which the backend answered with
+    // a non-JSON 404 HTML page. Without a `data.error`, the old code showed a
+    // bare "Request failed"; it now includes the status so the real failure
+    // is visible.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => {
+        throw new SyntaxError("Unexpected token < in JSON");
+      },
+    }));
+
+    await expect(login("owner@example.com", "hunter2")).rejects.toMatchObject({
+      code: "REQUEST_FAILED",
+      status: 404,
+      message: expect.stringMatching(/request failed \(http 404\)/i),
+    });
+  });
+
   it("throws AUTH_REQUEST_IN_PROGRESS when login returns an accepted in-progress state", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
       ok: true,
