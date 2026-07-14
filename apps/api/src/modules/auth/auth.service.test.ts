@@ -5,7 +5,7 @@ vi.mock("../../lib/prisma", () => ({
     user: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
     refreshToken: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
     passwordResetToken: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
-    emailVerificationToken: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    emailVerificationToken: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
   },
 }));
 
@@ -50,6 +50,7 @@ const mockSendEmailVerificationEmail = vi.mocked(sendEmailVerificationEmail);
 beforeEach(() => {
   vi.clearAllMocks();
   mockSendEmailVerificationEmail.mockResolvedValue({ success: true });
+  mockPrisma.emailVerificationToken.findFirst.mockResolvedValue(null as never);
   process.env.DATABASE_URL = "postgres://test";
   process.env.FRONTEND_URL = "https://test.example.com";
   process.env.JWT_ACCESS_SECRET = "test-secret-value-not-real";
@@ -134,7 +135,7 @@ describe("requestPasswordReset", () => {
   it("resolves without emailing when no account matches", async () => {
     mockPrisma.user.findUnique.mockResolvedValue(null);
 
-    await requestPasswordReset("nobody@x.com");
+    await expect(requestPasswordReset("nobody@x.com")).resolves.toEqual({ accountFound: false, sent: true });
 
     expect(mockPrisma.passwordResetToken.create).not.toHaveBeenCalled();
     expect(mockSendOwnerPasswordResetEmail).not.toHaveBeenCalled();
@@ -143,12 +144,27 @@ describe("requestPasswordReset", () => {
   it("stores a hashed token and emails a reset link when the account exists", async () => {
     mockPrisma.user.findUnique.mockResolvedValue({ id: "u1", email: "a@b.com" } as never);
 
-    await requestPasswordReset("a@b.com");
+    await expect(requestPasswordReset("a@b.com")).resolves.toEqual({
+      accountFound: true,
+      sent: true,
+      errorMessage: undefined,
+    });
 
     expect(mockPrisma.passwordResetToken.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ userId: "u1" }) }),
     );
     expect(mockSendOwnerPasswordResetEmail).toHaveBeenCalledWith("a@b.com", expect.stringContaining("/reset-password?token="));
+  });
+
+  it("returns sent=false when provider delivery fails", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: "u1", email: "a@b.com" } as never);
+    mockSendOwnerPasswordResetEmail.mockResolvedValue({ success: false, errorMessage: "SMTP unavailable" });
+
+    await expect(requestPasswordReset("a@b.com")).resolves.toEqual({
+      accountFound: true,
+      sent: false,
+      errorMessage: "SMTP unavailable",
+    });
   });
 
   it("§19/§20: the reset link never contains a placeholder domain, even if FRONTEND_URL is still misconfigured to one", async () => {
@@ -242,7 +258,7 @@ describe("sendEmailVerification", () => {
   it("does nothing when the account is already verified", async () => {
     mockPrisma.user.findUnique.mockResolvedValue({ id: "u1", email: "a@b.com", emailVerified: true } as never);
 
-    await sendEmailVerification("u1");
+    await expect(sendEmailVerification("u1")).resolves.toEqual({ sent: true, state: "ALREADY_VERIFIED" });
 
     expect(mockPrisma.emailVerificationToken.create).not.toHaveBeenCalled();
     expect(mockSendEmailVerificationEmail).not.toHaveBeenCalled();
@@ -257,7 +273,7 @@ describe("sendEmailVerification", () => {
       expect.objectContaining({ data: expect.objectContaining({ userId: "u1" }) }),
     );
     expect(mockSendEmailVerificationEmail).toHaveBeenCalledWith("a@b.com", expect.stringContaining("/verify-email?token="));
-    expect(result).toEqual({ sent: true, errorMessage: undefined });
+    expect(result).toEqual({ sent: true, state: "SENT" });
   });
 
   it("reports sent: false with the underlying error when the email actually fails to send (e.g. SMTP misconfigured)", async () => {
@@ -266,7 +282,26 @@ describe("sendEmailVerification", () => {
 
     const result = await sendEmailVerification("u1");
 
-    expect(result).toEqual({ sent: false, errorMessage: "SMTP connection refused" });
+    expect(result).toEqual({ sent: false, state: "FAILED", errorMessage: "SMTP connection refused" });
+  });
+
+  it("throttles resend requests within cooldown window without creating another token", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ id: "u1", email: "a@b.com", emailVerified: false } as never);
+    mockPrisma.emailVerificationToken.findFirst.mockResolvedValue({
+      id: "evt1",
+      userId: "u1",
+      usedAt: null,
+      expiresAt: new Date(Date.now() + 60_000),
+      createdAt: new Date(),
+    } as never);
+
+    await expect(sendEmailVerification("u1", { enforceResendCooldown: true })).resolves.toEqual({
+      sent: true,
+      state: "THROTTLED",
+    });
+
+    expect(mockPrisma.emailVerificationToken.create).not.toHaveBeenCalled();
+    expect(mockSendEmailVerificationEmail).not.toHaveBeenCalled();
   });
 
   it("§19/§20: the verify link never contains a placeholder domain, even if FRONTEND_URL is still misconfigured to one", async () => {

@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { login } from "@/lib/api";
+import { clearAuthRequestKey, getOrCreateAuthRequestKey } from "@/lib/auth-idempotency";
+import { hasApiErrorCode, login } from "@/lib/api";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,8 +19,11 @@ export default function LoginPage() {
     if (submitting) return; // Prevent a duplicate submit while the first request/redirect is still in flight.
     setError(null);
     setSubmitting(true);
+    const identity = email.trim().toLowerCase();
+    const requestKey = getOrCreateAuthRequestKey("login", identity);
     try {
-      await login(email, password, rememberMe);
+      await login(email, password, rememberMe, { idempotencyKey: requestKey });
+      clearAuthRequestKey("login", identity);
       router.replace("/dashboard");
       router.refresh();
       // Deliberately don't reset submitting here — router.replace/refresh
@@ -29,6 +33,12 @@ export default function LoginPage() {
       // true keeps the button disabled and the loading label visible for
       // the whole navigation; this component unmounts once it finishes.
     } catch (err) {
+      if (hasApiErrorCode(err, "REQUEST_TIMEOUT") || hasApiErrorCode(err, "AUTH_REQUEST_IN_PROGRESS")) {
+        setError("Login request is still being verified. Press Log in again in a moment to safely check the result.");
+        setSubmitting(false);
+        return;
+      }
+      clearAuthRequestKey("login", identity);
       setError(err instanceof Error ? err.message : "Login failed");
       setSubmitting(false);
     }

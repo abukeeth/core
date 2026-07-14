@@ -11,6 +11,69 @@ vi.mock("next/navigation", () => ({
 const mockLogin = vi.fn();
 vi.mock("@/lib/api", () => ({
   login: (...args: unknown[]) => mockLogin(...args),
+  hasApiErrorCode: (err: unknown, code: string) =>
+    Boolean(err && typeof err === "object" && "code" in err && (err as { code?: string }).code === code),
+}));
+
+const mockGetOrCreateAuthRequestKey = vi.fn(() => "login:key-1");
+const mockClearAuthRequestKey = vi.fn();
+vi.mock("@/lib/auth-idempotency", () => ({
+  getOrCreateAuthRequestKey: (...args: unknown[]) => mockGetOrCreateAuthRequestKey(...args),
+  clearAuthRequestKey: (...args: unknown[]) => mockClearAuthRequestKey(...args),
+}));
+
+import LoginPage from "./page";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+function fillForm() {
+  fireEvent.change(screen.getByLabelText("Email"), { target: { value: "owner@example.com" } });
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "hunter222" } });
+}
+
+describe("LoginPage", () => {
+  it("navigates to dashboard on successful login", async () => {
+    mockLogin.mockResolvedValue({ user: { id: "u1" }, loginState: "AUTHENTICATED" });
+    render(<LoginPage />);
+    fillForm();
+
+    fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/dashboard"));
+    expect(mockLogin).toHaveBeenCalledWith("owner@example.com", "hunter222", true, { idempotencyKey: "login:key-1" });
+    expect(mockClearAuthRequestKey).toHaveBeenCalledWith("login", "owner@example.com");
+  });
+
+  it("shows processing guidance for timeout/in-progress responses", async () => {
+    mockLogin.mockRejectedValue(Object.assign(new Error("timed out"), { code: "REQUEST_TIMEOUT" }));
+    render(<LoginPage />);
+    fillForm();
+
+    fireEvent.click(screen.getByRole("button", { name: "Log in" }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("Login request is still being verified. Press Log in again in a moment to safely check the result."),
+      ).toBeInTheDocument(),
+    );
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+});
+import "@testing-library/jest-dom/vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const mockReplace = vi.fn();
+const mockRefresh = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ replace: mockReplace, refresh: mockRefresh }),
+}));
+
+const mockLogin = vi.fn();
+vi.mock("@/lib/api", () => ({
+  login: (...args: unknown[]) => mockLogin(...args),
 }));
 
 import LoginPage from "./page";
