@@ -47,9 +47,11 @@ describe("fileStorage — local disk (Production Hardening Phase 7: OBJECT_STORA
 
 describe("fileStorage — S3-backed (Production Hardening Phase 7: OBJECT_STORAGE_BUCKET set)", () => {
   const store = new Map<string, Buffer>();
+  let forceEmptyBody = false;
 
   beforeEach(() => {
     store.clear();
+    forceEmptyBody = false;
     process.env.OBJECT_STORAGE_BUCKET = "test-bucket";
     process.env.OBJECT_STORAGE_REGION = "us-east-1";
     process.env.OBJECT_STORAGE_ACCESS_KEY_ID = "test-access-key";
@@ -74,6 +76,9 @@ describe("fileStorage — S3-backed (Production Hardening Phase 7: OBJECT_STORAG
             err.name = "NoSuchKey";
             throw err;
           }
+          if (forceEmptyBody) {
+            return { Body: undefined };
+          }
           return { Body: { transformToByteArray: async () => new Uint8Array(bytes) } };
         }
       }
@@ -93,20 +98,8 @@ describe("fileStorage — S3-backed (Production Hardening Phase 7: OBJECT_STORAG
 
   it("throws a clear error rather than returning garbage when the object body is unexpectedly empty", async () => {
     vi.resetModules();
-    vi.doMock("@aws-sdk/client-s3", () => {
-      class FakePutObjectCommand {
-        constructor(public input: unknown) {}
-      }
-      class FakeGetObjectCommand {
-        constructor(public input: unknown) {}
-      }
-      class FakeS3Client {
-        async send() {
-          return { Body: undefined };
-        }
-      }
-      return { S3Client: FakeS3Client, PutObjectCommand: FakePutObjectCommand, GetObjectCommand: FakeGetObjectCommand };
-    });
+    forceEmptyBody = true;
+    store.set("uploads/missing.png", Buffer.from("placeholder"));
     const { fileStorage } = await import("./file-storage.js");
     await expect(fileStorage.read("uploads/missing.png")).rejects.toThrow(/empty body/);
   });
