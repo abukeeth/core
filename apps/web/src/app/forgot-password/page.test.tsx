@@ -9,11 +9,13 @@ vi.mock("@/lib/api", () => ({
     Boolean(err && typeof err === "object" && "code" in err && (err as { code?: string }).code === code),
 }));
 
-const mockGetOrCreateAuthRequestKey = vi.fn(() => "forgot:key-1");
-const mockClearAuthRequestKey = vi.fn();
+const { mockGetOrCreateAuthRequestKey, mockClearAuthRequestKey } = vi.hoisted(() => ({
+  mockGetOrCreateAuthRequestKey: vi.fn(() => "forgot:key-1"),
+  mockClearAuthRequestKey: vi.fn(),
+}));
 vi.mock("@/lib/auth-idempotency", () => ({
-  getOrCreateAuthRequestKey: (...args: unknown[]) => mockGetOrCreateAuthRequestKey(...args),
-  clearAuthRequestKey: (...args: unknown[]) => mockClearAuthRequestKey(...args),
+  getOrCreateAuthRequestKey: mockGetOrCreateAuthRequestKey,
+  clearAuthRequestKey: mockClearAuthRequestKey,
 }));
 
 import ForgotPasswordPage from "./page";

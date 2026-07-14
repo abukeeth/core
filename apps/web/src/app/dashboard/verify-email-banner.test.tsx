@@ -3,12 +3,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 const mockResendVerification = vi.fn();
-const mockGetOrCreateAuthRequestKey = vi.fn(() => "resend:key-1");
-const mockClearAuthRequestKey = vi.fn();
+const { mockGetOrCreateAuthRequestKey, mockClearAuthRequestKey } = vi.hoisted(() => ({
+  mockGetOrCreateAuthRequestKey: vi.fn(() => "resend:key-1"),
+  mockClearAuthRequestKey: vi.fn(),
+}));
 
 vi.mock("@/lib/auth-idempotency", () => ({
-  getOrCreateAuthRequestKey: (...args: unknown[]) => mockGetOrCreateAuthRequestKey(...args),
-  clearAuthRequestKey: (...args: unknown[]) => mockClearAuthRequestKey(...args),
+  getOrCreateAuthRequestKey: mockGetOrCreateAuthRequestKey,
+  clearAuthRequestKey: mockClearAuthRequestKey,
 }));
 
 vi.mock("@/lib/api", () => ({

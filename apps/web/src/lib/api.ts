@@ -298,10 +298,8 @@ function throwIfPendingAuthResponse(payload: unknown, fallbackStatus: number | n
     "code" in payload &&
     (payload as { code?: unknown }).code === "AUTH_REQUEST_IN_PROGRESS"
   ) {
-    const message =
-      typeof (payload as { error?: unknown }).error === "string"
-        ? (payload as { error: string }).error
-        : "This request is still being processed. Retry in a moment.";
+    const pendingError = (payload as { error?: unknown }).error;
+    const message = typeof pendingError === "string" ? pendingError : "This request is still being processed. Retry in a moment.";
     throw new ApiRequestError(message, "AUTH_REQUEST_IN_PROGRESS", fallbackStatus);
   }
 }

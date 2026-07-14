@@ -13,12 +13,14 @@ vi.mock("@/lib/referral-storage", () => ({
 }));
 
 const mockRegister = vi.fn();
-const mockGetOrCreateAuthRequestKey = vi.fn(() => "signup:key-1");
-const mockClearAuthRequestKey = vi.fn();
+const { mockGetOrCreateAuthRequestKey, mockClearAuthRequestKey } = vi.hoisted(() => ({
+  mockGetOrCreateAuthRequestKey: vi.fn(() => "signup:key-1"),
+  mockClearAuthRequestKey: vi.fn(),
+}));
 
 vi.mock("@/lib/auth-idempotency", () => ({
-  getOrCreateAuthRequestKey: (...args: unknown[]) => mockGetOrCreateAuthRequestKey(...args),
-  clearAuthRequestKey: (...args: unknown[]) => mockClearAuthRequestKey(...args),
+  getOrCreateAuthRequestKey: mockGetOrCreateAuthRequestKey,
+  clearAuthRequestKey: mockClearAuthRequestKey,
 }));
 
 vi.mock("@/lib/api", () => ({

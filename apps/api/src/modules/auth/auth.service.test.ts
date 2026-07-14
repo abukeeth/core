@@ -50,6 +50,7 @@ const mockSendEmailVerificationEmail = vi.mocked(sendEmailVerificationEmail);
 beforeEach(() => {
   vi.clearAllMocks();
   mockSendEmailVerificationEmail.mockResolvedValue({ success: true });
+  mockSendOwnerPasswordResetEmail.mockResolvedValue({ success: true });
   mockPrisma.emailVerificationToken.findFirst.mockResolvedValue(null as never);
   process.env.DATABASE_URL = "postgres://test";
   process.env.FRONTEND_URL = "https://test.example.com";
