@@ -20,6 +20,15 @@ export default function RegisterPage() {
     if (ref) setStoredReferralCode(ref);
   }, []);
 
+  // Priority 4: a brand-new owner has no business yet, so send them straight
+  // into the setup wizard instead of hopping through /dashboard and relying
+  // on its redirect. A *recovered* (already-existing) account may already be
+  // fully onboarded, so it still goes to /dashboard, whose gate self-routes
+  // to /setup only if that owner's setup is genuinely incomplete.
+  function destinationAfterSignup(result: Awaited<ReturnType<typeof register>>): string {
+    return result.signupState === "ACCOUNT_RECOVERED" ? "/dashboard" : "/setup";
+  }
+
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (submitting) return; // Prevent a second submit while the first is still in flight or being verified.
@@ -28,18 +37,18 @@ export default function RegisterPage() {
     const identity = email.trim().toLowerCase();
     const requestKey = getOrCreateAuthRequestKey("signup", identity);
     try {
-      await register(email, password, name, { idempotencyKey: requestKey });
+      const result = await register(email, password, name, { idempotencyKey: requestKey });
       clearAuthRequestKey("signup", identity);
-      router.push("/dashboard");
+      router.push(destinationAfterSignup(result));
       router.refresh();
       // Keep submitting=true — the component is about to unmount on navigation.
       return;
     } catch (err) {
       if (hasApiErrorCode(err, "REQUEST_TIMEOUT") || hasApiErrorCode(err, "AUTH_REQUEST_IN_PROGRESS")) {
         try {
-          await register(email, password, name, { idempotencyKey: requestKey });
+          const result = await register(email, password, name, { idempotencyKey: requestKey });
           clearAuthRequestKey("signup", identity);
-          router.push("/dashboard");
+          router.push(destinationAfterSignup(result));
           router.refresh();
           return;
         } catch (recoveryErr) {

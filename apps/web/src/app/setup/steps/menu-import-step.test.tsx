@@ -156,6 +156,27 @@ describe("MenuImportStep — §5/§15: never advances before the image is upload
     await waitFor(() => expect(screen.getByText("Review your imported menu")).toBeInTheDocument());
   });
 
+  it("auto-continues to WEBSITE_THEME when a prior import is already APPROVED (Priority 3)", async () => {
+    const onDone = vi.fn();
+    mockListImportJobs.mockResolvedValue({ jobs: [job({ status: "APPROVED" })] });
+    render(<MenuImportStep onDone={onDone} />);
+
+    // The menu is already saved+approved; resuming advances straight to the
+    // website step (onDone) instead of forcing a re-import. In the real app
+    // onDone unmounts this step; here onDone is a stub, so we assert the
+    // advance itself rather than the subsequent unmount.
+    await waitFor(() => expect(mockSetSetupStep).toHaveBeenCalledWith("WEBSITE_THEME"));
+    await waitFor(() => expect(onDone).toHaveBeenCalledWith({ setupStep: "WEBSITE_THEME" }));
+  });
+
+  it("prefers resuming an in-flight job over auto-advancing on an older approved one", async () => {
+    mockListImportJobs.mockResolvedValue({ jobs: [job({ id: "old", status: "APPROVED" }), job({ id: "live", status: "PROCESSING" })] });
+    render(<MenuImportStep onDone={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByText("Building your menu…")).toBeInTheDocument());
+    expect(mockSetSetupStep).not.toHaveBeenCalled();
+  });
+
   it("still allows an explicit Skip, which is a deliberate choice rather than an automatic advance", async () => {
     const onDone = vi.fn();
     render(<MenuImportStep onDone={onDone} />);
