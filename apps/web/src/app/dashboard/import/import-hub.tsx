@@ -58,6 +58,9 @@ const SOURCES: SourceDef[] = [
 ];
 
 const MAX_IMAGE_FILES = 20;
+// §Job Durability — after this long still importing, reassure the owner it's
+// still running (the backend reaper recovers/fails a genuinely stuck job).
+const SLOW_AFTER_MS = 90_000;
 
 const STAGES = ["Uploading", "OCR Reading", "AI Understanding", "Building Categories", "Building Products", "Generating Descriptions", "Saving Database", "Completed"] as const;
 
@@ -178,11 +181,21 @@ export function ImportHub({ activeJob, otherActiveCount }: { activeJob: ImportJo
   const [error, setError] = useState<string | null>(null);
   const [comingSoonNote, setComingSoonNote] = useState<string | null>(null);
   const [batchSummary, setBatchSummary] = useState<{ succeeded: number; failed: number } | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const fileInputRef = useRef<HTMLInputElement>(null);
   const redirectedRef = useRef(false);
   const prevStatusRef = useRef<ImportJob["status"] | "UPLOADING" | null>(null);
 
   const displayJob = activeJob ?? localJob;
+
+  // §Job Durability — 1s tick while a job is in flight so the "taking longer
+  // than expected" note can appear without waiting on the parent's re-poll.
+  useEffect(() => {
+    const s = displayJob?.status;
+    if (s !== "PENDING" && s !== "PROCESSING") return;
+    const tick = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(tick);
+  }, [displayJob?.status]);
 
   useEffect(() => {
     if (!comingSoonNote) return;
@@ -316,8 +329,20 @@ export function ImportHub({ activeJob, otherActiveCount }: { activeJob: ImportJo
 
   // ---- Live progress card (replaces the picker in place) ----
   if (displayJob && (displayJob.status === "PENDING" || displayJob.status === "PROCESSING" || uploading)) {
+    const slow = !uploading && displayJob && now - new Date(displayJob.createdAt).getTime() > SLOW_AFTER_MS;
     content = (
-      <ProgressCard key={displayJob?.id ?? "uploading"} job={displayJob} uploading={uploading} otherActiveCount={otherActiveCount} batchSummary={batchSummary} />
+      <div className="flex flex-col gap-3">
+        <ProgressCard key={displayJob?.id ?? "uploading"} job={displayJob} uploading={uploading} otherActiveCount={otherActiveCount} batchSummary={batchSummary} />
+        {slow && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            This is taking longer than usual. It&apos;ll keep running in the background — you can wait here, or{" "}
+            <Link href={`/dashboard/import/${displayJob.id}`} className="font-bold underline">
+              check its status
+            </Link>
+            .
+          </div>
+        )}
+      </div>
     );
   } else if (displayJob?.status === "AWAITING_REVIEW") {
     const categoryCount = displayJob.extractedData?.categories.length ?? 0;

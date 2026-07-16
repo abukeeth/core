@@ -936,6 +936,7 @@ export interface GenerationJob {
   stage: GenerationStage;
   status: GenerationStatus;
   error: string | null;
+  createdAt: string;
 }
 
 export type DomainVerificationStatus = "PENDING" | "VERIFIED" | "FAILED";

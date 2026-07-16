@@ -5,6 +5,10 @@ import { useEffect, useState } from "react";
 import { getGenerationStatus, regenerateVariations, type GenerationJob } from "@/lib/api";
 
 const POLL_INTERVAL_MS = 2500;
+// §Job Durability — after this long still generating, surface a
+// non-destructive "taking longer than expected" escape hatch (keep polling;
+// the backend reaper remains the source of truth for terminal state).
+const SLOW_AFTER_MS = 90_000;
 
 /**
  * Mirrors the real GenerationStage sequence and relative durations from
@@ -39,6 +43,18 @@ export function GenerationProgress({ siteId, initialJob }: { siteId: string; ini
   const router = useRouter();
   const [job, setJob] = useState(initialJob);
   const [retrying, setRetrying] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+
+  const active = job.status === "PENDING" || job.status === "RUNNING";
+  const slow = active && now - new Date(job.createdAt).getTime() > SLOW_AFTER_MS;
+
+  // Lightweight 1s tick (only while active) so the slow-state escape hatch
+  // appears without waiting for the next 2.5s status poll.
+  useEffect(() => {
+    if (!active) return;
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, [active]);
 
   useEffect(() => {
     if (job.status !== "PENDING" && job.status !== "RUNNING") return;
@@ -125,6 +141,20 @@ export function GenerationProgress({ siteId, initialJob }: { siteId: string; ini
         <p className="text-sm font-bold text-[#E1B56F]">Currently working…</p>
         <p className="mt-1 text-sm leading-6 text-[#E9E0D4]">{activeStage?.label ?? "Preparing your website"}…</p>
       </div>
+
+      {slow && (
+        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-amber-800">This is taking longer than usual. You can keep waiting, or start over.</p>
+          <button
+            type="button"
+            onClick={handleRetry}
+            disabled={retrying}
+            className="min-h-11 shrink-0 rounded-xl border border-amber-300 bg-white px-4 text-sm font-bold text-[#171512] disabled:opacity-50"
+          >
+            {retrying ? "Restarting…" : "Start over"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

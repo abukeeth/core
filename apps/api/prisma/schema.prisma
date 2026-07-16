@@ -290,11 +290,22 @@ model ImportJob {
   extractedData  Json?
   errorMessage   String?
 
+  // §Job Durability (Phase 1) — attempts is incremented on every claim;
+  // startedAt/heartbeatAt let the reaper (lib/job-reaper.ts) tell a
+  // genuinely-running job from one abandoned when the process died
+  // mid-extraction (deploy/crash/OOM). All nullable/defaulted so existing
+  // rows stay valid with zero backfill.
+  attempts    Int       @default(0)
+  startedAt   DateTime?
+  heartbeatAt DateTime?
+
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
   reviewedAt DateTime?
 
   @@index([restaurantId])
+  // Supports the reaper's scan for stale in-flight jobs.
+  @@index([status, heartbeatAt])
 }
 
 // ---------------------------------------------------------------------------
@@ -570,11 +581,23 @@ model GenerationJob {
   costCents  Int?
   timings    Json?
 
+  // §Job Durability (Phase 1) — same rationale as ImportJob's fields.
+  // createdById is a plain nullable scalar pointer (not an FK relation —
+  // mirrors Site.publishedVersionId) so a server-side reaper re-enqueue
+  // has a user to attribute the batch to; nullable for backfill safety
+  // (the reaper falls back to the site owner when absent).
+  createdById String?
+  attempts    Int       @default(0)
+  startedAt   DateTime?
+  heartbeatAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([siteId])
   @@index([batchId])
+  // Supports the reaper's scan for stale in-flight jobs.
+  @@index([status, heartbeatAt])
 }
 
 model ContactMessage {

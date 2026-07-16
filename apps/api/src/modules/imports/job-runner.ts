@@ -1,5 +1,6 @@
 import { ImportStatus } from "@prisma/client";
 import { waitUntil } from "@vercel/functions";
+import { withHeartbeat } from "../../lib/job-durability";
 import { prisma } from "../../lib/prisma";
 import { importAdapterRegistry } from "./adapters/registry";
 import type { ImportSourceInput } from "./types";
@@ -30,20 +31,34 @@ class InProcessImportJobRunner implements ImportJobRunner {
   }
 
   private async run(jobId: string, input: ImportSourceInput): Promise<void> {
-    try {
-      await prisma.importJob.update({ where: { id: jobId }, data: { status: ImportStatus.PROCESSING } });
+    // §Job Durability — atomic claim: only a still-PENDING job can be
+    // started, and only once. If another worker or a reaper re-enqueue
+    // already claimed it, updateMany reports 0 rows and we abort — this
+    // makes enqueue() idempotent and safe for the reaper to call again.
+    // attempts is incremented here (a real processing start), and
+    // startedAt/heartbeatAt mark the job live for the reaper.
+    const now = new Date();
+    const claim = await prisma.importJob.updateMany({
+      where: { id: jobId, status: ImportStatus.PENDING },
+      data: { status: ImportStatus.PROCESSING, startedAt: now, heartbeatAt: now, attempts: { increment: 1 } },
+    });
+    if (claim.count === 0) return;
 
+    try {
       const job = await prisma.importJob.findUniqueOrThrow({ where: { id: jobId } });
       const adapter = importAdapterRegistry.get(job.sourceType);
       if (!adapter) {
         throw new Error(`No adapter registered for source type ${job.sourceType}`);
       }
 
-      const extractedData = await adapter.extract(input);
+      const extractedData = await withHeartbeat(
+        () => prisma.importJob.update({ where: { id: jobId }, data: { heartbeatAt: new Date() } }).then(() => undefined),
+        () => adapter.extract(input),
+      );
 
       await prisma.importJob.update({
         where: { id: jobId },
-        data: { status: ImportStatus.AWAITING_REVIEW, extractedData },
+        data: { status: ImportStatus.AWAITING_REVIEW, extractedData, heartbeatAt: null },
       });
     } catch (err) {
       await prisma.importJob
@@ -52,6 +67,7 @@ class InProcessImportJobRunner implements ImportJobRunner {
           data: {
             status: ImportStatus.FAILED,
             errorMessage: err instanceof Error ? err.message : "Import failed",
+            heartbeatAt: null,
           },
         })
         .catch(() => undefined);

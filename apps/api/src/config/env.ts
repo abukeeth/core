@@ -225,6 +225,15 @@ const KNOWN_ENV_KEYS = [
   "DRIVER_OFFER_SWEEP_INTERVAL_MS",
   "OUTBOX_POLL_INTERVAL_MS",
   "SSL_ISSUANCE_SWEEP_INTERVAL_MS",
+  // §Job Durability (Phase 1) — all optional with in-code defaults
+  // (lib/job-durability.ts / lib/job-reaper.ts): heartbeat cadence, the
+  // staleness threshold, the reaper poll interval, the auto-retry cap, and
+  // an on/off flag for the reaper.
+  "JOB_HEARTBEAT_INTERVAL_MS",
+  "JOB_STALE_AFTER_MS",
+  "JOB_REAPER_INTERVAL_MS",
+  "JOB_MAX_ATTEMPTS",
+  "JOB_REAPER_ENABLED",
   // Production Hardening Phase 5 — deliberately outside the core schema:
   // Redis is an optional accelerator (distributed rate-limit store), not a
   // boot requirement. Unset means every rate limiter runs in-process only

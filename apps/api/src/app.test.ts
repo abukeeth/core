@@ -49,6 +49,7 @@ describe("createApp", () => {
       outboxWorker: { lastSuccessAt: null, lastError: null },
       staleOfferSweep: { lastSuccessAt: null, lastError: null },
       sslIssuanceSweep: { lastSuccessAt: null, lastError: null },
+      jobReaper: { lastSuccessAt: null, lastError: null },
     });
   });
 

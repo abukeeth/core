@@ -1,5 +1,6 @@
 import type { GenerationStage, Prisma } from "@prisma/client";
 import { waitUntil } from "@vercel/functions";
+import { HEARTBEAT_INTERVAL_MS } from "../../lib/job-durability";
 import { prisma } from "../../lib/prisma";
 import { getAssetSummary } from "./asset-summary";
 import { buildSiteDefinition } from "./assemble";
@@ -47,9 +48,25 @@ class InProcessGenerationJobRunner implements GenerationJobRunner {
   }
 
   private async run(jobId: string, siteId: string, batchId: string, createdById: string): Promise<void> {
-    try {
-      await prisma.generationJob.update({ where: { id: jobId }, data: { status: "RUNNING" } });
+    // §Job Durability — atomic claim (see imports/job-runner.ts for the
+    // full rationale): a still-PENDING job is claimed exactly once; a reaper
+    // re-enqueue of the same id is a harmless no-op (updateMany count 0).
+    const claimNow = new Date();
+    const claim = await prisma.generationJob.updateMany({
+      where: { id: jobId, status: "PENDING" },
+      data: { status: "RUNNING", startedAt: claimNow, heartbeatAt: claimNow, attempts: { increment: 1 } },
+    });
+    if (claim.count === 0) return;
 
+    // Heartbeat while the multi-stage pipeline runs so the reaper can tell a
+    // live (if slow) generation from one abandoned when the process died
+    // mid-run. Interval is unref'd and always cleared in `finally`.
+    const heartbeat = setInterval(() => {
+      prisma.generationJob.update({ where: { id: jobId }, data: { heartbeatAt: new Date() } }).catch(() => undefined);
+    }, HEARTBEAT_INTERVAL_MS);
+    if (typeof heartbeat.unref === "function") heartbeat.unref();
+
+    try {
       const site = await prisma.site.findUniqueOrThrow({ where: { id: siteId } });
       const ingest = await ingestRestaurantData(site.restaurantId);
 
@@ -135,15 +152,17 @@ class InProcessGenerationJobRunner implements GenerationJobRunner {
         }
 
         await tx.site.update({ where: { id: siteId }, data: { brandProfile: toJson(brandProfile) } });
-        await tx.generationJob.update({ where: { id: jobId }, data: { status: "COMPLETED", stage: "FINALIZE" } });
+        await tx.generationJob.update({ where: { id: jobId }, data: { status: "COMPLETED", stage: "FINALIZE", heartbeatAt: null } });
       });
     } catch (err) {
       await prisma.generationJob
         .update({
           where: { id: jobId },
-          data: { status: "FAILED", error: err instanceof Error ? err.message : "Generation failed" },
+          data: { status: "FAILED", error: err instanceof Error ? err.message : "Generation failed", heartbeatAt: null },
         })
         .catch(() => undefined);
+    } finally {
+      clearInterval(heartbeat);
     }
   }
 

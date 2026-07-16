@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../lib/prisma", () => ({
   prisma: {
     site: { findUnique: vi.fn(), update: vi.fn() },
-    generationJob: { create: vi.fn(), findFirst: vi.fn() },
+    restaurant: { findUnique: vi.fn() },
+    generationJob: { create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
     siteVersion: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
     $transaction: vi.fn(),
   },
@@ -15,6 +16,7 @@ import { prisma } from "../../lib/prisma";
 import {
   getGenerationStatus,
   listVariations,
+  reapStaleGenerationJobs,
   regenerateVariations,
   selectVariation,
   startGeneration,
@@ -117,5 +119,87 @@ describe("regenerateVariations", () => {
 
     expect(job).toEqual({ id: "job-2" });
     expect(mockRunner.enqueue).toHaveBeenCalledWith("job-2", "site-1", expect.any(String), "user-1");
+  });
+});
+
+describe("startGeneration (§Job Durability — persists createdById)", () => {
+  it("records createdById on the job row so a reaper retry can attribute the batch", async () => {
+    mockPrisma.site.findUnique.mockResolvedValue({ id: "site-1", restaurantId: "restaurant-1" } as never);
+    mockPrisma.generationJob.create.mockResolvedValue({ id: "job-1" } as never);
+
+    await startGeneration("restaurant-1", "site-1", "user-9");
+
+    expect(mockPrisma.generationJob.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ createdById: "user-9" }) }),
+    );
+  });
+});
+
+describe("reapStaleGenerationJobs (§Job Durability)", () => {
+  const cutoffProbe = new Date("2026-07-14T12:00:00.000Z");
+
+  it("re-enqueues a stale job under the cap, attributed to its stored createdById", async () => {
+    mockPrisma.generationJob.findMany.mockResolvedValue([
+      { id: "job-1", siteId: "site-1", batchId: "b1", attempts: 1, createdById: "user-9" },
+    ] as never);
+    mockPrisma.generationJob.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const result = await reapStaleGenerationJobs(cutoffProbe);
+
+    expect(mockPrisma.generationJob.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: "PENDING", startedAt: null, heartbeatAt: null } }),
+    );
+    expect(mockRunner.enqueue).toHaveBeenCalledWith("job-1", "site-1", "b1", "user-9");
+    expect(result).toEqual({ requeued: 1, failed: 0 });
+  });
+
+  it("falls back to the site owner when the job predates the createdById column", async () => {
+    mockPrisma.generationJob.findMany.mockResolvedValue([
+      { id: "job-1", siteId: "site-1", batchId: "b1", attempts: 0, createdById: null },
+    ] as never);
+    mockPrisma.site.findUnique.mockResolvedValue({ restaurantId: "r1" } as never);
+    mockPrisma.restaurant.findUnique.mockResolvedValue({ ownerId: "owner-7" } as never);
+    mockPrisma.generationJob.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    await reapStaleGenerationJobs(cutoffProbe);
+
+    expect(mockRunner.enqueue).toHaveBeenCalledWith("job-1", "site-1", "b1", "owner-7");
+  });
+
+  it("fails a stale job that has exhausted MAX_ATTEMPTS", async () => {
+    mockPrisma.generationJob.findMany.mockResolvedValue([
+      { id: "job-1", siteId: "site-1", batchId: "b1", attempts: 3, createdById: "user-9" },
+    ] as never);
+    mockPrisma.generationJob.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const result = await reapStaleGenerationJobs(cutoffProbe);
+
+    expect(mockPrisma.generationJob.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: "FAILED" }) }),
+    );
+    expect(mockRunner.enqueue).not.toHaveBeenCalled();
+    expect(result).toEqual({ requeued: 0, failed: 1 });
+  });
+
+  it("fails a stale job whose owner can't be resolved", async () => {
+    mockPrisma.generationJob.findMany.mockResolvedValue([
+      { id: "job-1", siteId: "site-1", batchId: "b1", attempts: 0, createdById: null },
+    ] as never);
+    mockPrisma.site.findUnique.mockResolvedValue(null);
+    mockPrisma.generationJob.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const result = await reapStaleGenerationJobs(cutoffProbe);
+
+    expect(mockRunner.enqueue).not.toHaveBeenCalled();
+    expect(result).toEqual({ requeued: 0, failed: 1 });
+  });
+
+  it("does nothing when there are no stale jobs", async () => {
+    mockPrisma.generationJob.findMany.mockResolvedValue([] as never);
+
+    const result = await reapStaleGenerationJobs(cutoffProbe);
+
+    expect(mockRunner.enqueue).not.toHaveBeenCalled();
+    expect(result).toEqual({ requeued: 0, failed: 0 });
   });
 });

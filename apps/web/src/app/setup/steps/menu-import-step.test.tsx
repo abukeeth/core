@@ -142,6 +142,22 @@ describe("MenuImportStep — §5/§15: never advances before the image is upload
     expect(screen.queryByText("Import your menu")).not.toBeInTheDocument();
   });
 
+  it("§Job Durability: offers a non-destructive retry once an import has been running unusually long", async () => {
+    // A job created well beyond the slow ceiling → the escape hatch shows immediately.
+    const longRunning = job({ status: "PROCESSING", createdAt: new Date(Date.now() - 100_000).toISOString() });
+    mockListImportJobs.mockResolvedValue({ jobs: [longRunning] });
+    mockRerunImportJob.mockResolvedValue({ job: job({ status: "PENDING" }) });
+    render(<MenuImportStep onDone={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByText(/taking longer than usual/i)).toBeInTheDocument());
+    // Still building — the slow state never fakes a failure or advances.
+    expect(screen.getByText("Building your menu…")).toBeInTheDocument();
+    expect(mockSetSetupStep).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /try again/i }));
+    await waitFor(() => expect(mockRerunImportJob).toHaveBeenCalledWith("job-1"));
+  });
+
   it("resumes directly into the review screen if the job was already awaiting review before the refresh", async () => {
     mockListImportJobs.mockResolvedValue({
       jobs: [
