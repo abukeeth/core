@@ -19,7 +19,7 @@ function site(overrides: Partial<WebsiteSite> = {}): WebsiteSite {
 }
 
 function job(overrides: Partial<GenerationJob> = {}): GenerationJob {
-  return { id: "job-1", siteId: "site-1", batchId: "batch-1", stage: "INGEST", status: "PENDING", error: null, ...overrides };
+  return { id: "job-1", siteId: "site-1", batchId: "batch-1", stage: "INGEST", status: "PENDING", error: null, createdAt: "2026-07-14T00:00:00.000Z", ...overrides };
 }
 
 describe("computeBuilderStage — §Website Builder MENU_READY..LIVE (no fake progress)", () => {

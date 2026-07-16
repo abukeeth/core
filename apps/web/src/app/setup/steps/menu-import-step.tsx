@@ -17,6 +17,9 @@ import { primaryButtonClass, secondaryButtonClass } from "../wizard-shell";
 const ACTIVE_STATUSES = new Set<ImportJob["status"]>(["PENDING", "PROCESSING"]);
 const RESUMABLE_STATUSES = new Set<ImportJob["status"]>(["PENDING", "PROCESSING", "AWAITING_REVIEW"]);
 const POLL_INTERVAL_MS = 4000;
+// §Job Durability — after this long still importing, offer a non-destructive
+// retry (the backend reaper still owns terminal state).
+const SLOW_AFTER_MS = 90_000;
 
 /**
  * §K/§15 — the setup wizard must never advance past menu import before the
@@ -34,6 +37,7 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
   const [resuming, setResuming] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const pollRef = useRef<number | null>(null);
 
   // Resumability: a refresh or reopening the dashboard mid-import must not
@@ -79,6 +83,17 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
     // id/status haven't changed, and depending on the full object would
     // tear down and rebuild the interval on every single tick instead of
     // only when the job actually transitions to a different id/status.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.id, job?.status]);
+
+  // §Job Durability — 1s tick while a job is active so the "taking longer
+  // than expected" escape hatch appears without waiting on the 4s poll.
+  useEffect(() => {
+    if (!job || !ACTIVE_STATUSES.has(job.status)) return;
+    const tick = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(tick);
+    // Keyed on id/status only (same reasoning as the polling effect above):
+    // the tick shouldn't restart on every polled `job` object replacement.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job?.id, job?.status]);
 
@@ -149,6 +164,7 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
   }
 
   if (job && ACTIVE_STATUSES.has(job.status)) {
+    const slow = now - new Date(job.createdAt).getTime() > SLOW_AFTER_MS;
     return (
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">BUILD YOUR MENU</p>
@@ -159,6 +175,14 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
         <div className="mt-6">
           <ProgressCard job={job} uploading={false} otherActiveCount={0} batchSummary={null} />
         </div>
+        {slow && (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm text-amber-800">This is taking longer than usual. You can keep waiting, or try again.</p>
+            <button type="button" onClick={handleRetry} disabled={submitting} className="mt-3 min-h-11 rounded-xl border border-amber-300 bg-white px-4 text-sm font-bold text-[#171512] disabled:opacity-50">
+              {submitting ? "Retrying…" : "Try again"}
+            </button>
+          </div>
+        )}
       </div>
     );
   }

@@ -6,6 +6,7 @@ import { createLogger } from "./lib/logger";
 import { assertProductionObjectStorageConfigured } from "./lib/object-storage-client";
 import { prisma } from "./lib/prisma";
 import { redis } from "./lib/redis";
+import { startJobReaper } from "./lib/job-reaper";
 import { startOutboxWorker } from "./modules/commerce/events/outbox-scheduler";
 import { startStaleOfferScheduler } from "./modules/commerce/fulfillment/stale-offer-scheduler";
 import { startSslIssuanceScheduler } from "./modules/sites/ssl-issuance-scheduler";
@@ -68,6 +69,9 @@ const server = app.listen(port, () => {
 const staleOfferTimer = startStaleOfferScheduler();
 const outboxTimer = startOutboxWorker();
 const sslIssuanceTimer = startSslIssuanceScheduler();
+// §Job Durability (Phase 1) — recovers import/generation jobs stranded by a
+// dead process. Returns null when disabled via JOB_REAPER_ENABLED=false.
+const jobReaperTimer = startJobReaper();
 
 // Graceful shutdown (Production Hardening Phase 4) — required for a
 // zero-downtime rolling deploy: when an orchestrator sends SIGTERM to an
@@ -87,6 +91,7 @@ function shutdown(signal: string) {
   clearInterval(staleOfferTimer);
   clearInterval(outboxTimer);
   clearInterval(sslIssuanceTimer);
+  if (jobReaperTimer) clearInterval(jobReaperTimer);
 
   server.close((err) => {
     if (err) {

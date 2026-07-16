@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { GenerationJob, SiteVersion } from "@prisma/client";
+import type { GenerationJob, GenerationStatus, Prisma, SiteVersion } from "@prisma/client";
+import { MAX_ATTEMPTS, staleCutoff, type ReapResult } from "../../lib/job-durability";
 import { prisma } from "../../lib/prisma";
 import { generationJobRunner } from "./generator";
 import { SiteNotFoundError, VariationNotFoundError } from "./site.errors";
@@ -17,7 +18,9 @@ export async function startGeneration(restaurantId: string, siteId: string, crea
   const site = await findOwnSite(restaurantId, siteId);
   const batchId = randomUUID();
   const job = await prisma.generationJob.create({
-    data: { siteId: site.id, batchId, stage: "INGEST", status: "PENDING" },
+    // createdById persisted (§Job Durability) so a reaper re-enqueue can
+    // attribute the retried batch to the same owner without a request context.
+    data: { siteId: site.id, batchId, stage: "INGEST", status: "PENDING", createdById },
   });
   generationJobRunner.enqueue(job.id, site.id, batchId, createdById);
   return job;
@@ -64,4 +67,74 @@ export async function selectVariation(restaurantId: string, siteId: string, vers
  */
 export async function regenerateVariations(restaurantId: string, siteId: string, createdById: string): Promise<GenerationJob> {
   return startGeneration(restaurantId, siteId, createdById);
+}
+
+const IN_FLIGHT_GENERATION_STATUSES: GenerationStatus[] = ["PENDING", "RUNNING"];
+
+/** Liveness = COALESCE(heartbeatAt, startedAt, updatedAt); the updatedAt branch recovers legacy/never-claimed rows (see the import equivalent). */
+function staleGenerationWhere(cutoff: Date): Prisma.GenerationJobWhereInput {
+  return {
+    status: { in: IN_FLIGHT_GENERATION_STATUSES },
+    OR: [
+      { heartbeatAt: { lt: cutoff } },
+      { heartbeatAt: null, startedAt: { lt: cutoff } },
+      { heartbeatAt: null, startedAt: null, updatedAt: { lt: cutoff } },
+    ],
+  };
+}
+
+/** A reaper re-enqueue needs a user to attribute the batch to; fall back to the site owner when the job predates the createdById column. */
+async function resolveGenerationCreatedById(job: GenerationJob): Promise<string | null> {
+  if (job.createdById) return job.createdById;
+  const site = await prisma.site.findUnique({ where: { id: job.siteId }, select: { restaurantId: true } });
+  if (!site) return null;
+  const restaurant = await prisma.restaurant.findUnique({ where: { id: site.restaurantId }, select: { ownerId: true } });
+  return restaurant?.ownerId ?? null;
+}
+
+async function failStaleGeneration(jobId: string, message: string): Promise<void> {
+  await prisma.generationJob.updateMany({
+    where: { id: jobId, status: { in: IN_FLIGHT_GENERATION_STATUSES } },
+    data: { status: "FAILED", error: message, heartbeatAt: null },
+  });
+}
+
+/**
+ * §Job Durability — recovers GenerationJobs abandoned by a dead worker
+ * (process restart/crash/OOM mid-pipeline) or never claimed. Same contract
+ * as reapStaleImportJobs: stale + under MAX_ATTEMPTS → reset to PENDING and
+ * re-enqueue; otherwise fail honestly. Only touches PENDING/RUNNING;
+ * COMPLETED/FAILED are never reaped. The generator's own transaction
+ * archives leftover VARIATIONs, so a retried batch supersedes any partial
+ * one cleanly.
+ */
+export async function reapStaleGenerationJobs(now: Date = new Date()): Promise<ReapResult> {
+  const stale = await prisma.generationJob.findMany({ where: staleGenerationWhere(staleCutoff(now)) });
+
+  let requeued = 0;
+  let failed = 0;
+  for (const job of stale) {
+    if (job.attempts >= MAX_ATTEMPTS) {
+      await failStaleGeneration(job.id, "Website generation timed out after several attempts. Please try again.");
+      failed += 1;
+      continue;
+    }
+
+    const createdById = await resolveGenerationCreatedById(job);
+    if (!createdById) {
+      await failStaleGeneration(job.id, "Website generation timed out and couldn't be retried automatically. Please try again.");
+      failed += 1;
+      continue;
+    }
+
+    const reset = await prisma.generationJob.updateMany({
+      where: { id: job.id, status: { in: IN_FLIGHT_GENERATION_STATUSES } },
+      data: { status: "PENDING", startedAt: null, heartbeatAt: null },
+    });
+    if (reset.count === 0) continue; // another transition won the race
+    generationJobRunner.enqueue(job.id, job.siteId, job.batchId, createdById);
+    requeued += 1;
+  }
+
+  return { requeued, failed };
 }

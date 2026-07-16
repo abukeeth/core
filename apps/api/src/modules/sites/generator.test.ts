@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../lib/prisma", () => ({
   prisma: {
     site: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
-    generationJob: { update: vi.fn() },
+    generationJob: { update: vi.fn(), updateMany: vi.fn() },
     siteVersion: { updateMany: vi.fn(), findFirst: vi.fn(), create: vi.fn() },
     siteScore: { create: vi.fn() },
     $transaction: vi.fn(),
@@ -63,6 +63,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockPrisma.site.findUniqueOrThrow.mockResolvedValue({ id: "site-1", restaurantId: "r1" } as never);
   mockPrisma.generationJob.update.mockResolvedValue({} as never);
+  // §Job Durability — the atomic claim; count 1 means this run won the claim.
+  mockPrisma.generationJob.updateMany.mockResolvedValue({ count: 1 } as never);
   mockPrisma.site.update.mockResolvedValue({} as never);
   mockIngest.mockResolvedValue(ingestFixture);
   mockAnalyzeBrand.mockResolvedValue(brandProfileFixture);
@@ -87,7 +89,7 @@ describe("generationJobRunner.enqueue", () => {
   it("produces exactly 3 SiteVersion rows (one per style family) and marks the job COMPLETED", async () => {
     generationJobRunner.enqueue("job-1", "site-1", "batch-1", "user-1");
 
-    await vi.waitFor(() => expect(mockPrisma.generationJob.update).toHaveBeenCalledWith({ where: { id: "job-1" }, data: { status: "COMPLETED", stage: "FINALIZE" } }));
+    await vi.waitFor(() => expect(mockPrisma.generationJob.update).toHaveBeenCalledWith({ where: { id: "job-1" }, data: { status: "COMPLETED", stage: "FINALIZE", heartbeatAt: null } }));
 
     expect(mockPrisma.siteVersion.create).toHaveBeenCalledTimes(3);
     expect(mockPrisma.siteScore.create).toHaveBeenCalledTimes(3);
@@ -95,15 +97,35 @@ describe("generationJobRunner.enqueue", () => {
     expect(new Set(families)).toEqual(new Set(["LUXURY", "MODERN", "MINIMAL"]));
   });
 
-  it("marks the job RUNNING immediately, before any stage work begins (Sprint 11)", async () => {
+  it("claims the job to RUNNING atomically (guarded on PENDING) before any stage work begins", async () => {
     generationJobRunner.enqueue("job-1", "site-1", "batch-1", "user-1");
 
-    // Wait for the whole run to finish (not just the RUNNING update) so this
+    // Wait for the whole run to finish (not just the claim) so this
     // background task can't keep executing into the next test with mocks
     // that have since been cleared.
     await vi.waitFor(() => expect(mockPrisma.siteVersion.create).toHaveBeenCalledTimes(3));
 
-    expect(mockPrisma.generationJob.update).toHaveBeenCalledWith({ where: { id: "job-1" }, data: { status: "RUNNING" } });
+    // §Job Durability — RUNNING is now set via the atomic claim (updateMany
+    // guarded on status PENDING), not an unconditional update, so a reaper
+    // re-enqueue of the same id can't double-start it.
+    expect(mockPrisma.generationJob.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "job-1", status: "PENDING" },
+        data: expect.objectContaining({ status: "RUNNING", attempts: { increment: 1 } }),
+      }),
+    );
+  });
+
+  it("aborts without doing any work when the claim is lost (another worker/reaper already owns it)", async () => {
+    mockPrisma.generationJob.updateMany.mockResolvedValue({ count: 0 } as never);
+
+    generationJobRunner.enqueue("job-1", "site-1", "batch-1", "user-1");
+
+    // Wait until the claim itself has been attempted, then assert nothing
+    // downstream ran — a lost claim (count 0) must short-circuit the run.
+    await vi.waitFor(() => expect(mockPrisma.generationJob.updateMany).toHaveBeenCalled());
+    expect(mockIngest).not.toHaveBeenCalled();
+    expect(mockPrisma.siteVersion.create).not.toHaveBeenCalled();
   });
 
   it("archives previous VARIATION rows before creating the new batch", async () => {
@@ -136,7 +158,7 @@ describe("generationJobRunner.enqueue", () => {
     await vi.waitFor(() =>
       expect(mockPrisma.generationJob.update).toHaveBeenCalledWith({
         where: { id: "job-1" },
-        data: { status: "FAILED", error: "restaurant not found" },
+        data: { status: "FAILED", error: "restaurant not found", heartbeatAt: null },
       }),
     );
 

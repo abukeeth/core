@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../lib/prisma", () => ({
   prisma: {
-    importJob: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn() },
+    importJob: { findUnique: vi.fn(), findMany: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
   },
 }));
 
@@ -29,7 +29,7 @@ import { prisma } from "../../lib/prisma";
 import { createCategory, createItem } from "../menu/menu.service";
 import { updateRestaurantById } from "../restaurants/restaurant.service";
 import { ImportJobNotFoundError, ImportJobNotReadyError, ImportJobNotRerunnableError } from "./import.errors";
-import { approveJob, createImportJob, rejectJob, rerunJob, updateJobData } from "./import.service";
+import { approveJob, createImportJob, reapStaleImportJobs, rejectJob, rerunJob, updateJobData } from "./import.service";
 import { importJobRunner } from "./job-runner";
 
 const mockPrisma = vi.mocked(prisma, { deep: true });
@@ -164,7 +164,17 @@ describe("rerunJob", () => {
     });
     expect(mockPrisma.importJob.update).toHaveBeenCalledWith({
       where: { id: "job-1" },
-      data: { status: ImportStatus.PENDING, errorMessage: null, extractedData: expect.anything(), reviewedAt: null },
+      // §Job Durability — a manual rerun is a fresh start, so it also resets
+      // the attempt counter and liveness bookkeeping.
+      data: {
+        status: ImportStatus.PENDING,
+        errorMessage: null,
+        extractedData: expect.anything(),
+        reviewedAt: null,
+        attempts: 0,
+        startedAt: null,
+        heartbeatAt: null,
+      },
     });
     expect(result).toEqual({ id: "job-1", status: ImportStatus.PENDING });
   });
@@ -200,6 +210,86 @@ describe("rerunJob", () => {
     mockPrisma.importJob.findUnique.mockResolvedValue({ id: "job-1", restaurantId: "other-restaurant" } as never);
 
     await expect(rerunJob("my-restaurant", "job-1")).rejects.toBeInstanceOf(ImportJobNotFoundError);
+  });
+});
+
+describe("reapStaleImportJobs (§Job Durability)", () => {
+  const cutoffProbe = new Date("2026-07-14T12:00:00.000Z");
+
+  it("re-enqueues a stale file-based job under the attempt cap, rebuilding its source", async () => {
+    mockPrisma.importJob.findMany.mockResolvedValue([
+      { id: "job-1", attempts: 1, sourceFilePath: "/uploads/a.pdf", sourceMimeType: "application/pdf", sourceUrl: null },
+    ] as never);
+    mockFileStorage.read.mockResolvedValue(Buffer.from("pdf"));
+    mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const result = await reapStaleImportJobs(cutoffProbe);
+
+    expect(mockPrisma.importJob.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: ImportStatus.PENDING, startedAt: null, heartbeatAt: null } }),
+    );
+    expect(mockJobRunner.enqueue).toHaveBeenCalledWith("job-1", { kind: "file", buffer: Buffer.from("pdf"), mimeType: "application/pdf" });
+    expect(result).toEqual({ requeued: 1, failed: 0 });
+  });
+
+  it("re-enqueues a stale url-based job without touching file storage", async () => {
+    mockPrisma.importJob.findMany.mockResolvedValue([
+      { id: "job-1", attempts: 0, sourceFilePath: null, sourceUrl: "https://example.com/menu" },
+    ] as never);
+    mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    await reapStaleImportJobs(cutoffProbe);
+
+    expect(mockFileStorage.read).not.toHaveBeenCalled();
+    expect(mockJobRunner.enqueue).toHaveBeenCalledWith("job-1", { kind: "url", url: "https://example.com/menu" });
+  });
+
+  it("fails (does not retry) a stale job that has exhausted MAX_ATTEMPTS", async () => {
+    mockPrisma.importJob.findMany.mockResolvedValue([
+      { id: "job-1", attempts: 3, sourceFilePath: "/uploads/a.pdf", sourceUrl: null },
+    ] as never);
+    mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const result = await reapStaleImportJobs(cutoffProbe);
+
+    expect(mockPrisma.importJob.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ status: ImportStatus.FAILED }) }),
+    );
+    expect(mockJobRunner.enqueue).not.toHaveBeenCalled();
+    expect(result).toEqual({ requeued: 0, failed: 1 });
+  });
+
+  it("fails a stale job that can't be retried (no stored file or url)", async () => {
+    mockPrisma.importJob.findMany.mockResolvedValue([{ id: "job-1", attempts: 0, sourceFilePath: null, sourceUrl: null }] as never);
+    mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const result = await reapStaleImportJobs(cutoffProbe);
+
+    expect(mockJobRunner.enqueue).not.toHaveBeenCalled();
+    expect(result).toEqual({ requeued: 0, failed: 1 });
+  });
+
+  it("fails a stale job whose stored file is no longer readable", async () => {
+    mockPrisma.importJob.findMany.mockResolvedValue([
+      { id: "job-1", attempts: 0, sourceFilePath: "/uploads/gone.pdf", sourceMimeType: "application/pdf", sourceUrl: null },
+    ] as never);
+    mockFileStorage.read.mockRejectedValue(new Error("ENOENT"));
+    mockPrisma.importJob.updateMany.mockResolvedValue({ count: 1 } as never);
+
+    const result = await reapStaleImportJobs(cutoffProbe);
+
+    expect(mockJobRunner.enqueue).not.toHaveBeenCalled();
+    expect(result).toEqual({ requeued: 0, failed: 1 });
+  });
+
+  it("does nothing when there are no stale jobs", async () => {
+    mockPrisma.importJob.findMany.mockResolvedValue([] as never);
+
+    const result = await reapStaleImportJobs(cutoffProbe);
+
+    expect(mockJobRunner.enqueue).not.toHaveBeenCalled();
+    expect(mockPrisma.importJob.updateMany).not.toHaveBeenCalled();
+    expect(result).toEqual({ requeued: 0, failed: 0 });
   });
 });
 
