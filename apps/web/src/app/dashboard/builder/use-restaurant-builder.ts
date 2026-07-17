@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  approvePreview,
   createSite,
   getGenerationStatus,
   getMySite,
@@ -16,23 +17,32 @@ import { createTable } from "@/lib/owner-commerce-api";
 
 const POLL_INTERVAL_MS = 1200;
 
+/**
+ * The builder no longer auto-publishes. After generation, a design is
+ * auto-*selected* only so a real, previewable draft exists; the owner must
+ * then look at the real preview and explicitly approve it before anything
+ * goes live. Publishing (and QR provisioning + the success reveal) runs
+ * ONLY after approvePreview + publishSite both confirm success — mirroring
+ * the backend's own PREVIEW_APPROVAL gate (site.service.ts:
+ * validatePublishReadiness), which selectVariation deliberately clears and
+ * publishSite refuses to bypass. See
+ * docs/audits/AI_BUILDER_APPROVAL_FIX_IMPLEMENTATION.md.
+ */
 export type BuilderPhase =
   | "loading"
   | "generating"
-  | "finishing"
-  | "done"
   | "generation_failed"
-  | "finish_failed"
+  | "selecting"
+  | "select_failed"
+  | "review"
+  | "approving"
+  | "approve_failed"
+  | "publishing"
+  | "publish_failed"
+  | "done"
   | "bootstrap_failed";
 
-export type FinishStepId = "SELECTING" | "PUBLISHING" | "PROVISIONING";
-
-export interface FinishFailure {
-  step: FinishStepId;
-  message: string;
-}
-
-/** A candidate design considered during the auto-select moment — just enough to dramatize the choice, not the full definition. */
+/** A candidate design generated for this site. Retained for the finale's personalized captions and to target the real preview. */
 export interface DesignCandidate {
   id: string;
   colorSeed: string | null;
@@ -53,19 +63,24 @@ export interface BuilderState {
   /** The real https://<slug>.<SITE_PLATFORM_DOMAIN> URL, from the API (getMine/create both return it) — never hardcode this suffix on the frontend, it varies per deployment. */
   siteDomain: string | null;
   publishedVersionId: string | null;
-  /** Which of the post-generation client-orchestrated steps is active — only meaningful while phase is "finishing" or "finish_failed". */
-  finishStepId: FinishStepId;
-  finishFailure: FinishFailure | null;
-  /** All generated candidates plus the winning id, known as soon as SELECTING starts — powers the "dramatize the choice" moment. */
+  /** All generated candidates plus the selected id — powers the design-choice reveal and personalizes captions. */
   candidates: DesignCandidate[];
-  winnerId: string | null;
-  /** The winning design's brand details — known from SELECTING onward, used to personalize captions and show real color sooner. */
+  /** The auto-selected variation the owner is reviewing / will approve. This is the versionId the real preview renders. */
+  selectedVersionId: string | null;
   winningDesign: WinningDesign | null;
   qrToken: string | null;
   qrError: string | null;
   bootstrapError: string | null;
+  /** Message for a failed select/approve/publish stage — meaningful in the *_failed phases only. */
+  actionError: string | null;
+  /** Owner-initiated: approve the previewed design, then publish. */
+  approveDesign: () => void;
+  /** Stage-scoped retries — each retries ONLY its own failed stage, never regeneration. */
+  retrySelect: () => void;
+  retryApprove: () => void;
+  retryPublish: () => void;
+  /** Regeneration — only offered on a generation failure. */
   retryGeneration: () => void;
-  retryFinish: () => void;
   retryBootstrap: () => void;
 }
 
@@ -74,17 +89,16 @@ function errorMessage(err: unknown, fallback: string): string {
 }
 
 /**
- * Orchestrates the fused "AI Restaurant Builder" pipeline over existing,
- * already-working endpoints: create/reuse the site, run the existing async
- * generation job (polled here, same endpoint the manual Website hub already
- * uses), then auto-select the best-scoring variation, auto-publish, and
- * auto-provision one starter QR-ordering code. Nothing here is a new
- * backend capability — this hook is the seam that turns five previously
- * separate, manual dashboard actions into one continuous experience.
+ * Orchestrates the AI Builder pipeline over existing, already-working
+ * endpoints: create/reuse the site, run the existing async generation job
+ * (polled here), auto-select the best-scoring variation so a real preview
+ * exists, then STOP at a review gate. Approval + publish + QR provisioning
+ * happen only on an explicit owner action.
  *
- * Resumable by design: reloading this page re-derives state from the
- * server (current Site/GenerationJob status) rather than replaying the
- * animation from scratch.
+ * Resumable by design: reloading re-derives state from the server (current
+ * Site/GenerationJob status) rather than replaying from scratch. A site
+ * whose generation is COMPLETED resumes to the review gate, never to a
+ * silent auto-publish.
  */
 export function useRestaurantBuilder(): BuilderState {
   const [phase, setPhase] = useState<BuilderPhase>("loading");
@@ -93,20 +107,20 @@ export function useRestaurantBuilder(): BuilderState {
   const [siteSlug, setSiteSlug] = useState<string | null>(null);
   const [siteDomain, setSiteDomain] = useState<string | null>(null);
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null);
-  const [finishStepId, setFinishStepId] = useState<FinishStepId>("SELECTING");
-  const [finishFailure, setFinishFailure] = useState<FinishFailure | null>(null);
   const [candidates, setCandidates] = useState<DesignCandidate[]>([]);
-  const [winnerId, setWinnerId] = useState<string | null>(null);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [winningDesign, setWinningDesign] = useState<WinningDesign | null>(null);
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const hasBootstrapped = useRef(false);
 
-  const runFinishSequence = useCallback(async (id: string) => {
-    setFinishFailure(null);
-    setFinishStepId("SELECTING");
-    let bestVersionId: string;
+  // Auto-select the best-scoring variation so a real, previewable draft
+  // exists — then hand off to the review gate. Never publishes.
+  const runSelection = useCallback(async (id: string) => {
+    setActionError(null);
+    setPhase("selecting");
     try {
       const { variations } = await listVariations(id);
       if (variations.length === 0) {
@@ -117,36 +131,38 @@ export function useRestaurantBuilder(): BuilderState {
         const candidateScore = candidate.scores?.[0]?.overall ?? -1;
         return candidateScore > currentScore ? candidate : current;
       }, variations[0]!);
-      bestVersionId = best.id;
       setCandidates(
         variations.map((v) => ({ id: v.id, colorSeed: v.definition?.colorSeed ?? null, overall: v.scores?.[0]?.overall ?? 0 })),
       );
-      setWinnerId(bestVersionId);
+      setSelectedVersionId(best.id);
       if (best.definition) {
-        setWinningDesign({
-          tagline: best.definition.tagline,
-          cuisine: best.definition.cuisine,
-          colorSeed: best.definition.colorSeed,
-        });
+        setWinningDesign({ tagline: best.definition.tagline, cuisine: best.definition.cuisine, colorSeed: best.definition.colorSeed });
       }
-      await selectVariation(id, bestVersionId);
+      await selectVariation(id, best.id);
+      setPhase("review");
     } catch (err) {
-      setFinishFailure({ step: "SELECTING", message: errorMessage(err, "Couldn't choose your best design") });
-      setPhase("finish_failed");
-      return;
+      setActionError(errorMessage(err, "Couldn't prepare your design for review"));
+      setPhase("select_failed");
     }
+  }, []);
 
-    setFinishStepId("PUBLISHING");
+  // Publish an already-approved design, then (non-fatally) provision a
+  // starter QR code, then reveal success. Separated from approval so a
+  // publish failure retries publish alone — approval persists on the
+  // server across a failed publish (publishSite clears previewApprovedAt
+  // only inside its own successful transaction).
+  const runPublish = useCallback(async (id: string) => {
+    setActionError(null);
+    setPhase("publishing");
     try {
       const { version } = await publishSite(id);
       setPublishedVersionId(version.id);
     } catch (err) {
-      setFinishFailure({ step: "PUBLISHING", message: errorMessage(err, "Couldn't publish your website") });
-      setPhase("finish_failed");
+      setActionError(errorMessage(err, "Couldn't publish your website"));
+      setPhase("publish_failed");
       return;
     }
 
-    setFinishStepId("PROVISIONING");
     try {
       const { table } = await createTable("Scan to Order");
       setQrToken(table.qrToken);
@@ -158,6 +174,24 @@ export function useRestaurantBuilder(): BuilderState {
 
     setPhase("done");
   }, []);
+
+  // Owner-initiated approval: satisfy the backend PREVIEW_APPROVAL gate,
+  // then publish. Publish never runs unless approvePreview resolved first.
+  const runApproveThenPublish = useCallback(
+    async (id: string) => {
+      setActionError(null);
+      setPhase("approving");
+      try {
+        await approvePreview(id);
+      } catch (err) {
+        setActionError(errorMessage(err, "Couldn't approve your design"));
+        setPhase("approve_failed");
+        return;
+      }
+      await runPublish(id);
+    },
+    [runPublish],
+  );
 
   const bootstrap = useCallback(async () => {
     setPhase("loading");
@@ -198,8 +232,8 @@ export function useRestaurantBuilder(): BuilderState {
 
       if (existingJob && existingJob.status === "COMPLETED") {
         setJob(existingJob);
-        setPhase("finishing");
-        await runFinishSequence(site.id);
+        // Resume to the review gate — NOT a silent auto-publish.
+        await runSelection(site.id);
         return;
       }
 
@@ -216,7 +250,7 @@ export function useRestaurantBuilder(): BuilderState {
       setBootstrapError(errorMessage(err, "Couldn't start building your restaurant"));
       setPhase("bootstrap_failed");
     }
-  }, [runFinishSequence]);
+  }, [runSelection]);
 
   useEffect(() => {
     if (hasBootstrapped.current) return;
@@ -234,8 +268,7 @@ export function useRestaurantBuilder(): BuilderState {
         if (cancelled || !latest) return;
         setJob(latest);
         if (latest.status === "COMPLETED") {
-          setPhase("finishing");
-          void runFinishSequence(siteId);
+          void runSelection(siteId);
         } else if (latest.status === "FAILED") {
           setPhase("generation_failed");
         }
@@ -248,7 +281,29 @@ export function useRestaurantBuilder(): BuilderState {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [phase, siteId, runFinishSequence]);
+  }, [phase, siteId, runSelection]);
+
+  const approveDesign = useCallback(() => {
+    if (!siteId) return;
+    void runApproveThenPublish(siteId);
+  }, [siteId, runApproveThenPublish]);
+
+  const retrySelect = useCallback(() => {
+    if (!siteId) return;
+    void runSelection(siteId);
+  }, [siteId, runSelection]);
+
+  const retryApprove = useCallback(() => {
+    if (!siteId) return;
+    void runApproveThenPublish(siteId);
+  }, [siteId, runApproveThenPublish]);
+
+  // Publish already-approved design again — does NOT re-approve or
+  // regenerate. Safe because a failed publish leaves previewApprovedAt set.
+  const retryPublish = useCallback(() => {
+    if (!siteId) return;
+    void runPublish(siteId);
+  }, [siteId, runPublish]);
 
   const retryGeneration = useCallback(() => {
     if (!siteId) return;
@@ -264,12 +319,6 @@ export function useRestaurantBuilder(): BuilderState {
     })();
   }, [siteId]);
 
-  const retryFinish = useCallback(() => {
-    if (!siteId) return;
-    setPhase("finishing");
-    void runFinishSequence(siteId);
-  }, [siteId, runFinishSequence]);
-
   const retryBootstrap = useCallback(() => {
     hasBootstrapped.current = false;
     void bootstrap();
@@ -282,16 +331,18 @@ export function useRestaurantBuilder(): BuilderState {
     siteSlug,
     siteDomain,
     publishedVersionId,
-    finishStepId,
-    finishFailure,
     candidates,
-    winnerId,
+    selectedVersionId,
     winningDesign,
     qrToken,
     qrError,
     bootstrapError,
+    actionError,
+    approveDesign,
+    retrySelect,
+    retryApprove,
+    retryPublish,
     retryGeneration,
-    retryFinish,
     retryBootstrap,
   };
 }

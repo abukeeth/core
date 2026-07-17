@@ -19,6 +19,14 @@ vi.mock("./live-build-screen", () => ({
   ),
 }));
 
+vi.mock("./design-review-screen", () => ({
+  DesignReviewScreen: ({ phase, selectedVersionId }: { phase: string; selectedVersionId: string | null }) => (
+    <div data-testid="design-review-screen">
+      {phase} {selectedVersionId}
+    </div>
+  ),
+}));
+
 vi.mock("./finale-reveal", () => ({
   FinaleReveal: ({ restaurantName }: { restaurantName: string }) => <div data-testid="finale-reveal">{restaurantName}</div>,
 }));
@@ -31,17 +39,20 @@ function baseState(overrides: Record<string, unknown> = {}) {
     job: null,
     siteId: null,
     siteSlug: null,
+    siteDomain: null,
     publishedVersionId: null,
-    finishStepId: "SELECTING",
-    finishFailure: null,
     candidates: [],
-    winnerId: null,
+    selectedVersionId: null,
     winningDesign: null,
     qrToken: null,
     qrError: null,
     bootstrapError: null,
+    actionError: null,
+    approveDesign: vi.fn(),
+    retrySelect: vi.fn(),
+    retryApprove: vi.fn(),
+    retryPublish: vi.fn(),
     retryGeneration: vi.fn(),
-    retryFinish: vi.fn(),
     retryBootstrap: vi.fn(),
     ...overrides,
   };
@@ -70,21 +81,32 @@ describe("BuilderExperience", () => {
     expect(screen.getByTestId("live-build-screen")).toHaveTextContent("AI unavailable");
   });
 
-  it("shows the finish step during the post-generation finishing phase", () => {
-    mockUseRestaurantBuilder.mockReturnValue(baseState({ phase: "finishing", finishStepId: "PUBLISHING" }));
+  it("routes to the design review (approval) gate once a design is selected — NOT a finale", () => {
+    mockUseRestaurantBuilder.mockReturnValue(baseState({ phase: "review", siteId: "site-1", selectedVersionId: "v-best" }));
     render(<BuilderExperience restaurantName="Joe's Diner" />);
-    expect(screen.getByTestId("live-build-screen")).toHaveTextContent("PUBLISHING");
+    expect(screen.getByTestId("design-review-screen")).toHaveTextContent("review v-best");
+    expect(screen.queryByTestId("finale-reveal")).not.toBeInTheDocument();
+  });
+
+  it("keeps rendering the review screen during approving and publishing (no premature finale)", () => {
+    for (const phase of ["approving", "approve_failed", "publishing", "publish_failed"]) {
+      mockUseRestaurantBuilder.mockReturnValue(baseState({ phase, siteId: "site-1", selectedVersionId: "v-best" }));
+      const { unmount } = render(<BuilderExperience restaurantName="Joe's Diner" />);
+      expect(screen.getByTestId("design-review-screen")).toHaveTextContent(phase);
+      expect(screen.queryByTestId("finale-reveal")).not.toBeInTheDocument();
+      unmount();
+    }
   });
 
   describe("the reveal beat", () => {
     beforeEach(() => vi.useFakeTimers());
     afterEach(() => vi.useRealTimers());
 
-    it("holds on the build screen for a brief cinematic beat before revealing the finale", () => {
+    it("holds on a published-but-not-yet-revealed beat before the finale — with no finale shown yet", () => {
       mockUseRestaurantBuilder.mockReturnValue(baseState({ phase: "done", siteId: "site-1", siteSlug: "joes" }));
       render(<BuilderExperience restaurantName="Joe's Diner" />);
 
-      expect(screen.getByTestId("live-build-screen")).toHaveTextContent("PROVISIONING");
+      expect(screen.getByText(/Your website is published/)).toBeInTheDocument();
       expect(screen.queryByTestId("finale-reveal")).not.toBeInTheDocument();
 
       act(() => {
