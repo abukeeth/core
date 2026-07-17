@@ -67,6 +67,24 @@ describe("MenuImportStep — §5/§15: never advances before the image is upload
     expect(onDone).not.toHaveBeenCalled();
   });
 
+  it("shows the live progress card immediately while uploading — no dead 'Uploading…' button gap", async () => {
+    // createImportJob never resolves here, so we stay in the upload phase.
+    mockCreateImportJob.mockReturnValue(new Promise(() => {}));
+    render(<MenuImportStep onDone={vi.fn()} />);
+    await waitFor(() => expect(screen.getByText("Import your menu")).toBeInTheDocument());
+
+    const file = new File(["img"], "menu.png", { type: "image/png" });
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(fileInput, { target: { files: [file] } });
+    fireEvent.click(screen.getByText("Import menu"));
+
+    // The picker is replaced by a real progress card straight away, before
+    // the upload request resolves — not a frozen disabled button.
+    await waitFor(() => expect(screen.getByText("Building your menu…")).toBeInTheDocument());
+    expect(screen.getByText(/Uploading your menu/)).toBeInTheDocument();
+    expect(screen.queryByText("Import menu")).not.toBeInTheDocument();
+  });
+
   it("keeps showing real progress while PROCESSING, still without advancing", async () => {
     mockCreateImportJob.mockResolvedValue({ job: job({ status: "PROCESSING" }) });
     render(<MenuImportStep onDone={vi.fn()} />);

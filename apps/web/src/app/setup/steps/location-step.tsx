@@ -67,6 +67,8 @@ export function LocationStep({
             onChange={(e) => setAddress(e.target.value)}
             className={inputClass}
             placeholder="Street, city, state"
+            autoComplete="street-address"
+            enterKeyHint="done"
           />
         </label>
 

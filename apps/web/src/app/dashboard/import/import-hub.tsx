@@ -103,11 +103,16 @@ function useAnimatedPercent(status: ImportJob["status"] | "UPLOADING" | null) {
   useEffect(() => {
     if (!status) return;
     const ceiling = ceilingFor(status);
+    // Honor OS "reduce motion": still advance to the same honest ceiling, but
+    // in a single step (no gradual creep) rather than sitting still — checked
+    // via matchMedia (globally stubbed to "no match" under test).
+    const reduced = typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    const easing = reduced ? 1 : 0.25;
     const interval = window.setInterval(() => {
       setPercent((prev) => {
         const gap = ceiling - prev;
         if (Math.abs(gap) <= 0.5) return ceiling;
-        return prev + gap * 0.25;
+        return prev + gap * easing;
       });
     }, 250);
     return () => window.clearInterval(interval);
