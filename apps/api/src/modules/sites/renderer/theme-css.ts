@@ -125,14 +125,23 @@ button, .cta {
   bottom: 0;
   left: 0;
   right: 0;
+  z-index: 50;
   display: flex;
   gap: 0.5rem;
   padding: 0.5rem;
+  /* Clear the iOS home indicator so the buttons aren't half-hidden under it. */
+  padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
   background: var(--color-surface-100);
   border-top: 1px solid var(--color-surface-300);
 }
 @media (min-width: 768px) {
   .mobile-action-bar { display: none; }
+}
+/* The fixed action bar is only shown on mobile — reserve space at the bottom
+   of the page (plus the safe-area inset) so the footer and last section
+   aren't permanently hidden behind it and the page scrolls fully. */
+@media (max-width: 767px) {
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
 }
 img { max-width: 100%; height: auto; }
 section { padding: var(--content-spacing) 0; }

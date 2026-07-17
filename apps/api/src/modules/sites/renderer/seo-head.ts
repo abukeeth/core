@@ -26,7 +26,7 @@ export function renderSeoHead(input: SeoHeadInput): string {
   const faviconTag = input.faviconUrl ? `<link rel="icon" href="${escapeHtml(input.faviconUrl)}" />` : "";
 
   return `<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>${escapeHtml(input.page.title)}</title>
 <meta name="description" content="${escapeHtml(input.page.metaDescription)}" />
 <link rel="canonical" href="${escapeHtml(canonical)}" />

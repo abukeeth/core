@@ -1,5 +1,5 @@
 import type { SitePage, ThemeCatalogEntry } from "../types";
-import { renderHeaderNav, renderMobileActionBar } from "./components/chrome";
+import { renderHeaderNav, renderInternalLinkBaseScript, renderMobileActionBar } from "./components/chrome";
 import { renderThemeCss } from "./theme-css";
 import { renderSeoHead } from "./seo-head";
 import { renderSections } from "./layout-engine";
@@ -56,6 +56,7 @@ ${headerNav}
 ${sections}
 </main>
 ${mobileActionBar}
+${renderInternalLinkBaseScript()}
 </body>
 </html>`;
 }
