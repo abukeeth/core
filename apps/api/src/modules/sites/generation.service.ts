@@ -51,6 +51,14 @@ export async function selectVariation(restaurantId: string, siteId: string, vers
   }
 
   return prisma.$transaction(async (tx) => {
+    // Single-draft invariant: switching themes (selecting a different
+    // variation) demotes the previously-selected draft back to VARIATION
+    // first, so there is always exactly one DRAFT. Without this, repeatedly
+    // selecting variations left multiple DRAFTs and getActiveDraft's
+    // highest-versionNo tiebreak could publish a theme the owner didn't
+    // pick. The demoted version keeps its definition, so it remains a
+    // fully-previewable option in the theme switcher.
+    await tx.siteVersion.updateMany({ where: { siteId: site.id, status: "DRAFT" }, data: { status: "VARIATION" } });
     const updated = await tx.siteVersion.update({ where: { id: version.id }, data: { status: "DRAFT" } });
     // previewApprovedAt cleared: selecting a (possibly different) design
     // means any prior approval was for a different draft and no longer applies.

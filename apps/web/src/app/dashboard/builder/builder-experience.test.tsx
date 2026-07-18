@@ -43,6 +43,8 @@ function baseState(overrides: Record<string, unknown> = {}) {
     publishedVersionId: null,
     candidates: [],
     selectedVersionId: null,
+    switchingTheme: false,
+    selectTheme: vi.fn(),
     winningDesign: null,
     qrToken: null,
     qrError: null,

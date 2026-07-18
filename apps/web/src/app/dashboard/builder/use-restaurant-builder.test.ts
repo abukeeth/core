@@ -42,9 +42,9 @@ function completedWithVariations() {
   });
   mockListVariations.mockResolvedValue({
     variations: [
-      { id: "v-low", scores: [{ overall: 60 }], definition: { tagline: "Low", cuisine: "diner", colorSeed: "#111111" } },
-      { id: "v-best", scores: [{ overall: 92 }], definition: { tagline: "Best", cuisine: "italian", colorSeed: "#e8590c" } },
-      { id: "v-mid", scores: [{ overall: 75 }], definition: { tagline: "Mid", cuisine: "diner", colorSeed: "#222222" } },
+      { id: "v-low", styleFamily: "MINIMAL", scores: [{ overall: 60 }], definition: { tagline: "Low", cuisine: "diner", colorSeed: "#111111" } },
+      { id: "v-best", styleFamily: "LUXURY", scores: [{ overall: 92 }], definition: { tagline: "Best", cuisine: "italian", colorSeed: "#e8590c" } },
+      { id: "v-mid", styleFamily: "MODERN", scores: [{ overall: 75 }], definition: { tagline: "Mid", cuisine: "diner", colorSeed: "#222222" } },
     ],
   });
   mockSelectVariation.mockResolvedValue({ version: { id: "v-best" } });
@@ -106,6 +106,33 @@ describe("useRestaurantBuilder — approval gate (the fix)", () => {
     expect(mockApprovePreview).not.toHaveBeenCalled();
     expect(mockPublishSite).not.toHaveBeenCalled();
     expect(mockCreateTable).not.toHaveBeenCalled();
+    // Each candidate carries its style family for the Modern/Luxury/Local switcher.
+    expect(result.current.candidates.map((c) => c.styleFamily).sort()).toEqual(["LUXURY", "MINIMAL", "MODERN"]);
+  });
+
+  it("selectTheme switches to another generated theme, persists it (selectVariation), and re-points the preview", async () => {
+    completedWithVariations();
+    const { result } = renderHook(() => useRestaurantBuilder());
+    await waitFor(() => expect(result.current.phase).toBe("review"));
+    expect(result.current.selectedVersionId).toBe("v-best");
+
+    mockSelectVariation.mockClear();
+    mockSelectVariation.mockResolvedValue({ version: { id: "v-mid" } });
+    act(() => result.current.selectTheme("v-mid"));
+
+    await waitFor(() => expect(result.current.selectedVersionId).toBe("v-mid"));
+    expect(mockSelectVariation).toHaveBeenCalledWith("site-1", "v-mid"); // persisted
+    expect(result.current.phase).toBe("review"); // stays in review — not published
+    expect(mockPublishSite).not.toHaveBeenCalled();
+  });
+
+  it("selectTheme is a no-op for the already-selected theme", async () => {
+    completedWithVariations();
+    const { result } = renderHook(() => useRestaurantBuilder());
+    await waitFor(() => expect(result.current.phase).toBe("review"));
+    mockSelectVariation.mockClear();
+    act(() => result.current.selectTheme("v-best")); // already selected
+    expect(mockSelectVariation).not.toHaveBeenCalled();
   });
 
   it("(1) never calls publish before approval; (2) approve is called before publish; (3) publish only after approve succeeds", async () => {

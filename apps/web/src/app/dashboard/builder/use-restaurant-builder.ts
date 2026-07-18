@@ -12,6 +12,7 @@ import {
   selectVariation,
   startGeneration,
   type GenerationJob,
+  type StyleFamily,
 } from "@/lib/api";
 import { createTable } from "@/lib/owner-commerce-api";
 
@@ -42,10 +43,17 @@ export type BuilderPhase =
   | "done"
   | "bootstrap_failed";
 
-/** A candidate design generated for this site. Retained for the finale's personalized captions and to target the real preview. */
+/**
+ * A generated design option — one per style family (LUXURY/MODERN/MINIMAL).
+ * Powers the Design Review theme switcher (each renders the same business
+ * data through a different theme) and the finale's personalized captions.
+ */
 export interface DesignCandidate {
   id: string;
+  styleFamily: StyleFamily | null;
   colorSeed: string | null;
+  tagline: string | null;
+  cuisine: string | null;
   overall: number;
 }
 
@@ -65,14 +73,18 @@ export interface BuilderState {
   publishedVersionId: string | null;
   /** All generated candidates plus the selected id — powers the design-choice reveal and personalizes captions. */
   candidates: DesignCandidate[];
-  /** The auto-selected variation the owner is reviewing / will approve. This is the versionId the real preview renders. */
+  /** The variation the owner is reviewing / will approve — the versionId the real preview renders. Changes when they switch themes. */
   selectedVersionId: string | null;
+  /** True while a theme switch is persisting (selectVariation in flight). */
+  switchingTheme: boolean;
   winningDesign: WinningDesign | null;
   qrToken: string | null;
   qrError: string | null;
   bootstrapError: string | null;
   /** Message for a failed select/approve/publish stage — meaningful in the *_failed phases only. */
   actionError: string | null;
+  /** Switch to a different generated theme (persists via selectVariation) and re-preview it. */
+  selectTheme: (versionId: string) => void;
   /** Owner-initiated: approve the previewed design, then publish. */
   approveDesign: () => void;
   /** Stage-scoped retries — each retries ONLY its own failed stage, never regeneration. */
@@ -109,6 +121,7 @@ export function useRestaurantBuilder(): BuilderState {
   const [publishedVersionId, setPublishedVersionId] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<DesignCandidate[]>([]);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [switchingTheme, setSwitchingTheme] = useState(false);
   const [winningDesign, setWinningDesign] = useState<WinningDesign | null>(null);
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [qrError, setQrError] = useState<string | null>(null);
@@ -132,7 +145,14 @@ export function useRestaurantBuilder(): BuilderState {
         return candidateScore > currentScore ? candidate : current;
       }, variations[0]!);
       setCandidates(
-        variations.map((v) => ({ id: v.id, colorSeed: v.definition?.colorSeed ?? null, overall: v.scores?.[0]?.overall ?? 0 })),
+        variations.map((v) => ({
+          id: v.id,
+          styleFamily: v.styleFamily,
+          colorSeed: v.definition?.colorSeed ?? null,
+          tagline: v.definition?.tagline ?? null,
+          cuisine: v.definition?.cuisine ?? null,
+          overall: v.scores?.[0]?.overall ?? 0,
+        })),
       );
       setSelectedVersionId(best.id);
       if (best.definition) {
@@ -288,6 +308,33 @@ export function useRestaurantBuilder(): BuilderState {
     void runApproveThenPublish(siteId);
   }, [siteId, runApproveThenPublish]);
 
+  // Switch to a different generated theme before publishing. Persists the
+  // choice (selectVariation → the new draft, single-draft invariant on the
+  // server) and re-points the real preview at it. No-op for the current
+  // selection or while another switch is in flight.
+  const selectTheme = useCallback(
+    (versionId: string) => {
+      if (!siteId || versionId === selectedVersionId || switchingTheme) return;
+      const candidate = candidates.find((c) => c.id === versionId);
+      void (async () => {
+        setSwitchingTheme(true);
+        setActionError(null);
+        try {
+          await selectVariation(siteId, versionId);
+          setSelectedVersionId(versionId);
+          if (candidate?.colorSeed) {
+            setWinningDesign({ tagline: candidate.tagline ?? "", cuisine: candidate.cuisine ?? "", colorSeed: candidate.colorSeed });
+          }
+        } catch (err) {
+          setActionError(errorMessage(err, "Couldn't switch theme — please try again"));
+        } finally {
+          setSwitchingTheme(false);
+        }
+      })();
+    },
+    [siteId, selectedVersionId, switchingTheme, candidates],
+  );
+
   const retrySelect = useCallback(() => {
     if (!siteId) return;
     void runSelection(siteId);
@@ -333,6 +380,8 @@ export function useRestaurantBuilder(): BuilderState {
     publishedVersionId,
     candidates,
     selectedVersionId,
+    switchingTheme,
+    selectTheme,
     winningDesign,
     qrToken,
     qrError,

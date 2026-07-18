@@ -93,6 +93,9 @@ export function BuilderExperience({ restaurantName }: { restaurantName: string }
         restaurantName={restaurantName}
         siteId={state.siteId!}
         selectedVersionId={state.selectedVersionId}
+        candidates={state.candidates}
+        switchingTheme={state.switchingTheme}
+        onSelectTheme={state.selectTheme}
         phase={state.phase}
         actionError={state.actionError}
         onApprove={state.approveDesign}

@@ -5,7 +5,7 @@ vi.mock("../../lib/prisma", () => ({
     site: { findUnique: vi.fn(), update: vi.fn() },
     restaurant: { findUnique: vi.fn() },
     generationJob: { create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn(), updateMany: vi.fn() },
-    siteVersion: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn() },
+    siteVersion: { findMany: vi.fn(), findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
     $transaction: vi.fn(),
   },
 }));
@@ -107,6 +107,21 @@ describe("selectVariation", () => {
     expect(result).toEqual({ id: "v1", status: "DRAFT" });
     expect(mockPrisma.siteVersion.update).toHaveBeenCalledWith({ where: { id: "v1" }, data: { status: "DRAFT" } });
     expect(mockPrisma.site.update).toHaveBeenCalledWith({ where: { id: "site-1" }, data: { status: "DRAFT", previewApprovedAt: null } });
+  });
+
+  it("enforces the single-draft invariant: demotes any prior DRAFT before promoting (theme switching)", async () => {
+    mockPrisma.site.findUnique.mockResolvedValue({ id: "site-1", restaurantId: "restaurant-1" } as never);
+    mockPrisma.siteVersion.findUnique.mockResolvedValue({ id: "v2", siteId: "site-1", status: "VARIATION" } as never);
+    mockPrisma.siteVersion.update.mockResolvedValue({ id: "v2", status: "DRAFT" } as never);
+
+    await selectVariation("restaurant-1", "site-1", "v2");
+
+    // The previously-selected draft is demoted back to VARIATION first, so
+    // exactly one DRAFT remains after a theme switch.
+    expect(mockPrisma.siteVersion.updateMany).toHaveBeenCalledWith({
+      where: { siteId: "site-1", status: "DRAFT" },
+      data: { status: "VARIATION" },
+    });
   });
 });
 
