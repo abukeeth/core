@@ -36,4 +36,14 @@ describe("renderThemeCss", () => {
     const theme = THEME_CATALOG.find((t) => t.key === "cafe")!;
     expect(renderThemeCss(theme, "#123456")).toBe(renderThemeCss(theme, "#123456"));
   });
+
+  it("clears the fixed mobile action bar with safe-area insets and page bottom padding (mobile Safari)", () => {
+    const theme = THEME_CATALOG.find((t) => t.key === "cafe")!;
+    const css = renderThemeCss(theme, theme.tokens.colorSeed);
+    // The bar itself lifts above the iOS home indicator...
+    expect(css).toContain("padding-bottom: calc(0.5rem + env(safe-area-inset-bottom))");
+    // ...and the page reserves space so the footer/last section isn't hidden behind it on mobile.
+    expect(css).toContain("@media (max-width: 767px)");
+    expect(css).toContain("padding-bottom: calc(64px + env(safe-area-inset-bottom))");
+  });
 });

@@ -47,6 +47,16 @@ describe("renderPage", () => {
     expect(html).toContain("</html>");
   });
 
+  it("declares viewport-fit=cover and injects the /store base-path link fix (mobile + nav production fixes)", () => {
+    const def = definition();
+    const html = renderPage({ ctx: ctx(def), page: def.pages[0], theme, siteUrl: "https://example.com" });
+    expect(html).toContain("viewport-fit=cover");
+    // The internal-link base-path normalizer must ship in the rendered document.
+    expect(html).toContain('location.pathname.match(/^\\/store\\/[^\\/]+/)');
+    // ...and it must be inside <body> (after the DOM it rewrites), not the <head>.
+    expect(html.indexOf("<body>")).toBeLessThan(html.indexOf("location.pathname.match"));
+  });
+
   it("includes the page title, meta description, and canonical URL", () => {
     const def = definition();
     const html = renderPage({ ctx: ctx(def), page: def.pages[0], theme, siteUrl: "https://example.com" });

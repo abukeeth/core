@@ -25,6 +25,49 @@ function orderingUrl(ctx: RenderContext, path = ""): string {
   return `${ctx.orderingBaseUrl}/order/${ctx.restaurantId}${path}`;
 }
 
+/**
+ * Storefront serving-base detection. The same static release is served two
+ * ways: at the root of the real `<slug>.<PLATFORM_DOMAIN>` subdomain, and —
+ * while SITE_WILDCARD_DNS_ACTIVE is still false — under the `/store/<slug>`
+ * fallback path on the platform's own domain (public-render.routes.ts). This
+ * returns the `/store/<slug>` base when a pathname is being served that way,
+ * or "" for the subdomain/root case.
+ */
+export function resolveStoreBasePath(pathname: string): string {
+  const match = pathname.match(/^\/store\/[^/]+/);
+  return match ? match[0] : "";
+}
+
+/**
+ * Storefront production fix — internal page links (`href="/menu"`, the brand
+ * logo's `href="/"`, featured-category cards' `href="/menu#..."`, footer nav,
+ * etc.) are root-relative. That is correct on the real subdomain, but wrong
+ * under the `/store/<slug>` fallback base, where "/menu" leaves the site and
+ * 404s. This tiny, deterministic inline script prefixes root-relative
+ * internal page links with the `/store/<slug>` base when — and only when —
+ * the page is actually served under it (a no-op on the subdomain, where the
+ * base is empty). Infrastructure paths (`/assets`, `/api`, `/preview`, an
+ * already-prefixed `/store`) and absolute/protocol-relative/fragment/tel/
+ * mailto links are left untouched. Runs immediately (placed at end of
+ * <body>, so every link is already parsed) — before any click can happen.
+ */
+export function renderInternalLinkBaseScript(): string {
+  return `<script>
+(function () {
+  var m = location.pathname.match(/^\\/store\\/[^\\/]+/);
+  var base = m ? m[0] : "";
+  if (!base) return;
+  var skip = /^\\/(assets|api|preview|store)(\\/|$)/;
+  var links = document.querySelectorAll('a[href^="/"]');
+  for (var i = 0; i < links.length; i++) {
+    var href = links[i].getAttribute('href');
+    if (!href || href.charAt(1) === '/' || skip.test(href)) continue;
+    links[i].setAttribute('href', base + href);
+  }
+})();
+</script>`;
+}
+
 const SEARCH_SCRIPT = `<script>
 (function () {
   var input = document.getElementById('site-search-input');
