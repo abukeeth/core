@@ -1,20 +1,35 @@
 import { escapeHtml } from "../html-escape";
+import { renderPhoto } from "../image-fallback";
+import { galleryStockPhotos } from "../imagery";
 import type { RenderContext } from "../render-context";
 import type { SectionBlock } from "../../types";
 
-/** §8 Gallery — GalleryGrid/Lightbox. Lightbox uses the native <dialog> element (no JS framework needed). */
+const STOCK_GALLERY_COUNT = 6;
+
+/**
+ * §8 Gallery / Theme Engine V2 — shows the owner's real uploaded photos when
+ * present; otherwise falls back to a curated set of cuisine-matched stock
+ * photos (each layered over a generated fallback) so the Gallery section
+ * always renders real imagery instead of vanishing for a new business.
+ */
 export function renderGallery(section: SectionBlock, ctx: RenderContext): string {
   const intro = typeof section.props.intro === "string" ? section.props.intro : "";
+  const uploaded = ctx.assets.galleryImages;
 
-  if (ctx.assets.galleryImages.length === 0) return "";
-
-  const items = ctx.assets.galleryImages
-    .map(
-      (img, i) => `<a href="#gallery-${i}" style="display:block;">
+  const items =
+    uploaded.length > 0
+      ? uploaded
+          .map(
+            (img, i) => `<a href="#gallery-${i}" style="display:block;">
       <img src="${escapeHtml(img.url)}" alt="${escapeHtml(img.alt)}" loading="lazy" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:var(--radius);" />
     </a>`,
-    )
-    .join("\n");
+          )
+          .join("\n")
+      : galleryStockPhotos({ cuisine: ctx.definition.cuisine, businessType: ctx.definition.businessType, count: STOCK_GALLERY_COUNT })
+          .map((url, i) =>
+            renderPhoto({ name: `${ctx.definition.restaurantName} photo ${i + 1}`, stockUrl: url, aspectRatio: "1" }),
+          )
+          .join("\n");
 
   return `<section class="gallery">
   <h2>Gallery</h2>

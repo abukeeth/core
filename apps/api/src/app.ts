@@ -168,7 +168,12 @@ export function createApp() {
           defaultSrc: ["'self'"],
           styleSrc: ["'self'", "'unsafe-inline'"],
           scriptSrc: ["'self'", "'unsafe-inline'"],
-          imgSrc: ["'self'", "data:"],
+          // Theme Engine V2 serves curated stock photography (renderer/imagery.ts)
+          // from the Unsplash image CDN when a business hasn't uploaded its own
+          // photos, so every storefront/preview shows real imagery instead of
+          // empty tiles. Each photo is layered over a generated gradient
+          // fallback, so a blocked/failed load degrades gracefully.
+          imgSrc: ["'self'", "data:", "https://images.unsplash.com"],
           objectSrc: ["'none'"],
           baseUri: ["'self'"],
           frameAncestors: ["'self'"],

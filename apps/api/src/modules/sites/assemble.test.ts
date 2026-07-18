@@ -101,7 +101,7 @@ describe("buildSiteDefinition", () => {
     expect(definition.facts.phone).toBe(ingest.phone);
   });
 
-  it("omits the gallery section on the home page when there are no photos", () => {
+  it("Theme Engine V2: keeps the gallery section on the home page even with no uploaded photos (it renders curated stock imagery)", () => {
     const noPhotos = buildSiteDefinition({
       ingest: { ...ingest, photoCount: 0 },
       brandProfile,
@@ -111,7 +111,7 @@ describe("buildSiteDefinition", () => {
       colorSeed: "#e8590c",
     });
     const homeSectionTypes = noPhotos.pages.find((p) => p.slug === "/")!.sections.map((s) => s.type);
-    expect(homeSectionTypes).not.toContain("gallery");
+    expect(homeSectionTypes).toContain("gallery");
   });
 
   it("still produces a valid menu page even with zero menu items", () => {

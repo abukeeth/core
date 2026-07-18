@@ -1,21 +1,35 @@
 import { escapeHtml } from "../html-escape";
+import { renderPhoto } from "../image-fallback";
+import { pickStockPhoto } from "../imagery";
 import { formatPrice, type RenderContext } from "../render-context";
-import type { SectionBlock } from "../../types";
+import type { SectionBlock, StyleFamilyValue } from "../../types";
 
 interface FlatMenuItem {
   name: string;
   description?: string;
   priceCents: number;
+  imageUrl?: string;
 }
 
-/** Sprint 20A Task 5 — "Featured Products": a live-menu-sourced, count-limited product grid, distinct from the AI-curated "signatureDishes" block. Product source is either the full live menu or one named category. */
+/** Per-design-system card treatment so Modern / Luxury / Local read as different agencies, not one grid recolored. */
+function familyTreatment(family: StyleFamilyValue | undefined) {
+  switch (family) {
+    case "LUXURY": // bold-commerce — dense, hard-edged, commerce-forward
+      return { minCol: "260px", aspect: "1", card: "background:var(--color-surface-100);border:2px solid var(--color-surface-900);", pad: "0" };
+    case "MINIMAL": // warm-local — cozy, rounded, image-topped
+      return { minCol: "220px", aspect: "4/3", card: "background:var(--color-surface-100);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);", pad: "0" };
+    default: // MODERN / modern-editorial — airy, editorial
+      return { minCol: "240px", aspect: "3/2", card: "background:transparent;", pad: "0" };
+  }
+}
+
+/** Sprint 20A Task 5 / Theme Engine V2 — a live-menu-sourced product grid; every card now shows a real photo (uploaded, else curated stock, else generated), never a text-only tile. */
 export function renderFeaturedProducts(section: SectionBlock, ctx: RenderContext): string {
   const props = section.props;
   const title = typeof props.title === "string" ? props.title : "Featured";
   const subtitle = typeof props.subtitle === "string" ? props.subtitle : "";
   const productSource = typeof props.productSource === "string" ? props.productSource : "all";
   const limit = typeof props.limit === "number" ? props.limit : 6;
-  const cardLayout = typeof props.cardLayout === "string" ? props.cardLayout : (ctx.definition.productPresentation?.cardLayout ?? "grid");
   const showPrice = typeof props.showPrice === "boolean" ? props.showPrice : true;
   const showDescriptions = typeof props.showDescriptions === "boolean" ? props.showDescriptions : true;
   const showOrderButtons = typeof props.showOrderButtons === "boolean" ? props.showOrderButtons : true;
@@ -28,28 +42,36 @@ export function renderFeaturedProducts(section: SectionBlock, ctx: RenderContext
 
   if (items.length === 0) return "";
 
-  const isList = cardLayout === "list";
+  const { cuisine, businessType, styleFamily } = ctx.definition;
+  const t = familyTreatment(styleFamily);
+
   const cards = items
-    .map(
-      (item) => `<li class="card" style="list-style:none;padding:1rem;background:var(--color-surface-100);${isList ? "display:flex;justify-content:space-between;align-items:center;gap:1rem;" : ""}">
-      <div>
+    .map((item) => {
+      const photo = renderPhoto({
+        name: item.name,
+        imageUrl: item.imageUrl,
+        stockUrl: pickStockPhoto({ slot: "food", cuisine, businessType, key: item.name }),
+        aspectRatio: t.aspect,
+        rounded: styleFamily !== "LUXURY",
+      });
+      return `<li class="card" style="list-style:none;${t.card}">
+      ${photo}
+      <div style="padding:0.85rem 1rem 1rem;">
         <h3 style="margin:0 0 0.25rem;">${escapeHtml(item.name)}</h3>
-        ${showDescriptions && item.description ? `<p style="margin:0 0 0.25rem;color:var(--color-text-700);">${escapeHtml(item.description)}</p>` : ""}
-        ${showPrice ? `<p style="margin:0;font-weight:600;">$${formatPrice(item.priceCents)}</p>` : ""}
+        ${showDescriptions && item.description ? `<p style="margin:0 0 0.35rem;color:var(--color-text-700);">${escapeHtml(item.description)}</p>` : ""}
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;">
+          ${showPrice ? `<p style="margin:0;font-weight:700;">$${formatPrice(item.priceCents)}</p>` : "<span></span>"}
+          ${showOrderButtons ? `<a class="cta" href="${escapeHtml(ctx.orderingBaseUrl)}/order/${escapeHtml(ctx.restaurantId)}">Order</a>` : ""}
+        </div>
       </div>
-      ${showOrderButtons ? `<a class="cta" href="${escapeHtml(ctx.orderingBaseUrl)}/order/${escapeHtml(ctx.restaurantId)}">Order</a>` : ""}
-    </li>`,
-    )
+    </li>`;
+    })
     .join("\n");
 
   return `<section class="featured-products">
   <h2>${escapeHtml(title)}</h2>
   ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ""}
-  <ul style="${
-    isList
-      ? "display:flex;flex-direction:column;gap:0.75rem;padding:0;"
-      : "display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:1rem;padding:0;"
-  }">
+  <ul style="display:grid;grid-template-columns:repeat(auto-fit, minmax(${t.minCol}, 1fr));gap:1rem;padding:0;margin:1.25rem 0 0;">
     ${cards}
   </ul>
 </section>`;

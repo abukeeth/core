@@ -1,5 +1,6 @@
 import { escapeHtml } from "../html-escape";
-import { deterministicHue } from "../image-fallback";
+import { generatedGradient } from "../image-fallback";
+import { pickStockPhoto } from "../imagery";
 import type { RenderContext } from "../render-context";
 import type { SectionBlock } from "../../types";
 
@@ -19,10 +20,13 @@ function readString(props: Record<string, unknown>, key: string, fallback = ""):
   return typeof props[key] === "string" ? (props[key] as string) : fallback;
 }
 
-/** A themed gradient tile standing in for an un-uploaded full-bleed photo — never a blank hero. */
-function fullBleedFallback(name: string, minHeight: string): string {
-  const hue = deterministicHue(name);
-  return `<div aria-hidden="true" style="width:100%;height:${minHeight};background:linear-gradient(135deg, hsl(${hue} 45% 30%), hsl(${(hue + 40) % 360} 45% 18%));display:block;"></div>`;
+/**
+ * A curated stock hero photo (matched to business type / cuisine) layered over
+ * a generated gradient, standing in for an un-uploaded full-bleed photo. If the
+ * photo fails to load the gradient shows through — never a blank hero.
+ */
+function fullBleedFallback(name: string, stockUrl: string, minHeight: string): string {
+  return `<div aria-hidden="true" style="width:100%;height:${minHeight};background-image:url(&quot;${escapeHtml(stockUrl)}&quot;), ${generatedGradient(name)};background-size:cover;background-position:center;display:block;"></div>`;
 }
 
 /**
@@ -55,6 +59,9 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
 
   const minHeight = HEIGHT_VH[height] ?? HEIGHT_VH.medium;
   const heroName = ctx.assets.heroAlt ?? ctx.definition.restaurantName;
+  const { cuisine, businessType } = ctx.definition;
+  const stockHeroUrl = pickStockPhoto({ slot: "hero", cuisine, businessType, key: ctx.definition.restaurantName });
+  const stockFoodUrl = pickStockPhoto({ slot: "food", cuisine, businessType, key: `${ctx.definition.restaurantName}-hero` });
 
   const badgeHtml = badge ? `<span style="display:inline-block;background:var(--color-accent-600);color:#fff;border-radius:999px;padding:0.25rem 0.75rem;font-size:var(--step--1);font-weight:600;margin-bottom:0.75rem;">${escapeHtml(badge)}</span>` : "";
   const ctaHtml = `<a class="cta" href="${escapeHtml(ctaLink)}" id="primary-action"${isBold ? ' style="font-size:var(--step-1);padding:1rem 2rem;"' : ""}>${escapeHtml(ctaLabel)}</a>`;
@@ -66,7 +73,7 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
     const backgroundUrl = ctx.assets.heroBackgroundUrl ?? ctx.assets.heroUrl;
     const imageHtml = backgroundUrl
       ? `<img src="${escapeHtml(backgroundUrl)}" alt="${escapeHtml(heroName)}" style="width:100%;height:${minHeight};object-fit:cover;display:block;" />`
-      : fullBleedFallback(heroName, minHeight);
+      : fullBleedFallback(heroName, stockHeroUrl, minHeight);
     // bold-block: heavier scrim + uppercase display headline for a punchier, commerce-forward statement.
     const headlineStyle = isBold
       ? "color:#ffffff;margin:0 0 0.5rem;text-transform:uppercase;letter-spacing:0.02em;font-size:var(--step-2);"
@@ -90,9 +97,8 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   // full-bleed background, preserving each variant's text-forward identity.
   const insetImageUrl = ctx.assets.heroUrl;
   const insetMaxWidth = variant === "minimal-typographic" ? "280px" : isEditorial ? "560px" : "420px";
-  const hue = deterministicHue(heroName);
   const frameBorder = isWarmFrame ? "border:8px solid var(--color-surface-50);" : "";
-  const insetFallback = `<div aria-hidden="true" style="width:100%;max-width:${insetMaxWidth};aspect-ratio:4/3;border-radius:var(--radius);box-shadow:var(--shadow);${frameBorder}background:linear-gradient(135deg, hsl(${hue} 45% 90%), hsl(${(hue + 40) % 360} 45% 80%));"></div>`;
+  const insetFallback = `<div role="img" aria-label="${escapeHtml(heroName)}" style="width:100%;max-width:${insetMaxWidth};aspect-ratio:4/3;border-radius:var(--radius);box-shadow:var(--shadow);${frameBorder}background-image:url(&quot;${escapeHtml(stockFoodUrl)}&quot;), ${generatedGradient(heroName)};background-size:cover;background-position:center;"></div>`;
   const insetImageHtml = insetImageUrl
     ? `<img src="${escapeHtml(insetImageUrl)}" alt="${escapeHtml(heroName)}" style="width:100%;max-width:${insetMaxWidth};border-radius:var(--radius);box-shadow:var(--shadow);${frameBorder}" />`
     : insetFallback;
