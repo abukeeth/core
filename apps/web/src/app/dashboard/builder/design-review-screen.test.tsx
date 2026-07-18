@@ -1,5 +1,5 @@
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/builder" }));
@@ -17,11 +17,20 @@ vi.mock("../website/variations/[id]/device-preview", () => ({
 
 import { DesignReviewScreen } from "./design-review-screen";
 
+const CANDIDATES = [
+  { id: "v-modern", styleFamily: "MODERN" as const, colorSeed: "#111", tagline: "M", cuisine: "italian", overall: 80 },
+  { id: "v-best", styleFamily: "LUXURY" as const, colorSeed: "#222", tagline: "L", cuisine: "italian", overall: 92 },
+  { id: "v-local", styleFamily: "MINIMAL" as const, colorSeed: "#333", tagline: "Lo", cuisine: "italian", overall: 75 },
+];
+
 function props(overrides: Record<string, unknown> = {}) {
   return {
     restaurantName: "Joe's Diner",
     siteId: "site-1",
     selectedVersionId: "v-best",
+    candidates: CANDIDATES,
+    switchingTheme: false,
+    onSelectTheme: vi.fn(),
     phase: "review" as const,
     actionError: null as string | null,
     onApprove: vi.fn(),
@@ -97,5 +106,33 @@ describe("DesignReviewScreen (approval gate — the owner-facing flow)", () => {
     render(<DesignReviewScreen {...props({ selectedVersionId: null })} />);
     expect(screen.getByText(/Preview unavailable right now/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Approve this design" })).toBeDisabled();
+  });
+
+  describe("theme switcher (Theme Engine v1 — Modern / Luxury / Local)", () => {
+    it("renders one chip per style family with friendly names, in Modern/Luxury/Local order", () => {
+      render(<DesignReviewScreen {...props()} />);
+      const group = screen.getByRole("group", { name: "Website theme" });
+      const chips = within(group).getAllByRole("button").map((b) => b.textContent);
+      expect(chips).toEqual(["Modern", "Luxury", "Local"]);
+    });
+
+    it("marks the currently-selected theme as pressed (Luxury = v-best here)", () => {
+      render(<DesignReviewScreen {...props()} />);
+      expect(screen.getByRole("button", { name: "Luxury" })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByRole("button", { name: "Modern" })).toHaveAttribute("aria-pressed", "false");
+    });
+
+    it("fires onSelectTheme with the chosen variation's id when a different theme is picked", () => {
+      const onSelectTheme = vi.fn();
+      render(<DesignReviewScreen {...props({ onSelectTheme })} />);
+      fireEvent.click(screen.getByRole("button", { name: "Local" }));
+      expect(onSelectTheme).toHaveBeenCalledWith("v-local");
+    });
+
+    it("disables the theme chips while a switch is applying", () => {
+      render(<DesignReviewScreen {...props({ switchingTheme: true })} />);
+      expect(screen.getByRole("button", { name: "Modern" })).toBeDisabled();
+      expect(screen.getByText(/Applying theme…/)).toBeInTheDocument();
+    });
   });
 });

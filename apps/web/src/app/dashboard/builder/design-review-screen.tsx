@@ -2,8 +2,13 @@
 
 import Link from "next/link";
 import { DashboardDrawer } from "@/components/dashboard-drawer";
+import type { StyleFamily } from "@/lib/api";
 import { DevicePreview } from "../website/variations/[id]/device-preview";
-import type { BuilderPhase } from "./use-restaurant-builder";
+import type { BuilderPhase, DesignCandidate } from "./use-restaurant-builder";
+
+/** The three Theme Engine v1 style families, surfaced to the owner by friendly name and shown in this order. */
+const THEME_LABELS: Record<StyleFamily, string> = { MODERN: "Modern", LUXURY: "Luxury", MINIMAL: "Local" };
+const THEME_ORDER: StyleFamily[] = ["MODERN", "LUXURY", "MINIMAL"];
 
 /**
  * The approval gate. Shows the owner the REAL rendered preview (the same
@@ -21,6 +26,9 @@ export function DesignReviewScreen({
   restaurantName,
   siteId,
   selectedVersionId,
+  candidates,
+  switchingTheme,
+  onSelectTheme,
   phase,
   actionError,
   onApprove,
@@ -30,6 +38,9 @@ export function DesignReviewScreen({
   restaurantName: string;
   siteId: string;
   selectedVersionId: string | null;
+  candidates: DesignCandidate[];
+  switchingTheme: boolean;
+  onSelectTheme: (versionId: string) => void;
   phase: BuilderPhase;
   actionError: string | null;
   onApprove: () => void;
@@ -37,6 +48,14 @@ export function DesignReviewScreen({
   onRetryPublish: () => void;
 }) {
   const busy = phase === "approving" || phase === "publishing";
+
+  // One themed option per style family, in the friendly Modern / Luxury /
+  // Local order. Each renders the same imported business data through a
+  // different theme; picking one persists the choice and re-previews it.
+  const themeOptions = THEME_ORDER.map((family) => {
+    const candidate = candidates.find((c) => c.styleFamily === family);
+    return candidate ? { family, candidate } : null;
+  }).filter((o): o is { family: StyleFamily; candidate: DesignCandidate } => o !== null);
 
   return (
     <main className="min-h-screen w-full overflow-x-hidden bg-[#F7F0E5] px-4 pb-28 pt-5 text-[#171512] sm:px-6 lg:px-10 lg:py-8">
@@ -51,7 +70,37 @@ export function DesignReviewScreen({
           </p>
         </header>
 
-        <div className="mt-6 rounded-3xl border border-[#E7DDCF] bg-white p-4 shadow-[0_12px_36px_rgba(48,39,27,0.06)] sm:p-5">
+        {/* Theme Engine v1 — switch themes before publishing. Mobile-first:
+            a horizontally-scrollable chip row that never overflows the page. */}
+        {themeOptions.length > 1 && (
+          <div className="mt-6">
+            <p className="text-center text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">Choose a theme</p>
+            <div className="mt-3 flex justify-center gap-2 overflow-x-auto pb-1" role="group" aria-label="Website theme">
+              {themeOptions.map(({ family, candidate }) => {
+                const isSelected = candidate.id === selectedVersionId;
+                return (
+                  <button
+                    key={family}
+                    type="button"
+                    onClick={() => onSelectTheme(candidate.id)}
+                    disabled={switchingTheme || busy}
+                    aria-pressed={isSelected}
+                    className={`min-h-11 shrink-0 rounded-full border px-5 text-sm font-bold transition active:scale-[0.98] disabled:opacity-60 ${
+                      isSelected
+                        ? "border-[#171512] bg-[#171512] text-white"
+                        : "border-[#E7DDCF] bg-white text-[#171512] hover:border-[#B97824]"
+                    }`}
+                  >
+                    {THEME_LABELS[family]}
+                  </button>
+                );
+              })}
+            </div>
+            {switchingTheme && <p className="mt-2 text-center text-xs text-[#8A7D6C]">Applying theme…</p>}
+          </div>
+        )}
+
+        <div className="mt-4 rounded-3xl border border-[#E7DDCF] bg-white p-4 shadow-[0_12px_36px_rgba(48,39,27,0.06)] sm:p-5">
           {selectedVersionId ? (
             <DevicePreview siteId={siteId} variationId={selectedVersionId} />
           ) : (
