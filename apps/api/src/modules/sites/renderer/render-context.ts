@@ -40,6 +40,31 @@ export interface RenderLoyaltyProgram {
 }
 
 /**
+ * The service options the tenant has actually enabled — resolved from the
+ * real DeliveryConfig flags (pickup/delivery/dine-in) plus facts.hasReservations.
+ * Never fabricated: a service is `true` only when the owner has enabled it.
+ */
+export interface ServiceAvailability {
+  pickup: boolean;
+  delivery: boolean;
+  dineIn: boolean;
+  reservations: boolean;
+}
+
+/**
+ * A real, verified customer review — see reviews.service.ts's
+ * listRestaurantReviews (created only from a COMPLETED order by the customer
+ * who placed it). Never auto-generated; the section is omitted entirely when
+ * there are none.
+ */
+export interface RenderReview {
+  author: string;
+  rating: number;
+  quote: string;
+  createdAt?: string;
+}
+
+/**
  * Everything a section renderer needs beyond its own `props`. Menu data is
  * live (fetched fresh at render time, not baked into the stored
  * SiteDefinition JSON) per §5: "renders directly from the live menu
@@ -66,6 +91,13 @@ export interface RenderContext {
   bestSellers: BestSellerItem[];
   activeOffers: RenderOffer[];
   loyaltyProgram: RenderLoyaltyProgram | null;
+  // Theme Engine V3 real-data additions — resolved once at render-site.ts,
+  // same "always live, never baked into the stored definition" contract.
+  // Optional so the many unit-test render contexts (and any pre-existing
+  // caller) keep compiling; the components treat `undefined` as "no data"
+  // and degrade gracefully (the service band / reviews section self-omit).
+  services?: ServiceAvailability;
+  reviews?: RenderReview[];
 }
 
 export function formatPrice(cents: number): string {

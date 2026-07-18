@@ -4,11 +4,20 @@ import { prisma } from "../../../lib/prisma";
 import { getTopItems } from "../../commerce/analytics/analytics.service";
 import { listActiveCoupons } from "../../commerce/coupons/coupons.service";
 import { getProgram } from "../../commerce/loyalty/loyalty.service";
+import { listRestaurantReviews } from "../../commerce/reviews/reviews.service";
 import { listCategories } from "../../menu/menu.service";
 import { THEME_CATALOG } from "../theme-catalog";
-import type { SiteDefinition } from "../types";
+import type { SiteDefinition, SiteFacts } from "../types";
 import { assetUrl } from "./asset-url";
-import type { BestSellerItem, LiveMenuCategory, RenderAssets, RenderLoyaltyProgram, RenderOffer } from "./render-context";
+import type {
+  BestSellerItem,
+  LiveMenuCategory,
+  RenderAssets,
+  RenderLoyaltyProgram,
+  RenderOffer,
+  RenderReview,
+  ServiceAvailability,
+} from "./render-context";
 import { renderPage } from "./render-page";
 
 const FRONTEND_URL = getStringEnv("FRONTEND_URL", "http://localhost:3000");
@@ -89,6 +98,37 @@ async function resolveLoyaltyProgram(restaurantId: string): Promise<RenderLoyalt
   return { isActive: program.isActive, pointsPerDollarCents: program.pointsPerDollarCents, redemptionRateCentsPerPoint: program.redemptionRateCentsPerPoint };
 }
 
+/**
+ * Real service availability — the single source of truth is the tenant's own
+ * DeliveryConfig (pickup/delivery/dine-in booleans) plus facts.hasReservations.
+ * When no DeliveryConfig row exists the flags default to false, so the service
+ * band gracefully shows nothing rather than inventing availability.
+ */
+async function resolveServiceAvailability(restaurantId: string, facts: SiteFacts): Promise<ServiceAvailability> {
+  const config = await prisma.deliveryConfig.findUnique({ where: { restaurantId } });
+  return {
+    pickup: config?.isPickupEnabled ?? false,
+    delivery: config?.isDeliveryEnabled ?? false,
+    dineIn: config?.isDineInEnabled ?? false,
+    reservations: facts.hasReservations,
+  };
+}
+
+const REVIEWS_LIMIT = 6;
+
+/** Real, verified reviews only (COMPLETED-order reviews with a written comment). Empty ⇒ the reviews section omits itself. */
+async function resolveReviews(restaurantId: string): Promise<RenderReview[]> {
+  const reviews = await listRestaurantReviews(restaurantId, REVIEWS_LIMIT);
+  return reviews
+    .filter((review) => review.comment !== null && review.comment.trim().length > 0)
+    .map((review) => ({
+      author: review.customerFirstName,
+      rating: review.rating,
+      quote: review.comment as string,
+      createdAt: review.createdAt.toISOString(),
+    }));
+}
+
 function resolveTheme(definition: SiteDefinition) {
   const theme = THEME_CATALOG.find((t) => t.key === definition.themeKey && t.version === definition.themeVersion);
   if (!theme) {
@@ -110,12 +150,14 @@ export async function renderSitePage(input: RenderSiteInput, slug: string): Prom
   const page = input.definition.pages.find((p) => p.slug === slug);
   if (!page) return null;
 
-  const [liveMenu, assets, bestSellers, activeOffers, loyaltyProgram] = await Promise.all([
+  const [liveMenu, assets, bestSellers, activeOffers, loyaltyProgram, services, reviews] = await Promise.all([
     resolveLiveMenu(input.restaurantId),
     resolveRenderAssets(input.siteId),
     resolveBestSellers(input.restaurantId),
     resolveActiveOffers(input.restaurantId),
     resolveLoyaltyProgram(input.restaurantId),
+    resolveServiceAvailability(input.restaurantId, input.definition.facts),
+    resolveReviews(input.restaurantId),
   ]);
 
   return renderPage({
@@ -129,6 +171,8 @@ export async function renderSitePage(input: RenderSiteInput, slug: string): Prom
       bestSellers,
       activeOffers,
       loyaltyProgram,
+      services,
+      reviews,
     },
     page,
     theme: resolveTheme(input.definition),
@@ -139,12 +183,14 @@ export async function renderSitePage(input: RenderSiteInput, slug: string): Prom
 
 /** Renders every page of a definition — used by publishSite's static-generation step. */
 export async function renderAllPages(input: RenderSiteInput): Promise<Map<string, string>> {
-  const [liveMenu, assets, bestSellers, activeOffers, loyaltyProgram] = await Promise.all([
+  const [liveMenu, assets, bestSellers, activeOffers, loyaltyProgram, services, reviews] = await Promise.all([
     resolveLiveMenu(input.restaurantId),
     resolveRenderAssets(input.siteId),
     resolveBestSellers(input.restaurantId),
     resolveActiveOffers(input.restaurantId),
     resolveLoyaltyProgram(input.restaurantId),
+    resolveServiceAvailability(input.restaurantId, input.definition.facts),
+    resolveReviews(input.restaurantId),
   ]);
   const theme = resolveTheme(input.definition);
   const ctx = {
@@ -157,6 +203,8 @@ export async function renderAllPages(input: RenderSiteInput): Promise<Map<string
     bestSellers,
     activeOffers,
     loyaltyProgram,
+    services,
+    reviews,
   };
 
   const pages = new Map<string, string>();

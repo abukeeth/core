@@ -16,6 +16,7 @@ import { renderMenuSection } from "./components/menu-section";
 import { renderNewsletter } from "./components/newsletter";
 import { renderOffers } from "./components/offers";
 import { renderReviews } from "./components/reviews";
+import { renderServiceOptions } from "./components/service-options";
 import { renderSignatureDishes } from "./components/signature-dishes";
 import type { RenderContext } from "./render-context";
 
@@ -43,6 +44,7 @@ const REGISTRY: Partial<Record<SectionType, SectionRenderer>> = {
   aboutStory: renderAboutStory,
   hoursLocation: renderHoursLocation,
   reviews: renderReviews,
+  serviceOptions: renderServiceOptions,
   gallery: renderGallery,
   loyalty: renderLoyalty,
   appPromotion: renderAppPromotion,

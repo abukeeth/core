@@ -23,6 +23,11 @@ export const sectionTypeSchema = z.enum([
   // placeholder).
   "featuredCategories",
   "featuredProducts",
+  // Theme Engine V3 (restaurant-maison) — a "how to order" band listing the
+  // service options (pickup / delivery / dine-in / reservations) the tenant
+  // has actually enabled. Reads real DeliveryConfig flags + facts.hasReservations
+  // via the render context; never fabricated. Self-omits when none are enabled.
+  "serviceOptions",
   "bestSellers",
   "offers",
   "aboutTeaser",
@@ -338,6 +343,20 @@ export interface ThemeCatalogEntry {
    * warm-local, bold-commerce.
    */
   deprecated?: boolean;
+  /**
+   * Theme Engine V3 — a theme may declare its own presentation defaults
+   * (header/nav chrome settings, footer, product presentation, and brand
+   * token overrides). assemble.ts copies these verbatim into the generated
+   * SiteDefinition, so a theme like `restaurant-maison` is fully
+   * self-describing without hard-coding a page. Optional, so every existing
+   * catalog entry is unaffected and its definitions render identically.
+   */
+  presentation?: {
+    header?: HeaderSettings;
+    footer?: FooterSettings;
+    productPresentation?: ProductPresentation;
+    brandSettings?: BrandSettings;
+  };
 }
 
 // ---------------------------------------------------------------------------

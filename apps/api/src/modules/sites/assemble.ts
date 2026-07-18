@@ -64,6 +64,8 @@ function buildHomeSection(type: SectionType, input: AssembleInput, facts: SiteFa
         variant: input.theme.variants.hero[0],
         props: { headline: input.content.heroHeadline, subhead: input.content.heroSubhead, ctaLabel: computeCtaLabel(facts, input.family) },
       };
+    case "featuredProducts":
+      return { type, props: { title: "Popular Dishes" } };
     case "signatureDishes":
       return { type, props: { intro: input.content.signatureDishesIntro, items: pickSignatureDishes(input.ingest.menu) } };
     case "aboutTeaser":
@@ -177,6 +179,15 @@ export function buildSiteDefinition(input: AssembleInput): SiteDefinition {
     typography: input.theme.tokens.typography,
     designRationale: input.designRationale,
     facts,
+    // Theme Engine V3 — a theme may declare its own presentation defaults
+    // (chrome/header, footer, product presentation, brand token overrides).
+    // Copied verbatim so the theme is self-describing; omitted (left
+    // undefined) for every theme that declares none, preserving byte-identical
+    // output for all existing themes.
+    header: input.theme.presentation?.header,
+    footer: input.theme.presentation?.footer,
+    productPresentation: input.theme.presentation?.productPresentation,
+    brandSettings: input.theme.presentation?.brandSettings,
     pages: [
       buildHomePage(input, facts, city),
       buildMenuPage(input, city),
