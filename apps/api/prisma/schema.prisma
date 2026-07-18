@@ -174,6 +174,7 @@ model Restaurant {
   loyaltyAccounts      LoyaltyAccount[]
   customerFavorites    CustomerFavorite[]
   reviews              Review[]
+  onboardingStatus     OnboardingStatus?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -2096,4 +2097,34 @@ model AdminAuditLog {
 
   @@index([targetType, targetId])
   @@index([createdAt])
+}
+
+// Onboarding lifecycle record — one row per restaurant, created when the
+// owner first creates their business and updated as they progress through
+// the setup wizard. The authoritative *data* for each step still lives in
+// its own tables (Restaurant.businessType/name/address, PaymentProvider,
+// MenuItem, Site/GenerationJob); this table records the onboarding
+// *lifecycle* — when the owner started, when they were last active (so they
+// can leave and return), which optional steps they explicitly skipped, and
+// when onboarding completed. `onboarding_progress` (onboarding.service.ts)
+// derives per-step done/skipped from the real data and reads the explicit
+// skip flags here, so the returned progress is always correct even for data
+// changed outside the wizard.
+model OnboardingStatus {
+  id           String     @id @default(uuid())
+  restaurantId String     @unique
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+
+  startedAt    DateTime  @default(now())
+  lastActiveAt DateTime  @default(now())
+  completedAt  DateTime?
+
+  // Explicit "Skip for now" decisions — authoritative when set; the derived
+  // status falls back to "advanced past this step without its data" when not.
+  paymentSkippedAt DateTime?
+  menuSkippedAt    DateTime?
+  websiteSkippedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

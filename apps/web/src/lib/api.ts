@@ -431,6 +431,41 @@ export function setSetupStep(setupStep: SetupStep) {
   });
 }
 
+export interface OnboardingStepStatus {
+  done: boolean;
+  skipped: boolean;
+  state: "pending" | "done" | "skipped";
+}
+
+export interface OnboardingProgress {
+  currentStep: SetupStep;
+  complete: boolean;
+  startedAt: string | null;
+  lastActiveAt: string | null;
+  completedAt: string | null;
+  steps: {
+    businessType: OnboardingStepStatus;
+    businessInfo: OnboardingStepStatus;
+    location: OnboardingStepStatus;
+    payment: OnboardingStepStatus;
+    menu: OnboardingStepStatus;
+    website: OnboardingStepStatus;
+  };
+}
+
+/** Canonical onboarding-progress resource — resumable state derived from real business data. */
+export function getOnboardingProgress() {
+  return apiFetch<{ progress: OnboardingProgress }>("/api/onboarding/progress");
+}
+
+/** Record an explicit "Skip for now" for an optional onboarding step. */
+export function skipOnboardingStep(step: "PAYMENT" | "MENU" | "WEBSITE") {
+  return apiFetch<{ progress: OnboardingProgress }>("/api/onboarding/progress", {
+    method: "PATCH",
+    body: JSON.stringify({ skip: step }),
+  });
+}
+
 export function listReferrals() {
   return apiFetch<{ referrals: ReferredRestaurant[] }>("/api/restaurants/me/referrals");
 }
