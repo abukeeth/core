@@ -31,6 +31,7 @@ import { posRouter } from "./modules/commerce/pos/pos.routes";
 import { publicTablesRouter, tablesRouter } from "./modules/commerce/qr-ordering/tables.routes";
 import { importRouter } from "./modules/imports/import.routes";
 import { menuRouter } from "./modules/menu/menu.routes";
+import { onboardingRouter } from "./modules/onboarding/onboarding.routes";
 import { adminAuditLogRouter } from "./modules/admin/audit-log.routes";
 import { adminRestaurantRouter, restaurantRouter } from "./modules/restaurants/restaurant.routes";
 import { previewRouter, siteEdgeMiddleware, storeRouter } from "./modules/sites/public-render.routes";
@@ -295,6 +296,7 @@ export function createApp() {
   app.use("/api/admin/restaurants", adminRestaurantRouter);
   app.use("/api/admin", adminAuditLogRouter);
   app.use("/api/menu", menuRouter);
+  app.use("/api/onboarding", onboardingRouter);
   app.use("/api/imports", importRouter);
   app.use("/api/sites", siteRouter);
   app.use("/public/sites", publicSiteRouter);

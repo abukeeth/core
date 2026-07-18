@@ -1,5 +1,7 @@
 import { Prisma, type Restaurant } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
+import { bestEffort } from "../../lib/best-effort";
+import { ensureOnboardingStatus, recordOnboardingActivity } from "../onboarding/onboarding.service";
 import { NoRestaurantError, RestaurantAlreadyExistsError, RestaurantNotFoundError } from "./restaurant.errors";
 import { generateReferralCode } from "./referral-code";
 import type { CreateRestaurantInput, UpdateRestaurantInput } from "./restaurant.validation";
@@ -59,8 +61,8 @@ export async function createRestaurant(ownerId: string, input: CreateRestaurantI
     ? await prisma.restaurant.findUnique({ where: { referralCode: referrerCode }, select: { id: true } })
     : null;
 
-  return prisma.$transaction(async (tx) => {
-    const restaurant = await createWithUniqueReferralCode(tx, {
+  const restaurant = await prisma.$transaction(async (tx) => {
+    const created = await createWithUniqueReferralCode(tx, {
       ownerId,
       // Sprint 18 Business Setup Wizard step 1 only collects businessType —
       // the owner names their business in step 2 (Business Info).
@@ -71,9 +73,12 @@ export async function createRestaurant(ownerId: string, input: CreateRestaurantI
       setupStep: "BUSINESS_INFO",
       referredById: referrer?.id,
     });
-    await tx.user.update({ where: { id: ownerId }, data: { restaurantId: restaurant.id } });
-    return restaurant;
+    await tx.user.update({ where: { id: ownerId }, data: { restaurantId: created.id } });
+    return created;
   });
+  // Open the onboarding lifecycle record so progress is tracked from step 1.
+  await bestEffort(() => ensureOnboardingStatus(restaurant.id));
+  return restaurant;
 }
 
 /**
@@ -97,10 +102,14 @@ export async function createRestaurant(ownerId: string, input: CreateRestaurantI
  */
 export async function setSetupStep(userId: string, setupStep: Restaurant["setupStep"]): Promise<Restaurant> {
   const restaurant = await getOwnRestaurant(userId);
-  return prisma.restaurant.update({
+  const updated = await prisma.restaurant.update({
     where: { id: restaurant.id },
     data: { setupStep, ...(setupStep === "DONE" ? { isPublished: true } : {}) },
   });
+  // Advance the onboarding lifecycle record (last-active / completion) so
+  // progress survives refresh and "leave and return", without any UI change.
+  await bestEffort(() => recordOnboardingActivity(updated.id, setupStep));
+  return updated;
 }
 
 export async function listReferrals(restaurantId: string): Promise<Pick<Restaurant, "id" | "name" | "isPublished" | "createdAt">[]> {
