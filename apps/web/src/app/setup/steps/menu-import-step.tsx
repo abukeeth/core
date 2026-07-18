@@ -10,6 +10,7 @@ import {
   type ImportJob,
   type Restaurant,
 } from "@/lib/api";
+import { downscaleImageFile } from "@/lib/image-downscale";
 import { ReviewEditor } from "../../dashboard/import/[id]/review-editor";
 import { ProgressCard } from "../../dashboard/import/import-hub";
 import { primaryButtonClass, secondaryButtonClass } from "../wizard-shell";
@@ -36,6 +37,9 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
   const [job, setJob] = useState<ImportJob | null>(null);
   const [resuming, setResuming] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  // True from the moment the owner taps Import until the job exists — drives
+  // an immediate live progress card (no dead "Uploading…" button gap).
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const pollRef = useRef<number | null>(null);
@@ -115,15 +119,20 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
   async function handleImport() {
     if (!file) return;
     setSubmitting(true);
+    setUploading(true);
     setError(null);
     try {
       const sourceType = file.type === "application/pdf" ? "PDF" : "IMAGE";
-      const { job: created } = await createImportJob(sourceType, { file });
+      // Shrink large phone photos on-device before upload — smaller upload,
+      // faster OCR. Fail-open: returns the original file untouched on any issue.
+      const prepared = sourceType === "IMAGE" ? await downscaleImageFile(file) : file;
+      const { job: created } = await createImportJob(sourceType, { file: prepared });
       setJob(created);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed");
     } finally {
       setSubmitting(false);
+      setUploading(false);
     }
   }
 
@@ -178,17 +187,19 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
     return <p className="text-sm text-[#756B5D]">Checking for an in-progress import…</p>;
   }
 
-  if (job && ACTIVE_STATUSES.has(job.status)) {
-    const slow = now - new Date(job.createdAt).getTime() > SLOW_AFTER_MS;
+  if (uploading || (job && ACTIVE_STATUSES.has(job.status))) {
+    const slow = !uploading && job != null && now - new Date(job.createdAt).getTime() > SLOW_AFTER_MS;
     return (
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">BUILD YOUR MENU</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight">Building your menu…</h1>
         <p className="mt-3 text-sm leading-6 text-[#756B5D]">
-          This can take a minute — we&apos;ll keep you here until it&apos;s ready to review.
+          {uploading
+            ? "Uploading your menu and getting our AI ready…"
+            : "This can take a minute — we’ll keep you here until it’s ready to review."}
         </p>
         <div className="mt-6">
-          <ProgressCard job={job} uploading={false} otherActiveCount={0} batchSummary={null} />
+          <ProgressCard job={uploading ? null : job} uploading={uploading} otherActiveCount={0} batchSummary={null} />
         </div>
         {slow && (
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">

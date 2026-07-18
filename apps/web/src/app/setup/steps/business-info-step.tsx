@@ -22,9 +22,15 @@ export function BusinessInfoStep({
     setSubmitting(true);
     setError(null);
     try {
-      await updateRestaurant({ name, phone: phone || undefined, description: description || undefined });
-      const { restaurant: updated } = await setSetupStep("LOCATION");
-      onDone(updated);
+      // Two independent writes (field update + step advance) — run them
+      // together instead of sequentially so "Continue" costs one round-trip,
+      // not two. The locally-entered values win over whatever the step-advance
+      // read back, so there's no stale-name race.
+      const [, stepResult] = await Promise.all([
+        updateRestaurant({ name, phone: phone || undefined, description: description || undefined }),
+        setSetupStep("LOCATION"),
+      ]);
+      onDone({ ...stepResult.restaurant, name, phone: phone || null, description: description || null });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -50,6 +56,8 @@ export function BusinessInfoStep({
             onChange={(e) => setName(e.target.value)}
             className={inputClass}
             placeholder="e.g. Maple Street Coffee"
+            autoComplete="organization"
+            enterKeyHint="next"
           />
         </label>
 
@@ -57,6 +65,9 @@ export function BusinessInfoStep({
           Phone
           <input
             type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            enterKeyHint="done"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             className={inputClass}
