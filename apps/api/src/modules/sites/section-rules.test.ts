@@ -23,10 +23,19 @@ describe("filterSectionsByAvailability", () => {
     expect(result).toEqual(["hero", "footer"]);
   });
 
-  it("drops gallery when there are no photos", () => {
+  it("Theme Engine V2: keeps gallery even with no uploaded photos (it renders curated stock imagery)", () => {
     const result = filterSectionsByAvailability(["hero", "gallery", "footer"], {
       hasMenuItems: true,
       hasPhotos: false,
+      hasHoursOrLocation: true,
+    });
+    expect(result).toEqual(["hero", "gallery", "footer"]);
+  });
+
+  it("drops featuredProducts and featuredCategories when there are no menu items", () => {
+    const result = filterSectionsByAvailability(["hero", "featuredProducts", "featuredCategories", "footer"], {
+      hasMenuItems: false,
+      hasPhotos: true,
       hasHoursOrLocation: true,
     });
     expect(result).toEqual(["hero", "footer"]);

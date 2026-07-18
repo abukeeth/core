@@ -125,4 +125,32 @@ describe("§Website Builder — the 3 design systems render materially different
     expect(byKey["modern-editorial"]).not.toContain("border:2px solid var(--color-surface-900)");
     expect(byKey["warm-local"]).not.toContain("border:2px solid var(--color-surface-900)");
   });
+
+  it("Theme Engine V2: every design system's home shows a complete, image-rich storefront for a business with no uploaded photos", () => {
+    for (const theme of ACTIVE_THEMES) {
+      const definition = buildSiteDefinition({
+        ingest: { ...ingest, photoCount: 0 },
+        brandProfile,
+        family: theme.styleFamily,
+        theme,
+        content,
+        colorSeed: theme.tokens.colorSeed,
+      });
+      const homePage = definition.pages.find((p) => p.slug === "/")!;
+      const html = renderPage({ ctx: ctxFor(definition), page: homePage, theme, siteUrl: "https://example.com" });
+
+      // Real curated imagery (over the generated fallback) — not gradient-and-initial placeholders.
+      expect(html).toContain("images.unsplash.com");
+      expect(html).toContain("linear-gradient(");
+      // The required storefront sections are all present.
+      expect(html).toContain('class="featured-products"');
+      expect(html).toContain('class="featured-categories"');
+      expect(html).toContain('class="gallery"');
+    }
+  });
+
+  it("Theme Engine V2: each design system orders its home sections differently (distinct visual hierarchy)", () => {
+    const orders = ACTIVE_THEMES.map((t) => t.layouts.home.join(">"));
+    expect(new Set(orders).size).toBe(ACTIVE_THEMES.length);
+  });
 });

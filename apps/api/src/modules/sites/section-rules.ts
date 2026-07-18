@@ -19,9 +19,12 @@ export function filterSectionsByAvailability(order: SectionType[], availability:
     switch (type) {
       case "signatureDishes":
       case "menu":
+      case "featuredProducts":
+      case "featuredCategories":
         return availability.hasMenuItems;
-      case "gallery":
-        return availability.hasPhotos;
+      // Theme Engine V2 — Gallery no longer depends on uploaded photos: it
+      // renders cuisine-matched curated imagery when the owner hasn't uploaded
+      // any yet (see gallery.ts), so it's always allowed.
       case "hoursLocation":
         return availability.hasHoursOrLocation;
       case "testimonials":

@@ -60,8 +60,8 @@ describe("renderSections", () => {
     expect(mockLoggerWarn).toHaveBeenCalledWith({ sectionType: "testimonials" }, expect.stringContaining("testimonials"));
   });
 
-  it("omits empty renders (e.g. gallery with zero images) from the output entirely", () => {
-    const html = renderSections([{ type: "gallery", props: {} }], ctx());
+  it("omits empty renders (e.g. a reviews section with no reviews) from the output entirely", () => {
+    const html = renderSections([{ type: "reviews", props: {} }], ctx());
     expect(html.trim()).toBe("");
   });
 

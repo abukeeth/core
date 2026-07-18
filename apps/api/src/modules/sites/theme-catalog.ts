@@ -240,7 +240,9 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       typeScaleRatio: 1.3,
     },
     variants: { hero: ["editorial-split"], menuLayout: ["editorial-rows"], chrome: ["editorial"] },
-    layouts: { home: ["hero", "aboutTeaser", "signatureDishes", "gallery", "hoursLocation", "ctaBanner", "footer"] },
+    // Modern editorial — story-forward, alternating rhythm: lead product grid,
+    // then the story, then the menu explorer and imagery.
+    layouts: { home: ["hero", "featuredProducts", "aboutTeaser", "featuredCategories", "gallery", "hoursLocation", "ctaBanner", "footer"] },
   },
   {
     key: "warm-local",
@@ -263,7 +265,9 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       typeScaleRatio: 1.2,
     },
     variants: { hero: ["warm-frame"], menuLayout: ["warm-cards"], chrome: ["warm"] },
-    layouts: { home: ["hero", "signatureDishes", "hoursLocation", "aboutTeaser", "gallery", "footer"] },
+    // Warm local — community & menu-forward: explore-the-menu first, then the
+    // dishes, a warm story, a gallery and a friendly closing invite.
+    layouts: { home: ["hero", "featuredCategories", "featuredProducts", "aboutTeaser", "gallery", "hoursLocation", "ctaBanner", "footer"] },
   },
   {
     key: "bold-commerce",
@@ -286,6 +290,8 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       typeScaleRatio: 1.4,
     },
     variants: { hero: ["bold-block"], menuLayout: ["bold-grid"], chrome: ["bold"] },
-    layouts: { home: ["hero", "signatureDishes", "ctaBanner", "gallery", "aboutTeaser", "hoursLocation", "footer"] },
+    // Bold commerce — commerce-forward: products and menu explorer up top with an
+    // early conversion push, story and details after.
+    layouts: { home: ["hero", "featuredProducts", "featuredCategories", "ctaBanner", "gallery", "aboutTeaser", "hoursLocation", "footer"] },
   },
 ];

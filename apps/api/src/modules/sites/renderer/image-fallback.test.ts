@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { renderImageOrFallback } from "./image-fallback";
+import { generatedGradient, renderImageOrFallback, renderPhoto } from "./image-fallback";
 
 describe("renderImageOrFallback — §Website Builder polished deterministic fallback", () => {
   it("renders a real <img> when a URL is present", () => {
@@ -32,5 +32,40 @@ describe("renderImageOrFallback — §Website Builder polished deterministic fal
 
     const fallback = renderImageOrFallback("<script>x</script>", undefined);
     expect(fallback).not.toContain("<script>x</script>");
+  });
+});
+
+describe("renderPhoto — Theme Engine V2 hybrid image primitive", () => {
+  it("prefers a real uploaded photo, layered over the generated gradient", () => {
+    const html = renderPhoto({ name: "Carbonara", imageUrl: "/assets/carbonara.png", stockUrl: "https://images.unsplash.com/photo-x" });
+    expect(html).toContain('url("/assets/carbonara.png")');
+    // The uploaded photo wins — the stock URL is not used when an upload exists.
+    expect(html).not.toContain("photo-x");
+    expect(html).toContain("linear-gradient(");
+    expect(html).toContain('role="img"');
+    expect(html).toContain('aria-label="Carbonara"');
+  });
+
+  it("uses the curated stock photo over the gradient when there's no upload", () => {
+    const html = renderPhoto({ name: "Carbonara", stockUrl: "https://images.unsplash.com/photo-abc" });
+    expect(html).toContain('url("https://images.unsplash.com/photo-abc")');
+    expect(html).toContain("linear-gradient(");
+  });
+
+  it("still renders the generated gradient (never an empty box) when neither photo is supplied", () => {
+    const html = renderPhoto({ name: "Carbonara" });
+    expect(html).toContain("linear-gradient(");
+    expect(html).not.toContain("url(");
+  });
+
+  it("escapes the accessible label and honors the aspect ratio", () => {
+    const html = renderPhoto({ name: "<b>x</b>", aspectRatio: "16/9" });
+    expect(html).not.toContain("<b>x</b>");
+    expect(html).toContain("aspect-ratio:16/9");
+  });
+
+  it("generatedGradient is deterministic per name and differs across names", () => {
+    expect(generatedGradient("A")).toBe(generatedGradient("A"));
+    expect(generatedGradient("A")).not.toBe(generatedGradient("Totally Different"));
   });
 });

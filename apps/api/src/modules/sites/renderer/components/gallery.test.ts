@@ -11,15 +11,21 @@ function ctx(galleryImages: RenderContext["assets"]["galleryImages"]): RenderCon
     bestSellers: [],
     activeOffers: [],
     loyaltyProgram: null,
-    definition: { restaurantName: "Trattoria Bella" } as SiteDefinition,
+    definition: { restaurantName: "Trattoria Bella", cuisine: "italian", businessType: "bistro" } as SiteDefinition,
     liveMenu: [],
     assets: { galleryImages },
   };
 }
 
 describe("renderGallery", () => {
-  it("renders nothing at all when there are no gallery images", () => {
-    expect(renderGallery({ type: "gallery", props: {} }, ctx([]))).toBe("");
+  it("Theme Engine V2: renders curated cuisine-matched stock imagery (never empty) when there are no uploaded gallery images", () => {
+    const html = renderGallery({ type: "gallery", props: {} }, ctx([]));
+    expect(html).toContain('<section class="gallery">');
+    // Real stock photos, layered over the always-present generated gradient fallback.
+    expect(html).toContain("images.unsplash.com");
+    expect(html).toContain("linear-gradient(");
+    // Six curated tiles for a business with no uploads.
+    expect(html.match(/role="img"/g)?.length).toBe(6);
   });
 
   it("renders an image tile per gallery image", () => {
