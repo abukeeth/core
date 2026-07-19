@@ -72,7 +72,11 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
       ? "color:#ffffff;margin:0 0 0.5rem;text-transform:uppercase;letter-spacing:0.02em;font-size:var(--step-2);"
       : "color:#ffffff;margin:0 0 0.5rem;";
 
-    return `<section class="hero hero--${escapeHtml(variant)}" style="position:relative;">
+    // padding:0 overrides the global `section { padding: var(--content-spacing) 0 }`
+    // rule (theme-css.ts) so a full-bleed hero really is edge-to-edge; without it
+    // a theme with roomy content spacing leaves strips above/below the image that
+    // the scrim overlay tints, breaking the cinematic effect.
+    return `<section class="hero hero--${escapeHtml(variant)}" style="position:relative;padding:0;">
   ${imageHtml}
   <div style="position:absolute;inset:0;background:rgba(0,0,0,${isBold ? Math.max(overlayOpacity, 0.55) : overlayOpacity});display:flex;flex-direction:column;justify-content:center;align-items:${
     ALIGN_ITEMS[alignment] ?? ALIGN_ITEMS.center
