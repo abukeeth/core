@@ -36,6 +36,7 @@ import { adminAuditLogRouter } from "./modules/admin/audit-log.routes";
 import { adminRestaurantRouter, restaurantRouter } from "./modules/restaurants/restaurant.routes";
 import { previewRouter, siteEdgeMiddleware, storeRouter } from "./modules/sites/public-render.routes";
 import { publicSiteRouter, siteRouter } from "./modules/sites/site.routes";
+import { tenantContextMiddleware } from "./modules/tenancy/tenant-context.middleware";
 
 const EXTENSION_CONTENT_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
@@ -213,6 +214,15 @@ export function createApp() {
   // produce that content type, and a script-driven fetch with it triggers
   // a CORS preflight our origin allowlist rejects for any other site.
   app.use(cookieParser());
+
+  // BOS Phase 0 (P0.2) — Tenant Context resolver. Flag-guarded
+  // (TENANT_CONTEXT_ENABLED, default off) and non-enforcing: when enabled and a
+  // valid access-token cookie is present it attaches req.tenant (via the P0.1
+  // resolver); otherwise it is a pass-through. Mounted after cookieParser (it
+  // reads that cookie) and before route mounting so req.tenant is available to
+  // handlers. It never blocks or rejects a request — per-route requireAuth
+  // remains the sole auth gate. No consumer reads req.tenant yet (that is P0.3).
+  app.use(tenantContextMiddleware);
 
   // Serves uploaded images (site assets, import files) — see
   // renderer/asset-url.ts, which decides the actual URL shape returned to
