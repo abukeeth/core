@@ -54,6 +54,14 @@ model User {
   fraudSignalsResolved FraudSignal[]
   adminAuditLogEntries AdminAuditLog[]
 
+  // --- BOS Phase 1 (P1) — Organization layer ---
+  // Organizations this user owns. In P1 this is the trivial 1:1 case (one
+  // organization per owner, mirroring the 1:1 owner↔restaurant model); the
+  // list shape is deliberate so P8 (multi-business portfolios) needs no
+  // reshape. This is a plain owner pointer, NOT a membership/role model —
+  // scoped Membership arrives in P2.
+  ownedOrganizations Organization[] @relation("OrganizationOwner")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -176,8 +184,44 @@ model Restaurant {
   reviews              Review[]
   onboardingStatus     OnboardingStatus?
 
+  // --- BOS Phase 1 (P1) — Organization layer ---
+  // The commercial/account root this Business belongs to. NULLABLE in P1: the
+  // column is added with zero backfill risk (existing rows stay valid), then
+  // populated 1:1 by an idempotent backfill (PR-P1.2). Kept nullable through
+  // P1 so the whole phase stays reversible; a later hardening PR may tighten
+  // it to NOT NULL once every Business has one. The physical tenant scope key
+  // remains `restaurantId`; Organization sits *above* the Business, it does
+  // not replace it.
+  organizationId String?
+  organization   Organization? @relation("OrganizationBusinesses", fields: [organizationId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+// --- BOS Phase 1 (P1) — Organization layer ---
+// The commercial/account root above the Business (= Restaurant). In P1 it is
+// deliberately minimal: it wraps exactly one Business (1:1:1 with its owner)
+// and records who owns it. Billing (P6), a shared team via Membership (P2),
+// and multi-business portfolios (P8) attach here in later phases — none of
+// that exists yet. `ownerUserId` is a plain pointer (not a Membership/role);
+// `restaurantId`/`Restaurant.ownerId` remain untouched.
+model Organization {
+  id          String   @id @default(uuid())
+  name        String
+  ownerUserId String
+  owner       User     @relation("OrganizationOwner", fields: [ownerUserId], references: [id])
+
+  // Modeled 1:N so P8 needs no reshape; P1 enforces exactly one Business per
+  // Organization in application logic (creation/backfill), not in the schema.
+  businesses  Restaurant[] @relation("OrganizationBusinesses")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([ownerUserId])
 }
 
 model MenuCategory {
