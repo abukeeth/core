@@ -38,19 +38,21 @@ export function renderServiceOptions(section: SectionBlock, ctx: RenderContext):
   const enabled = all.filter((card) => services[card.key]);
   if (enabled.length === 0) return "";
 
+  const eyebrow = typeof section.props.eyebrow === "string" ? section.props.eyebrow : "How to visit";
   const cards = enabled
     .map(
-      (card) => `<li class="service-option card" style="list-style:none;padding:1.25rem;background:var(--color-surface-100);display:flex;flex-direction:column;gap:0.35rem;">
-      <h3 style="margin:0;font-size:var(--step-1);">${escapeHtml(card.label)}</h3>
-      <p style="margin:0;color:var(--color-text-700);flex:1;">${escapeHtml(card.blurb)}</p>
-      <a class="cta" href="${escapeHtml(card.href)}" style="align-self:flex-start;margin-top:0.5rem;">${escapeHtml(card.cta)}</a>
+      (card) => `<li class="service-option" style="list-style:none;padding:1.75rem 1.5rem;border:1px solid var(--color-surface-200);border-top:2px solid var(--color-accent-500);display:flex;flex-direction:column;gap:0.5rem;text-align:center;align-items:center;">
+      <h3 style="margin:0;font-size:1.3rem;">${escapeHtml(card.label)}</h3>
+      <p style="margin:0;color:var(--color-text-600);flex:1;font-size:var(--step--1);line-height:1.6;">${escapeHtml(card.blurb)}</p>
+      <a href="${escapeHtml(card.href)}" style="margin-top:0.6rem;font-size:0.7rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-primary-700);text-decoration:none;border-bottom:1px solid var(--color-accent-500);padding-bottom:3px;">${escapeHtml(card.cta)}</a>
     </li>`,
     )
     .join("\n");
 
-  return `<section class="service-options" aria-labelledby="service-options-title">
-  <h2 id="service-options-title">${escapeHtml(title)}</h2>
-  <ul style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:1rem;padding:0;margin:1rem 0 0;">
+  return `<section class="service-options" aria-labelledby="service-options-title" style="text-align:center;">
+  <p style="font-size:0.72rem;letter-spacing:0.28em;text-transform:uppercase;color:var(--color-accent-600);margin:0 0 0.6rem;">${escapeHtml(eyebrow)}</p>
+  <h2 id="service-options-title" style="margin:0 0 2.25rem;font-size:var(--step-1);">${escapeHtml(title)}</h2>
+  <ul style="display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:1.1rem;padding:0;margin:0;">
     ${cards}
   </ul>
 </section>`;

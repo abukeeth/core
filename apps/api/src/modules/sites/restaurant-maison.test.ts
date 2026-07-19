@@ -97,7 +97,8 @@ describe("restaurant-maison — catalog entry", () => {
   });
 
   it("declares reusable presentation defaults (chrome header, footer, brand tokens)", () => {
-    expect(maison.variants.hero[0]).toBe("fullbleed-image");
+    expect(maison.variants.hero[0]).toBe("cinematic");
+    expect(maison.variants.menuLayout[0]).toBe("editorial-menu");
     expect(maison.variants.chrome[0]).toBe("editorial");
     expect(maison.presentation?.header?.announcementBar?.enabled).toBe(true);
     expect(maison.presentation?.header?.showOrderButton).toBe(true);
@@ -122,7 +123,7 @@ describe("restaurant-maison — assembly copies presentation into the definition
     expect(def.brandSettings?.backgroundColor).toBe("#FBF7F0");
     const home = def.pages.find((p) => p.slug === "/")!;
     const featured = home.sections.find((s) => s.type === "featuredProducts");
-    expect(featured?.props.title).toBe("Popular Dishes");
+    expect(featured?.props.title).toBe("Signature Dishes");
   });
 });
 
@@ -134,12 +135,12 @@ describe("restaurant-maison — home rendering", () => {
 
     // Chrome + hero + mobile sticky CTA
     expect(html).toContain("chrome-editorial");
-    expect(html).toContain("hero--fullbleed-image");
+    expect(html).toContain("hero--cinematic");
     expect(html).toContain("mobile-action-bar");
     // Menu-driven sections (real live menu)
     expect(html).toContain('class="featured-categories"');
     expect(html).toContain('class="featured-products"');
-    expect(html).toContain("Popular Dishes");
+    expect(html).toContain("Signature Dishes");
     expect(html).toContain("Duck confit");
     // Real service options + real reviews
     expect(html).toContain('class="service-options"');
@@ -161,7 +162,7 @@ describe("restaurant-maison — home rendering", () => {
     expect(html).not.toContain('class="service-options"');
     expect(html).not.toContain('class="reviews"');
     // But the rest of the storefront still renders.
-    expect(html).toContain("hero--fullbleed-image");
+    expect(html).toContain("hero--cinematic");
     expect(html).toContain('class="featured-products"');
     expect(html.toLowerCase()).toContain("footer");
   });

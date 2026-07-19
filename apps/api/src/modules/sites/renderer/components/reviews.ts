@@ -37,6 +37,28 @@ export function renderReviews(section: SectionBlock, ctx: RenderContext): string
 
   if (reviews.length === 0) return "";
 
+  // Theme Engine V3 — restaurant-maison gets an editorial "guest book": brass
+  // rule-topped quote cards, a large serif quotation, and the guest's name in
+  // spaced small caps. Real reviews only, same as every theme.
+  if (ctx.definition.themeKey === "restaurant-maison") {
+    const maisonCards = reviews
+      .map(
+        (review) => `<li style="list-style:none;padding:1.75rem 1.5rem;border-top:2px solid var(--color-accent-500);text-align:center;display:flex;flex-direction:column;gap:0.75rem;align-items:center;">
+        ${review.rating ? `<p style="margin:0;color:var(--color-accent-600);letter-spacing:0.2em;" aria-label="${review.rating} out of 5 stars">${renderStars(review.rating)}</p>` : ""}
+        <p style="margin:0;font-family:var(--font-display);font-style:italic;font-size:1.15rem;line-height:1.55;color:var(--color-text-800);">&ldquo;${escapeHtml(review.quote)}&rdquo;</p>
+        <p style="margin:0.25rem 0 0;font-size:0.72rem;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-text-600);">${escapeHtml(review.author)}</p>
+      </li>`,
+      )
+      .join("\n");
+    return `<section class="reviews" aria-labelledby="reviews-title" style="text-align:center;">
+  <p style="font-size:0.72rem;letter-spacing:0.28em;text-transform:uppercase;color:var(--color-accent-600);margin:0 0 0.6rem;">Guest Book</p>
+  <h2 id="reviews-title" style="margin:0 0 2.25rem;font-size:var(--step-1);">In their words</h2>
+  <ul style="display:grid;grid-template-columns:repeat(auto-fit, minmax(240px, 1fr));gap:1.1rem;padding:0;margin:0;">
+    ${maisonCards}
+  </ul>
+</section>`;
+  }
+
   const cards = reviews
     .map(
       (review) => `<li class="card" style="list-style:none;padding:1.25rem;background:var(--color-surface-100);${layout === "list" ? "display:flex;gap:1rem;align-items:flex-start;" : ""}">

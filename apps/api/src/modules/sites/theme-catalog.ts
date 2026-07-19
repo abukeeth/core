@@ -327,13 +327,16 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       motion: "subtle",
       typeScaleRatio: 1.333,
     },
-    variants: { hero: ["fullbleed-image"], menuLayout: ["two-column-elegant"], chrome: ["editorial"] },
+    variants: { hero: ["cinematic"], menuLayout: ["editorial-menu"], chrome: ["editorial"] },
     // Editorial fine-dining flow — cinematic hero, the menu explorer, popular
     // dishes, how to order (real service options), the story, real reviews,
     // then location/hours. Header (announcement bar + centered brand + order
     // button + mobile sticky CTA) and footer come from `presentation`, below.
+    // Editorial storytelling order — open cinematic, tell the story (immersive),
+    // build desire with signature features and the menu, immerse in the gallery,
+    // then convert (how to visit, guest book) and close on location.
     layouts: {
-      home: ["hero", "featuredCategories", "featuredProducts", "serviceOptions", "aboutTeaser", "reviews", "hoursLocation", "footer"],
+      home: ["hero", "aboutTeaser", "featuredProducts", "featuredCategories", "gallery", "serviceOptions", "reviews", "hoursLocation", "footer"],
     },
     presentation: {
       header: {

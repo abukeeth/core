@@ -1,5 +1,5 @@
 import { escapeHtml } from "../html-escape";
-import { renderImageOrFallback } from "../image-fallback";
+import { ambientPlaceholder } from "../placeholder-imagery";
 import type { RenderContext } from "../render-context";
 import type { SectionBlock } from "../../types";
 
@@ -8,34 +8,39 @@ function slugifyCategory(name: string): string {
 }
 
 /**
- * Sprint 20A Task 5 — reads the real, live menu (same source as "menu"/
- * "featuredProducts"), never fabricated categories. §Website Builder —
- * each card shows the category's real uploaded photo, or the same
- * polished deterministic fallback tile used everywhere else, so this
- * section never renders as a text-only grid of buttons.
+ * Featured categories — premium "explore the menu" cards. Each card is a tall
+ * image (the category's real uploaded photo when present, else an art-directed
+ * ambient placeholder — never a flat tile) with an editorial serif label and
+ * item count set over a soft bottom scrim. Reads as a hospitality-grade menu
+ * index rather than a grid of buttons.
  */
 export function renderFeaturedCategories(section: SectionBlock, ctx: RenderContext): string {
-  const title = typeof section.props.title === "string" ? section.props.title : "Explore the Menu";
-  const subtitle = typeof section.props.subtitle === "string" ? section.props.subtitle : "";
+  const title = typeof section.props.title === "string" ? section.props.title : "Explore the menu";
+  const eyebrow = typeof section.props.eyebrow === "string" ? section.props.eyebrow : "The Menu";
   const limit = typeof section.props.limit === "number" ? section.props.limit : 6;
 
   const categories = ctx.liveMenu.filter((c) => c.items.some((item) => item.isAvailable)).slice(0, limit);
   if (categories.length === 0) return "";
 
   const cards = categories
-    .map(
-      (category) => `<a href="/menu#${slugifyCategory(category.name)}" class="card" style="display:block;padding:1.25rem;text-decoration:none;color:inherit;background:var(--color-surface-100);">
-      ${renderImageOrFallback(category.name, category.imageUrl, "4/3")}
-      <h3 style="margin:0.75rem 0 0;">${escapeHtml(category.name)}</h3>
-      <p style="margin:0.25rem 0 0;color:var(--color-text-700);">${category.items.filter((i) => i.isAvailable).length} items</p>
-    </a>`,
-    )
+    .map((category) => {
+      const count = category.items.filter((i) => i.isAvailable).length;
+      const img = category.imageUrl ?? ambientPlaceholder(category.name);
+      return `<a href="/menu#${slugifyCategory(category.name)}" class="cat-card" style="position:relative;display:block;aspect-ratio:4/5;border-radius:2px;overflow:hidden;text-decoration:none;color:#fff;isolation:isolate;">
+      <img src="${escapeHtml(img)}" alt="${escapeHtml(category.name)}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;" />
+      <span aria-hidden="true" style="position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg, rgba(10,7,5,0.05) 30%, rgba(10,7,5,0.72) 100%);"></span>
+      <span style="position:absolute;left:1.25rem;right:1.25rem;bottom:1.15rem;">
+        <span style="display:block;font-size:0.62rem;letter-spacing:0.24em;text-transform:uppercase;color:var(--color-accent-400);margin-bottom:0.35rem;">${count} ${count === 1 ? "dish" : "dishes"}</span>
+        <span style="display:block;font-family:var(--font-display);font-size:1.5rem;line-height:1.1;">${escapeHtml(category.name)}</span>
+      </span>
+    </a>`;
+    })
     .join("\n");
 
-  return `<section class="featured-categories">
-  <h2>${escapeHtml(title)}</h2>
-  ${subtitle ? `<p>${escapeHtml(subtitle)}</p>` : ""}
-  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:1rem;">
+  return `<section class="featured-categories" aria-labelledby="fc-title">
+  <p style="text-align:center;font-size:0.72rem;letter-spacing:0.28em;text-transform:uppercase;color:var(--color-accent-600);margin:0 0 0.6rem;">${escapeHtml(eyebrow)}</p>
+  <h2 id="fc-title" style="text-align:center;margin:0 0 2.25rem;font-size:var(--step-1);">${escapeHtml(title)}</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:1.1rem;">
     ${cards}
   </div>
 </section>`;

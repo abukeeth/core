@@ -65,7 +65,7 @@ function buildHomeSection(type: SectionType, input: AssembleInput, facts: SiteFa
         props: { headline: input.content.heroHeadline, subhead: input.content.heroSubhead, ctaLabel: computeCtaLabel(facts, input.family) },
       };
     case "featuredProducts":
-      return { type, props: { title: "Popular Dishes" } };
+      return { type, props: { title: "Signature Dishes", eyebrow: "Favourites" } };
     case "signatureDishes":
       return { type, props: { intro: input.content.signatureDishesIntro, items: pickSignatureDishes(input.ingest.menu) } };
     case "aboutTeaser":

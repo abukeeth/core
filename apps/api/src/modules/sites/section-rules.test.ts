@@ -23,13 +23,13 @@ describe("filterSectionsByAvailability", () => {
     expect(result).toEqual(["hero", "footer"]);
   });
 
-  it("drops gallery when there are no photos", () => {
+  it("keeps gallery even with no uploaded photos (a theme may render an immersive gallery from art-directed imagery)", () => {
     const result = filterSectionsByAvailability(["hero", "gallery", "footer"], {
       hasMenuItems: true,
       hasPhotos: false,
       hasHoursOrLocation: true,
     });
-    expect(result).toEqual(["hero", "footer"]);
+    expect(result).toEqual(["hero", "gallery", "footer"]);
   });
 
   it("drops hoursLocation when there's no address or hours data", () => {
