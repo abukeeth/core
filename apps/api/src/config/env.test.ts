@@ -2,11 +2,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   __resetEnvCacheForTests,
   assertStartupEnv,
+  getBooleanEnv,
   getEnv,
   getNumberEnv,
   getOptionalEnv,
   getSafeEnvSummary,
   getStringEnv,
+  isTenantContextEnabled,
   requireEnv,
 } from "./env";
 
@@ -279,5 +281,55 @@ describe("getSafeEnvSummary (Phase 3 — \"no secret values can appear in logs\"
     const summary = getSafeEnvSummary();
     expect(summary.ANTHROPIC_API_KEY).toBe("unset");
     expect(summary.DATABASE_URL).toBe("unset");
+  });
+});
+
+describe("getBooleanEnv", () => {
+  afterEach(() => {
+    delete process.env.SOME_FLAG;
+  });
+
+  it("returns the default when unset", () => {
+    delete process.env.SOME_FLAG;
+    expect(getBooleanEnv("SOME_FLAG", false)).toBe(false);
+    expect(getBooleanEnv("SOME_FLAG", true)).toBe(true);
+  });
+
+  it("returns the default when set to an empty string", () => {
+    process.env.SOME_FLAG = "";
+    expect(getBooleanEnv("SOME_FLAG", true)).toBe(true);
+  });
+
+  it("is true only for the exact string \"true\"", () => {
+    process.env.SOME_FLAG = "true";
+    expect(getBooleanEnv("SOME_FLAG", false)).toBe(true);
+  });
+
+  it("treats any other value (1, yes, TRUE, typos) as false", () => {
+    for (const raw of ["1", "yes", "TRUE", "on", "enabled", "flase"]) {
+      process.env.SOME_FLAG = raw;
+      expect(getBooleanEnv("SOME_FLAG", false)).toBe(false);
+    }
+  });
+});
+
+describe("isTenantContextEnabled (BOS P0 flag)", () => {
+  afterEach(() => {
+    delete process.env.TENANT_CONTEXT_ENABLED;
+  });
+
+  it("defaults to false when unset", () => {
+    delete process.env.TENANT_CONTEXT_ENABLED;
+    expect(isTenantContextEnabled()).toBe(false);
+  });
+
+  it("is true when set to \"true\"", () => {
+    process.env.TENANT_CONTEXT_ENABLED = "true";
+    expect(isTenantContextEnabled()).toBe(true);
+  });
+
+  it("is false for any non-\"true\" value", () => {
+    process.env.TENANT_CONTEXT_ENABLED = "1";
+    expect(isTenantContextEnabled()).toBe(false);
   });
 });

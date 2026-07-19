@@ -175,6 +175,25 @@ export function getOptionalEnv(name: string): string | undefined {
   return process.env[name];
 }
 
+/** An optional boolean feature-flag with a default. Deliberately strict: only the exact string "true" is truthy; anything else (including "1", "yes", or a typo) is false, so a flag is never accidentally enabled. Non-core (not part of the boot-critical schema), so it can never block process start. */
+export function getBooleanEnv(name: string, defaultValue: boolean): boolean {
+  const raw = process.env[name];
+  if (raw === undefined || raw === "") return defaultValue;
+  return raw === "true";
+}
+
+/**
+ * BOS Phase 0 (P0) feature flag. When enabled, the Tenant Context resolver
+ * attaches `req.tenant` to authenticated requests. Default OFF and, in
+ * PR-P0.1, not yet consumed anywhere — the resolver is unwired. The wiring
+ * (PR-P0.2) reads this flag; introducing the accessor here keeps the flag
+ * definition alongside the rest of the app's config from the start. See
+ * P0_EXECUTION_SPEC.md.
+ */
+export function isTenantContextEnabled(): boolean {
+  return getBooleanEnv("TENANT_CONTEXT_ENABLED", false);
+}
+
 /**
  * Every environment variable this application reads anywhere, for the
  * safe startup summary below. Keeping this list here (rather than scanning
