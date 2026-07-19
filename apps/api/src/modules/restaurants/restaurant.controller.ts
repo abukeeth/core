@@ -7,6 +7,7 @@ import {
   createRestaurant,
   getOwnRestaurant,
   getOwnRestaurantId,
+  getRestaurantByBusinessId,
   listAllRestaurants,
   listReferrals,
   setSetupStep,
@@ -47,7 +48,16 @@ export async function create(req: Request, res: Response): Promise<void> {
 
 export async function getMine(req: Request, res: Response): Promise<void> {
   try {
-    const restaurant = await getOwnRestaurant(req.user!.id);
+    // BOS Phase 0 (P0.3) — first real consumer of Tenant Context. When
+    // req.tenant is present (P0.2 middleware, flag on) resolve the business via
+    // req.tenant.businessId; otherwise fall back to the legacy per-user
+    // resolution. req.tenant.businessId is defined to equal
+    // getOwnRestaurantId(req.user.id), so the response — including the 404 for a
+    // user with no restaurant — is identical in both flag states. The legacy
+    // fallback (getOwnRestaurant) is intentionally preserved.
+    const restaurant = req.tenant
+      ? await getRestaurantByBusinessId(req.tenant.businessId)
+      : await getOwnRestaurant(req.user!.id);
     res.status(200).json({ restaurant });
   } catch (err) {
     if (err instanceof NoRestaurantError) {

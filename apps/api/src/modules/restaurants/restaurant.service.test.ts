@@ -14,6 +14,7 @@ import { NoRestaurantError, RestaurantAlreadyExistsError, RestaurantNotFoundErro
 import {
   createRestaurant,
   getOwnRestaurantId,
+  getRestaurantByBusinessId,
   listReferrals,
   setSetupStep,
   suspendRestaurant,
@@ -37,6 +38,27 @@ describe("getOwnRestaurantId", () => {
     mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null } as never);
 
     await expect(getOwnRestaurantId("user-1")).resolves.toBeNull();
+  });
+});
+
+describe("getRestaurantByBusinessId (P0.3 — Tenant Context fetch)", () => {
+  it("returns the restaurant record for a valid business id", async () => {
+    const record = { id: "restaurant-1", name: "Joe's" };
+    mockPrisma.restaurant.findUnique.mockResolvedValue(record as never);
+
+    await expect(getRestaurantByBusinessId("restaurant-1")).resolves.toEqual(record);
+    expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledWith({ where: { id: "restaurant-1" } });
+  });
+
+  it("throws NoRestaurantError when the business id is null (mirrors the legacy fetch)", async () => {
+    await expect(getRestaurantByBusinessId(null)).rejects.toBeInstanceOf(NoRestaurantError);
+    expect(mockPrisma.restaurant.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("throws NoRestaurantError when no record exists for the id", async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue(null as never);
+
+    await expect(getRestaurantByBusinessId("missing")).rejects.toBeInstanceOf(NoRestaurantError);
   });
 });
 

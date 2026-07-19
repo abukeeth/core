@@ -132,6 +132,26 @@ export async function getOwnRestaurant(userId: string): Promise<Restaurant> {
   return restaurant;
 }
 
+/**
+ * BOS Phase 0 (P0.3) — fetch the caller's business/restaurant by an
+ * already-resolved business id (i.e. `req.tenant.businessId`). This is the
+ * second half of `getOwnRestaurant` split out so the id-resolution step can be
+ * supplied by the Tenant Context instead of re-derived per user. Behavior is
+ * identical to `getOwnRestaurant`'s fetch: a null/absent id or a missing record
+ * both raise `NoRestaurantError` (→ 404), exactly as today. `getOwnRestaurant`
+ * remains the legacy fallback and is intentionally left unchanged.
+ */
+export async function getRestaurantByBusinessId(businessId: string | null): Promise<Restaurant> {
+  if (!businessId) {
+    throw new NoRestaurantError();
+  }
+  const restaurant = await prisma.restaurant.findUnique({ where: { id: businessId } });
+  if (!restaurant) {
+    throw new NoRestaurantError();
+  }
+  return restaurant;
+}
+
 export async function updateRestaurantById(restaurantId: string, input: UpdateRestaurantInput): Promise<Restaurant> {
   return prisma.restaurant.update({ where: { id: restaurantId }, data: input });
 }
