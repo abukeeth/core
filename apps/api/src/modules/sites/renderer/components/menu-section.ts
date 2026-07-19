@@ -149,6 +149,49 @@ function renderBoldGrid(categories: LiveMenuCategory[], outOfStock: OutOfStockAp
 }
 
 /**
+ * Theme Engine V3 — "editorial-menu" (restaurant-maison): a Michelin-style
+ * à-la-carte card. Text-forward and spacious: a centered course heading framed
+ * by brass hairlines, then each dish as an elegant name·price row with a quiet
+ * description beneath — no image tiles, the classic fine-dining menu. Reads as
+ * a printed carte, not a product grid.
+ */
+function renderEditorialMenu(categories: LiveMenuCategory[], outOfStock: OutOfStockAppearance, nav: string): string {
+  const courses = categories
+    .map((category) => {
+      const items = visibleItems(category, outOfStock);
+      if (items.length === 0) return "";
+      const rows = items
+        .map(
+          (item) => `<li data-item-name="${escapeHtml(item.name)}" style="list-style:none;padding:1.15rem 0;border-bottom:1px solid var(--color-surface-200);${dimStyle(item.isAvailable, outOfStock)}">
+        <div style="display:flex;align-items:baseline;gap:1rem;">
+          <span style="font-family:var(--font-display);font-size:1.2rem;">${escapeHtml(item.name)}${outOfStockBadgeHtml(item.isAvailable, outOfStock)}</span>
+          <span aria-hidden="true" style="flex:1;border-bottom:1px dotted var(--color-surface-300);transform:translateY(-0.35rem);"></span>
+          <span style="font-family:var(--font-display);font-size:1.1rem;white-space:nowrap;">$${formatPrice(item.priceCents)}</span>
+        </div>
+        ${item.description ? `<p style="margin:0.4rem 0 0;color:var(--color-text-600);font-size:var(--step--1);line-height:1.6;max-width:44ch;">${escapeHtml(item.description)}</p>` : ""}
+      </li>`,
+        )
+        .join("\n");
+      return `<div id="${slugifyCategory(category.name)}" class="menu-course" style="margin:0 auto 3.25rem;max-width:44rem;">
+    <div style="display:flex;align-items:center;gap:1.1rem;justify-content:center;margin-bottom:1rem;">
+      <span aria-hidden="true" style="height:1px;width:40px;background:var(--color-accent-500);"></span>
+      <h3 style="margin:0;text-align:center;font-size:var(--step-1);letter-spacing:0.01em;">${escapeHtml(category.name)}</h3>
+      <span aria-hidden="true" style="height:1px;width:40px;background:var(--color-accent-500);"></span>
+    </div>
+    <ul style="padding:0;margin:0;">${rows}</ul>
+  </div>`;
+    })
+    .join("\n");
+
+  return `<section class="menu">
+  <p style="text-align:center;font-size:0.72rem;letter-spacing:0.3em;text-transform:uppercase;color:var(--color-accent-600);margin:0 0 0.6rem;">À la carte</p>
+  <h2 style="text-align:center;margin:0 0 2.5rem;font-size:var(--step-2);">Menu</h2>
+  ${nav}
+  ${courses}
+</section>`;
+}
+
+/**
  * §5 Menu Page Builder — renders from `ctx.liveMenu` (fetched fresh by the
  * caller at render/revalidation time), never from whatever was baked into
  * the stored SiteDefinition at generation time. This is the one section
@@ -193,6 +236,7 @@ export function renderMenuSection(section: SectionBlock, ctx: RenderContext): st
 
   const nav = categoryNav(categoriesWithVisibleItems, navStyle);
 
+  if (section.variant === "editorial-menu") return renderEditorialMenu(categoriesWithVisibleItems, outOfStock, nav);
   if (section.variant === "editorial-rows") return renderEditorialRows(categoriesWithVisibleItems, outOfStock, nav);
   if (section.variant === "warm-cards") return renderWarmCards(categoriesWithVisibleItems, outOfStock, nav);
   if (section.variant === "bold-grid") return renderBoldGrid(categoriesWithVisibleItems, outOfStock, nav);

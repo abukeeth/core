@@ -10,11 +10,16 @@ describe("THEME_CATALOG", () => {
     }
   });
 
-  it("§Website Builder: has exactly one non-deprecated (selectable) design system per style family", () => {
-    for (const family of ["LUXURY", "MODERN", "MINIMAL"] as const) {
-      const active = THEME_CATALOG.filter((t) => t.styleFamily === family && !t.deprecated);
-      expect(active).toHaveLength(1);
-    }
+  it("registers the expected non-deprecated (selectable) design systems per family (LUXURY carries the V3 restaurant-maison alongside bold-commerce)", () => {
+    const activeByFamily = (family: "LUXURY" | "MODERN" | "MINIMAL") =>
+      THEME_CATALOG.filter((t) => t.styleFamily === family && !t.deprecated)
+        .map((t) => t.key)
+        .sort();
+    expect(activeByFamily("MODERN")).toEqual(["modern-editorial"]);
+    expect(activeByFamily("MINIMAL")).toEqual(["warm-local"]);
+    // Theme Engine V3 adds restaurant-maison as a second selectable LUXURY
+    // design system; theme-matching picks it for polished fine-dining brands.
+    expect(activeByFamily("LUXURY")).toEqual(["bold-commerce", "restaurant-maison"]);
   });
 
   it("has unique key+version pairs", () => {

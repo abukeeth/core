@@ -63,8 +63,8 @@ function ctxFor(definition: ReturnType<typeof buildSiteDefinition>): RenderConte
 }
 
 describe("§Website Builder — the 3 design systems render materially differently", () => {
-  it("registers exactly modern-editorial, warm-local, and bold-commerce as the active design systems", () => {
-    expect(ACTIVE_THEMES.map((t) => t.key).sort()).toEqual(["bold-commerce", "modern-editorial", "warm-local"]);
+  it("registers the active design systems (V3 adds restaurant-maison to the base three)", () => {
+    expect(ACTIVE_THEMES.map((t) => t.key).sort()).toEqual(["bold-commerce", "modern-editorial", "restaurant-maison", "warm-local"]);
   });
 
   it("renders a genuinely different home page for each of the 3 design systems, not just a palette swap", () => {

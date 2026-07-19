@@ -20,8 +20,10 @@ export function filterSectionsByAvailability(order: SectionType[], availability:
       case "signatureDishes":
       case "menu":
         return availability.hasMenuItems;
-      case "gallery":
-        return availability.hasPhotos;
+      // Gallery is always kept: a theme may render an immersive editorial
+      // gallery from art-directed imagery when the owner has uploaded none
+      // (restaurant-maison), while themes that only show real uploads simply
+      // render nothing and are dropped by the layout engine's empty filter.
       case "hoursLocation":
         return availability.hasHoursOrLocation;
       case "testimonials":

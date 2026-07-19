@@ -44,13 +44,14 @@ describe("renderFeaturedCategories", () => {
     expect(html).toContain('<img src="/assets/mains.png"');
   });
 
-  it("§Website Builder: falls back to a polished non-photographic tile when a category has no uploaded photo", () => {
+  it("falls back to a self-contained art-directed placeholder image (no external hotlink) when a category has no uploaded photo", () => {
     const html = renderFeaturedCategories(
       { type: "featuredCategories", props: {} },
       ctx([{ name: "Mains", items: [{ name: "Spaghetti", priceCents: 1500, isAvailable: true }] }]),
     );
-    expect(html).not.toContain("<img");
-    expect(html).toContain(">M<");
+    // A real <img>, but a self-contained generated data URI — never an external URL.
+    expect(html).toContain('<img src="data:image/svg+xml;base64,');
+    expect(html).toContain("Mains");
   });
 
   it("escapes category names", () => {

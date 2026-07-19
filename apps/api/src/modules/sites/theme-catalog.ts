@@ -288,4 +288,97 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
     variants: { hero: ["bold-block"], menuLayout: ["bold-grid"], chrome: ["bold"] },
     layouts: { home: ["hero", "signatureDishes", "ctaBanner", "gallery", "aboutTeaser", "hoursLocation", "footer"] },
   },
+
+  // --- Theme Engine V3 · Restaurant identity -------------------------------
+  // "Maison" — a premium full-service-dining design system (approved V3
+  // blueprint). Competes within the LUXURY family and wins for polished,
+  // formal fine-dining brands (personality + cuisine affinity), while
+  // bold-commerce remains the pick for bold ones. Light editorial-luxe
+  // treatment (ivory/espresso ground, brass + wine accents, high-contrast
+  // serif) with a cinematic dark full-bleed hero. All colours/spacing/borders
+  // are declared as reusable brandSettings token overrides; the homepage is
+  // composed purely from the section grammar (layouts.home), not hard-coded.
+  {
+    key: "restaurant-maison",
+    version: 1,
+    styleFamily: "LUXURY",
+    personalityVector: {
+      traditionalContemporary: 0.35,
+      casualFormal: 0.9,
+      playfulSerious: 0.85,
+      understatedBold: 0.4,
+      rusticPolished: 0.92,
+    },
+    cuisineAffinities: {
+      french: 0.9,
+      italian: 0.85,
+      steakhouse: 0.9,
+      "sushi-omakase": 0.9,
+      japanese: 0.85,
+      seafood: 0.8,
+      mediterranean: 0.7,
+      "fine-dining": 0.9,
+    },
+    constraints: { minPhotos: 2 },
+    tokens: {
+      colorSeed: "#5C1A2B",
+      typography: { display: "Fraunces", body: "Inter" },
+      radius: "sharp",
+      motion: "subtle",
+      typeScaleRatio: 1.333,
+    },
+    variants: { hero: ["cinematic"], menuLayout: ["editorial-menu"], chrome: ["editorial"] },
+    // Editorial fine-dining flow — cinematic hero, the menu explorer, popular
+    // dishes, how to order (real service options), the story, real reviews,
+    // then location/hours. Header (announcement bar + centered brand + order
+    // button + mobile sticky CTA) and footer come from `presentation`, below.
+    // Editorial storytelling order — open cinematic, tell the story (immersive),
+    // build desire with signature features and the menu, immerse in the gallery,
+    // then convert (how to visit, guest book) and close on location.
+    layouts: {
+      home: ["hero", "aboutTeaser", "featuredProducts", "featuredCategories", "gallery", "serviceOptions", "reviews", "hoursLocation", "footer"],
+    },
+    presentation: {
+      header: {
+        logoPosition: "center",
+        headerLayout: "standard",
+        stickyHeader: true,
+        // Capability enabled; renders only the owner's real announcement text
+        // when set (chrome.ts guards on it) — never a fabricated message.
+        announcementBar: { enabled: true },
+        showOrderButton: true,
+        showCart: true,
+        showSearch: false,
+        mobileNavStyle: "drawer",
+      },
+      footer: {
+        showContactInfo: true,
+        showHours: true,
+        newsletterEnabled: false,
+      },
+      productPresentation: {
+        cardLayout: "grid",
+        priceStyle: "minimal",
+        addToCartStyle: "button",
+        infoDensity: "detailed",
+        categoryNavStyle: "sticky",
+        outOfStockAppearance: "badge",
+      },
+      // Reusable design tokens (colours, fonts, radius, shadow, spacing) — layered
+      // over the seed-derived palette by theme-css.ts. Light editorial-luxe.
+      brandSettings: {
+        primaryColor: "#5C1A2B",
+        accentColor: "#B08D57",
+        backgroundColor: "#FBF7F0",
+        textColor: "#2A211C",
+        headingFont: "Fraunces",
+        bodyFont: "Inter",
+        buttonStyle: "square",
+        borderRadius: 2,
+        shadowIntensity: "soft",
+        pageWidth: "standard",
+        contentSpacing: "spacious",
+      },
+    },
+  },
 ];

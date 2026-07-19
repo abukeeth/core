@@ -1,5 +1,6 @@
 import { escapeHtml } from "../html-escape";
 import { deterministicHue } from "../image-fallback";
+import { heroPlaceholder } from "../placeholder-imagery";
 import type { RenderContext } from "../render-context";
 import type { SectionBlock } from "../../types";
 
@@ -62,6 +63,37 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
     ? `<a href="${escapeHtml(secondaryCtaLink)}" style="margin-left:0.75rem;font-weight:600;color:inherit;text-decoration:underline;">${escapeHtml(secondaryCtaLabel)}</a>`
     : "";
 
+  // Theme Engine V3 — "cinematic" (restaurant-maison): a full-bleed, low-key
+  // hero anchored on a real photo when the tenant has one, else an art-directed
+  // cinematic placeholder (never a flat gradient). Centered editorial type over
+  // a bottom scrim: a spaced brass eyebrow, a large serif headline, a hairline
+  // rule, the subhead, and light-on-dark CTAs.
+  if (variant === "cinematic") {
+    const bg = ctx.assets.heroBackgroundUrl ?? ctx.assets.heroUrl ?? heroPlaceholder(ctx.definition.restaurantName);
+    const cinematicHeight = HEIGHT_VH[height] ?? "82vh";
+    const eyebrow = ctx.definition.cuisine ? ctx.definition.cuisine.toUpperCase() : "";
+    const eyebrowHtml = eyebrow
+      ? `<p style="margin:0 0 1.1rem;color:var(--color-accent-500);font-size:var(--step--1);letter-spacing:0.32em;text-transform:uppercase;font-family:var(--font-body);">${escapeHtml(eyebrow)}</p>`
+      : "";
+    const secondaryCinematic = secondaryCtaLabel
+      ? `<a href="${escapeHtml(secondaryCtaLink)}" style="min-height:52px;display:inline-flex;align-items:center;padding:0 1.9rem;border:1px solid rgba(255,255,255,0.6);color:#fff;text-decoration:none;font-weight:600;letter-spacing:0.03em;">${escapeHtml(secondaryCtaLabel)}</a>`
+      : "";
+    return `<section class="hero hero--cinematic" style="position:relative;padding:0;min-height:${cinematicHeight};display:flex;align-items:center;justify-content:center;isolation:isolate;">
+  <img src="${escapeHtml(bg)}" alt="${escapeHtml(heroName)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;" />
+  <div aria-hidden="true" style="position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg, rgba(10,7,5,0.30) 0%, rgba(10,7,5,0.15) 45%, rgba(10,7,5,0.78) 100%);"></div>
+  <div style="max-width:44rem;padding:3rem 1.5rem;text-align:center;color:#fff;">
+    ${eyebrowHtml}
+    <h1 style="margin:0;color:#fff;font-size:clamp(2.6rem, 6vw, 4.6rem);line-height:1.04;letter-spacing:-0.015em;font-weight:600;">${escapeHtml(headline)}</h1>
+    <span aria-hidden="true" style="display:block;width:56px;height:1px;background:var(--color-accent-500);margin:1.6rem auto;"></span>
+    ${subhead ? `<p style="margin:0 auto 2rem;max-width:34rem;color:rgba(255,255,255,0.9);font-size:var(--step-0);line-height:1.7;">${escapeHtml(subhead)}</p>` : ""}
+    <div style="display:flex;gap:0.9rem;justify-content:center;flex-wrap:wrap;">
+      <a class="cta" href="${escapeHtml(ctaLink)}" id="primary-action" style="min-height:52px;display:inline-flex;align-items:center;padding:0 2rem;letter-spacing:0.03em;">${escapeHtml(ctaLabel)}</a>
+      ${secondaryCinematic}
+    </div>
+  </div>
+</section>`;
+  }
+
   if (FULL_BLEED_VARIANTS.has(variant)) {
     const backgroundUrl = ctx.assets.heroBackgroundUrl ?? ctx.assets.heroUrl;
     const imageHtml = backgroundUrl
@@ -72,7 +104,11 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
       ? "color:#ffffff;margin:0 0 0.5rem;text-transform:uppercase;letter-spacing:0.02em;font-size:var(--step-2);"
       : "color:#ffffff;margin:0 0 0.5rem;";
 
-    return `<section class="hero hero--${escapeHtml(variant)}" style="position:relative;">
+    // padding:0 overrides the global `section { padding: var(--content-spacing) 0 }`
+    // rule (theme-css.ts) so a full-bleed hero really is edge-to-edge; without it
+    // a theme with roomy content spacing leaves strips above/below the image that
+    // the scrim overlay tints, breaking the cinematic effect.
+    return `<section class="hero hero--${escapeHtml(variant)}" style="position:relative;padding:0;">
   ${imageHtml}
   <div style="position:absolute;inset:0;background:rgba(0,0,0,${isBold ? Math.max(overlayOpacity, 0.55) : overlayOpacity});display:flex;flex-direction:column;justify-content:center;align-items:${
     ALIGN_ITEMS[alignment] ?? ALIGN_ITEMS.center

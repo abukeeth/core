@@ -68,9 +68,11 @@ describe("cosineSimilarity / personalitySimilarity", () => {
 });
 
 describe("selectThemesForAllFamilies (golden tests, deterministic)", () => {
-  it("picks bold-commerce (the only active Luxury design system) for an upscale sushi restaurant's Luxury variation", () => {
+  it("picks restaurant-maison (the polished fine-dining Luxury design system) for an upscale sushi restaurant's Luxury variation", () => {
     const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3);
-    expect(result.LUXURY.theme.key).toBe("bold-commerce");
+    // V3 — a formal, polished, understated fine-dining brand fits Maison
+    // better than the bold bold-commerce system.
+    expect(result.LUXURY.theme.key).toBe("restaurant-maison");
     expect(result.LUXURY.reasons.length).toBeGreaterThan(0);
   });
 
@@ -79,9 +81,9 @@ describe("selectThemesForAllFamilies (golden tests, deterministic)", () => {
     expect(result.MODERN.theme.key).toBe("modern-editorial");
   });
 
-  it("picks bold-commerce (the only active Luxury design system) for a French patisserie's Luxury variation", () => {
+  it("picks restaurant-maison (strong French affinity, polished tone) for a French patisserie's Luxury variation", () => {
     const result = selectThemesForAllFamilies(THEME_CATALOG, FRENCH_PATISSERIE, 3);
-    expect(result.LUXURY.theme.key).toBe("bold-commerce");
+    expect(result.LUXURY.theme.key).toBe("restaurant-maison");
   });
 
   it("always returns exactly one theme per style family", () => {
