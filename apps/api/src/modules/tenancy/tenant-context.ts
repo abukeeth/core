@@ -1,5 +1,6 @@
 import type { Role } from "@prisma/client";
 import { createLogger } from "../../lib/logger";
+import { getOrganizationIdForBusiness } from "../organizations/organization.service";
 import { getOwnRestaurantId } from "../restaurants/restaurant.service";
 
 /**
@@ -79,6 +80,7 @@ export interface TenantContextUser {
  */
 export interface ResolveTenantContextDeps {
   getBusinessIdForUser?: (userId: string) => Promise<string | null>;
+  getOrganizationIdForBusiness?: (businessId: string) => Promise<string | null>;
 }
 
 /**
@@ -86,10 +88,11 @@ export interface ResolveTenantContextDeps {
  * public/unauthenticated request), produce the request's `TenantContext`.
  *
  * - No user → `undefined` (nothing to attach).
- * - Never throws on the legacy path: a lookup failure logs a warning and
- *   resolves `businessId: null`, so a request that succeeds today can never
+ * - Never throws: a business- or organization-lookup failure logs a warning and
+ *   resolves that field to `null`, so a request that succeeds today can never
  *   fail because of this seam.
- * - Reads the business at most once per call.
+ * - Reads the business at most once, and the organization at most once (only
+ *   when a business resolved).
  */
 export async function resolveTenantContext(
   user: TenantContextUser | undefined,
@@ -97,11 +100,12 @@ export async function resolveTenantContext(
 ): Promise<TenantContext | undefined> {
   if (!user) return undefined;
 
-  const lookup = deps.getBusinessIdForUser ?? getOwnRestaurantId;
+  const businessLookup = deps.getBusinessIdForUser ?? getOwnRestaurantId;
+  const organizationLookup = deps.getOrganizationIdForBusiness ?? getOrganizationIdForBusiness;
 
   let businessId: string | null = null;
   try {
-    businessId = await lookup(user.id);
+    businessId = await businessLookup(user.id);
   } catch (err) {
     logger.warn(
       { err, userId: user.id },
@@ -110,10 +114,27 @@ export async function resolveTenantContext(
     businessId = null;
   }
 
+  // BOS Phase 1 (P1.3) — populate the Organization that owns this Business.
+  // Only attempted when a business resolved; never throws (organizationId stays
+  // null on any failure). Nothing consumes organizationId yet, so this changes
+  // no observable behavior — it establishes the value for later phases.
+  let organizationId: string | null = null;
+  if (businessId) {
+    try {
+      organizationId = (await organizationLookup(businessId)) ?? null;
+    } catch (err) {
+      logger.warn(
+        { err, businessId },
+        "tenant-context: organization lookup failed; resolving organizationId=null (behavior unchanged)",
+      );
+      organizationId = null;
+    }
+  }
+
   return {
     businessId,
     role: user.role,
-    organizationId: null,
+    organizationId,
     locationId: null,
     memberships: [],
     capabilities: {},

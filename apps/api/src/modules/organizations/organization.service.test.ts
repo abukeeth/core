@@ -3,11 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../lib/prisma", () => ({
   prisma: {
     organization: { create: vi.fn(), findUnique: vi.fn() },
+    restaurant: { findUnique: vi.fn() },
   },
 }));
 
 import { prisma } from "../../lib/prisma";
-import { createOrganization, getOrganizationById } from "./organization.service";
+import { createOrganization, getOrganizationById, getOrganizationIdForBusiness } from "./organization.service";
 
 const mockPrisma = vi.mocked(prisma, { deep: true });
 
@@ -42,5 +43,29 @@ describe("getOrganizationById", () => {
     mockPrisma.organization.findUnique.mockResolvedValue(null as never);
 
     await expect(getOrganizationById("missing")).resolves.toBeNull();
+  });
+});
+
+describe("getOrganizationIdForBusiness (P1.3 — Tenant Context population)", () => {
+  it("returns the business's organizationId when set", async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue({ organizationId: "org-1" } as never);
+
+    await expect(getOrganizationIdForBusiness("rest-1")).resolves.toBe("org-1");
+    expect(mockPrisma.restaurant.findUnique).toHaveBeenCalledWith({
+      where: { id: "rest-1" },
+      select: { organizationId: true },
+    });
+  });
+
+  it("returns null when the business has no organization yet", async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue({ organizationId: null } as never);
+
+    await expect(getOrganizationIdForBusiness("rest-1")).resolves.toBeNull();
+  });
+
+  it("returns null when the business does not exist", async () => {
+    mockPrisma.restaurant.findUnique.mockResolvedValue(null as never);
+
+    await expect(getOrganizationIdForBusiness("missing")).resolves.toBeNull();
   });
 });
