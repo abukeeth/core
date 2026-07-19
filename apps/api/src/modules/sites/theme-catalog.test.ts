@@ -2,23 +2,27 @@ import { describe, expect, it } from "vitest";
 import { THEME_CATALOG } from "./theme-catalog";
 
 describe("THEME_CATALOG", () => {
-  it("has 2-4 themes in each of the three style families, counting deprecated ones kept for backward compatibility", () => {
+  it("keeps at least two themes in each of the three style families (deprecated ones kept for backward compatibility, plus V3 business-type themes)", () => {
     for (const family of ["LUXURY", "MODERN", "MINIMAL"] as const) {
       const count = THEME_CATALOG.filter((t) => t.styleFamily === family).length;
+      // Lower bound guards the family fallback (every family must always have a
+      // selectable theme). No tight upper bound: Theme Engine V3 adds one real
+      // business-type theme at a time (restaurant-maison, deli-counter, …), so
+      // families grow as new verticals ship.
       expect(count).toBeGreaterThanOrEqual(2);
-      expect(count).toBeLessThanOrEqual(4);
     }
   });
 
-  it("registers the expected non-deprecated (selectable) design systems per family (LUXURY carries the V3 restaurant-maison alongside bold-commerce)", () => {
+  it("registers the expected non-deprecated (selectable) design systems per family (V3 business-type themes sit alongside the base family theme)", () => {
     const activeByFamily = (family: "LUXURY" | "MODERN" | "MINIMAL") =>
       THEME_CATALOG.filter((t) => t.styleFamily === family && !t.deprecated)
         .map((t) => t.key)
         .sort();
-    expect(activeByFamily("MODERN")).toEqual(["modern-editorial"]);
+    // Theme Engine V3 adds one real business-type theme per family as verticals
+    // ship: restaurant-maison (LUXURY) for fine-dining, deli-counter (MODERN)
+    // for neighbourhood delis — each alongside the base selectable theme.
+    expect(activeByFamily("MODERN")).toEqual(["deli-counter", "modern-editorial"]);
     expect(activeByFamily("MINIMAL")).toEqual(["warm-local"]);
-    // Theme Engine V3 adds restaurant-maison as a second selectable LUXURY
-    // design system; theme-matching picks it for polished fine-dining brands.
     expect(activeByFamily("LUXURY")).toEqual(["bold-commerce", "restaurant-maison"]);
   });
 

@@ -1,5 +1,6 @@
 import { escapeHtml } from "../html-escape";
 import { renderImageOrFallback } from "../image-fallback";
+import { deliSubPlaceholder } from "../placeholder-imagery";
 import { formatPrice, type RenderContext, type LiveMenuCategory } from "../render-context";
 import type { SectionBlock } from "../../types";
 
@@ -192,6 +193,48 @@ function renderEditorialMenu(categories: LiveMenuCategory[], outOfStock: OutOfSt
 }
 
 /**
+ * Theme Engine V3 — "deli-board" (deli-counter): a bold, fast-scanning menu
+ * board. Each category is a tomato-underlined uppercase header over a dense
+ * grid of hard-edged "order tickets" — bright sandwich image, bold name, a
+ * green price tag and a mustard Add button — built for quick weekday ordering,
+ * the opposite of Maison's spacious à-la-carte.
+ */
+function renderDeliBoard(categories: LiveMenuCategory[], outOfStock: OutOfStockAppearance, nav: string, ctx: RenderContext): string {
+  const boards = categories
+    .map((category) => {
+      const items = visibleItems(category, outOfStock);
+      if (items.length === 0) return "";
+      const cards = items
+        .map((item) => {
+          const img = item.imageUrl ?? deliSubPlaceholder(item.name);
+          return `<li data-item-name="${escapeHtml(item.name)}" class="card" style="list-style:none;border:2px solid var(--color-surface-900);background:var(--color-surface-50);display:flex;flex-direction:column;overflow:hidden;${dimStyle(item.isAvailable, outOfStock)}">
+        <img src="${escapeHtml(img)}" alt="${escapeHtml(item.name)}" loading="lazy" style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;border-bottom:2px solid var(--color-surface-900);" />
+        <div style="padding:0.75rem 0.85rem 0.85rem;display:flex;flex-direction:column;gap:0.35rem;flex:1;">
+          <strong style="text-transform:uppercase;letter-spacing:0.02em;font-size:1.02rem;line-height:1.1;">${escapeHtml(item.name)}</strong>${outOfStockBadgeHtml(item.isAvailable, outOfStock)}
+          ${item.description ? `<span style="color:var(--color-text-700);font-size:var(--step--1);line-height:1.4;flex:1;">${escapeHtml(item.description)}</span>` : "<span style=\"flex:1;\"></span>"}
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-top:0.35rem;">
+            <span style="background:var(--color-primary-600);color:#fff;font-weight:800;padding:0.2rem 0.6rem;">$${formatPrice(item.priceCents)}</span>
+            <a class="cta" href="${escapeHtml(ctx.orderingBaseUrl)}/order/${escapeHtml(ctx.restaurantId)}" style="background:var(--color-accent-500);color:var(--color-text-900);font-weight:800;text-transform:uppercase;letter-spacing:0.04em;padding:0.45rem 1rem;min-height:auto;">Add</a>
+          </div>
+        </div>
+      </li>`;
+        })
+        .join("\n");
+      return `<div id="${slugifyCategory(category.name)}" class="menu-category" style="margin-bottom:2.5rem;">
+    <h3 style="text-transform:uppercase;letter-spacing:0.03em;display:inline-block;border-bottom:4px solid var(--color-secondary-600);padding-bottom:0.25rem;margin:0 0 1rem;">${escapeHtml(category.name)}</h3>
+    <ul style="list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:1rem;">${cards}</ul>
+  </div>`;
+    })
+    .join("\n");
+
+  return `<section class="menu">
+  <h2 style="text-transform:uppercase;letter-spacing:0.02em;">Menu</h2>
+  ${nav}
+  ${boards}
+</section>`;
+}
+
+/**
  * §5 Menu Page Builder — renders from `ctx.liveMenu` (fetched fresh by the
  * caller at render/revalidation time), never from whatever was baked into
  * the stored SiteDefinition at generation time. This is the one section
@@ -237,6 +280,7 @@ export function renderMenuSection(section: SectionBlock, ctx: RenderContext): st
   const nav = categoryNav(categoriesWithVisibleItems, navStyle);
 
   if (section.variant === "editorial-menu") return renderEditorialMenu(categoriesWithVisibleItems, outOfStock, nav);
+  if (section.variant === "deli-board") return renderDeliBoard(categoriesWithVisibleItems, outOfStock, nav, ctx);
   if (section.variant === "editorial-rows") return renderEditorialRows(categoriesWithVisibleItems, outOfStock, nav);
   if (section.variant === "warm-cards") return renderWarmCards(categoriesWithVisibleItems, outOfStock, nav);
   if (section.variant === "bold-grid") return renderBoldGrid(categoriesWithVisibleItems, outOfStock, nav);

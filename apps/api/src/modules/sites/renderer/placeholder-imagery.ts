@@ -137,6 +137,73 @@ export function featurePlaceholder(name: string): string {
 }
 
 /**
+ * Deli sandwich — a bright, saturated, overhead-ish stacked sub on butcher
+ * paper: layered bands (bread → meat → cheese → tomato → lettuce → bread) with
+ * a warm shadow. Light and appetising (the opposite of Maison's low-light
+ * plates), matching a neighbourhood-deli identity. Filling palette shifts per
+ * item name so a menu never repeats.
+ */
+export function deliSubPlaceholder(name: string): string {
+  const h = hash(name);
+  const meat = `hsl(${6 + (h % 14)} 62% 46%)`; // pastrami / roast → warm reds
+  const cheese = `hsl(${44 + (h % 8)} 82% 60%)`;
+  const bread = `hsl(${34 + (h % 8)} 52% 66%)`;
+  const rot = (h >>> 3) % 6 - 3; // slight tilt
+  return uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 480" preserveAspectRatio="xMidYMid slice">
+    ${defs("sub", `<linearGradient id="paper-sub" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#f6edda"/><stop offset="100%" stop-color="#ecdfc2"/></linearGradient>`)}
+    <rect width="600" height="480" fill="url(#paper-sub)"/>
+    <g transform="rotate(${rot} 300 250)">
+      <ellipse cx="300" cy="360" rx="210" ry="34" fill="#0000001a" filter="url(#soft-sub)"/>
+      <rect x="120" y="150" width="360" height="46" rx="23" fill="${bread}"/>
+      <rect x="112" y="192" width="376" height="30" rx="12" fill="#5c8a3a"/>
+      <rect x="120" y="214" width="360" height="30" rx="10" fill="#d8472e"/>
+      <rect x="116" y="236" width="368" height="34" rx="8" fill="${cheese}"/>
+      <path d="M120 300 q90 -34 180 0 q90 34 180 0 v-36 q-90 34 -180 0 q-90 -34 -180 0 z" fill="${meat}"/>
+      <rect x="120" y="300" width="360" height="54" rx="27" fill="${bread}"/>
+      <circle cx="180" cy="176" r="6" fill="#f2d43a"/><circle cx="235" cy="172" r="5" fill="#f2d43a"/>
+    </g>
+    <rect width="600" height="480" filter="url(#grain-sub)" opacity="0.28"/>
+  </svg>`);
+}
+
+/**
+ * Deli tile — a bold classic deli-awning: fat diagonal butcher stripes in a
+ * saturated deli colour (green / mustard / tomato, chosen per category) over
+ * cream, with a stacked-sub emblem at the centre. Reads as branded deli
+ * signage rather than an empty panel, and each category gets its own colour so
+ * the "Explore the menu" row shows lively variety. Light and energetic to
+ * match the neighbourhood-deli identity.
+ */
+export function deliTilePlaceholder(seed: string): string {
+  const h = hash(seed);
+  // Deli palette — one saturated stripe colour per category.
+  const stripes = ["#1F6B4A", "#C4362B", "#E0A82E", "#2E7D5B", "#B84A2E"];
+  const stripe = stripes[h % stripes.length];
+  const cream = "#FBF3E4";
+  // Fat diagonal awning stripes across the whole tile.
+  const bands = Array.from({ length: 9 }, (_, i) => {
+    const x = -200 + i * 100;
+    return `<rect x="${x}" y="-120" width="52" height="640" fill="${stripe}" transform="rotate(20 300 200)"/>`;
+  }).join("");
+  return uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid slice">
+    ${defs("dtile")}
+    <rect width="600" height="400" fill="${cream}"/>
+    ${bands}
+    <ellipse cx="300" cy="212" rx="150" ry="150" fill="${cream}" opacity="0.94"/>
+    <g transform="translate(300 200)">
+      <ellipse cx="0" cy="52" rx="118" ry="20" fill="#0000001a"/>
+      <rect x="-104" y="-40" width="208" height="28" rx="14" fill="#D9A55C"/>
+      <rect x="-110" y="-14" width="220" height="18" rx="8" fill="#5C8A3A"/>
+      <rect x="-104" y="2" width="208" height="18" rx="8" fill="#D8472E"/>
+      <rect x="-108" y="18" width="216" height="20" rx="9" fill="#F0C63A"/>
+      <rect x="-104" y="36" width="208" height="30" rx="15" fill="#D9A55C"/>
+      <circle cx="-56" cy="-26" r="4" fill="#F2D43a"/><circle cx="-24" cy="-28" r="3.5" fill="#F2D43a"/>
+    </g>
+    <rect width="600" height="400" filter="url(#grain-dtile)" opacity="0.22"/>
+  </svg>`);
+}
+
+/**
  * Ambient / category imagery — a warm, softly-lit tabletop vignette (linen,
  * glassware glints, candlelight) that sits behind a category label. Duotone
  * shifts per seed. Reads as an atmospheric restaurant detail shot.

@@ -76,8 +76,13 @@ describe("selectThemesForAllFamilies (golden tests, deterministic)", () => {
     expect(result.LUXURY.reasons.length).toBeGreaterThan(0);
   });
 
-  it("picks modern-editorial (the only active Modern design system) for a casual taqueria's Modern variation", () => {
-    const result = selectThemesForAllFamilies(THEME_CATALOG, CASUAL_TAQUERIA, 3);
+  it("picks modern-editorial for a casual taqueria's Modern variation (deli-counter is DELI-scoped and excluded for a restaurant)", () => {
+    // A taqueria is a RESTAURANT, so the DELI-scoped deli-counter is hard-excluded
+    // and the type-agnostic modern-editorial remains the Modern pick. (Without a
+    // businessType, a bold/casual brand can match the bold deli theme on
+    // personality — the same agnostic mechanism by which maison matches for
+    // fine-dining; see the V3 M1 business-type tests below.)
+    const result = selectThemesForAllFamilies(THEME_CATALOG, CASUAL_TAQUERIA, 3, "RESTAURANT");
     expect(result.MODERN.theme.key).toBe("modern-editorial");
   });
 

@@ -1,5 +1,5 @@
 import { escapeHtml } from "../html-escape";
-import { dishPlaceholder, featurePlaceholder } from "../placeholder-imagery";
+import { deliSubPlaceholder, dishPlaceholder, featurePlaceholder } from "../placeholder-imagery";
 import { formatPrice, type RenderContext } from "../render-context";
 import type { SectionBlock } from "../../types";
 
@@ -36,6 +36,35 @@ export function renderFeaturedProducts(section: SectionBlock, ctx: RenderContext
   if (items.length === 0) return "";
 
   const orderUrl = `${ctx.orderingBaseUrl}/order/${escapeHtml(ctx.restaurantId)}`;
+
+  // Theme Engine V3 — deli-counter: bold, hard-edged "order tickets" for fast
+  // weekday ordering — bright sandwich image, uppercase name, green price tag,
+  // mustard Add. Utility-first, distinct from Maison's editorial features.
+  if (ctx.definition.themeKey === "deli-counter") {
+    const cards = items
+      .map((item) => {
+        const img = item.imageUrl ?? deliSubPlaceholder(item.name);
+        return `<li class="card" style="list-style:none;border:2px solid var(--color-surface-900);background:var(--color-surface-50);display:flex;flex-direction:column;overflow:hidden;">
+      <img src="${escapeHtml(img)}" alt="${escapeHtml(item.name)}" loading="lazy" style="width:100%;aspect-ratio:4/3;object-fit:cover;display:block;border-bottom:2px solid var(--color-surface-900);" />
+      <div style="padding:0.85rem 0.95rem 0.95rem;display:flex;flex-direction:column;gap:0.4rem;flex:1;">
+        <strong style="text-transform:uppercase;letter-spacing:0.02em;font-size:1.05rem;line-height:1.1;">${escapeHtml(item.name)}</strong>
+        ${showDescriptions && item.description ? `<span style="color:var(--color-text-700);font-size:var(--step--1);line-height:1.4;flex:1;">${escapeHtml(item.description)}</span>` : "<span style=\"flex:1;\"></span>"}
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;margin-top:0.35rem;">
+          ${showPrice ? `<span style="background:var(--color-primary-600);color:#fff;font-weight:800;padding:0.2rem 0.6rem;">$${formatPrice(item.priceCents)}</span>` : "<span></span>"}
+          ${showOrderButtons ? `<a class="cta" href="${orderUrl}" style="background:var(--color-accent-500);color:var(--color-text-900);font-weight:800;text-transform:uppercase;letter-spacing:0.04em;padding:0.45rem 1rem;min-height:auto;">Add</a>` : ""}
+        </div>
+      </div>
+    </li>`;
+      })
+      .join("\n");
+    return `<section class="featured-products" aria-labelledby="fp-title">
+  <p style="text-align:center;font-size:0.72rem;letter-spacing:0.26em;text-transform:uppercase;color:var(--color-secondary-600);margin:0 0 0.5rem;font-weight:700;">${escapeHtml(eyebrow)}</p>
+  <h2 id="fp-title" style="text-align:center;margin:0 0 2rem;text-transform:uppercase;letter-spacing:0.02em;font-size:var(--step-2);">${escapeHtml(title)}</h2>
+  <ul style="display:grid;grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));gap:1rem;padding:0;margin:0;">
+    ${cards}
+  </ul>
+</section>`;
+  }
 
   // Theme Engine V3 — restaurant-maison presents its signatures as large,
   // alternating editorial features (image ↔ text) rather than a card grid: a

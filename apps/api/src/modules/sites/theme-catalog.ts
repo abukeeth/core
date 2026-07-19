@@ -385,4 +385,88 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       },
     },
   },
+
+  // --- Theme Engine V3 · Deli identity -------------------------------------
+  // "Counter" — a bold, utility-first neighbourhood-deli design system
+  // (approved V3 blueprint). Business-type-scoped to DELI, so delis select it
+  // ahead of the agnostic MODERN system. Butcher-paper cream ground, classic
+  // deli green / mustard / tomato, condensed uppercase display — a fast-ordering
+  // menu board, the opposite of Maison's spacious editorial restraint.
+  {
+    key: "deli-counter",
+    version: 1,
+    styleFamily: "MODERN",
+    businessTypes: ["DELI"],
+    personalityVector: {
+      traditionalContemporary: 0.6,
+      casualFormal: 0.12,
+      playfulSerious: 0.28,
+      understatedBold: 0.9,
+      rusticPolished: 0.35,
+    },
+    cuisineAffinities: {
+      deli: 0.9,
+      sandwich: 0.9,
+      "american-diner": 0.85,
+      american: 0.8,
+      "comfort-food": 0.7,
+      breakfast: 0.6,
+    },
+    constraints: {},
+    tokens: {
+      colorSeed: "#1F6B4A",
+      typography: { display: "Anton", body: "Inter" },
+      radius: "sharp",
+      motion: "energetic",
+      typeScaleRatio: 1.25,
+    },
+    variants: { hero: ["counter"], menuLayout: ["deli-board"], chrome: ["bold"] },
+    // Utility-first, fast-ordering flow: bold hero → best sellers → the menu
+    // categories (Breakfast · Sandwiches · Lunch Specials · Family Meals ·
+    // Catering) → how to order → reviews → hours.
+    layouts: {
+      home: ["hero", "featuredProducts", "featuredCategories", "serviceOptions", "reviews", "hoursLocation", "footer"],
+    },
+    presentation: {
+      header: {
+        logoPosition: "left",
+        headerLayout: "standard",
+        stickyHeader: true,
+        announcementBar: { enabled: true },
+        showOrderButton: true,
+        showCart: true,
+        showSearch: false,
+        mobileNavStyle: "drawer",
+      },
+      footer: {
+        showContactInfo: true,
+        showHours: true,
+        newsletterEnabled: false,
+      },
+      productPresentation: {
+        cardLayout: "grid",
+        priceStyle: "bold",
+        addToCartStyle: "button",
+        infoDensity: "detailed",
+        categoryNavStyle: "sticky",
+        outOfStockAppearance: "badge",
+      },
+      // Classic deli palette on butcher paper — green primary (chrome bar,
+      // price tags), tomato secondary (accents/rules), mustard accent (Add CTAs).
+      brandSettings: {
+        primaryColor: "#1F6B4A",
+        secondaryColor: "#C4362B",
+        accentColor: "#E0A82E",
+        backgroundColor: "#FBF3E4",
+        textColor: "#17231C",
+        headingFont: "Anton",
+        bodyFont: "Inter",
+        buttonStyle: "square",
+        borderRadius: 2,
+        shadowIntensity: "none",
+        pageWidth: "standard",
+        contentSpacing: "comfortable",
+      },
+    },
+  },
 ];

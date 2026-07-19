@@ -1,5 +1,5 @@
 import { escapeHtml } from "../html-escape";
-import { ambientPlaceholder } from "../placeholder-imagery";
+import { ambientPlaceholder, deliTilePlaceholder } from "../placeholder-imagery";
 import type { RenderContext } from "../render-context";
 import type { SectionBlock } from "../../types";
 
@@ -21,6 +21,32 @@ export function renderFeaturedCategories(section: SectionBlock, ctx: RenderConte
 
   const categories = ctx.liveMenu.filter((c) => c.items.some((item) => item.isAvailable)).slice(0, limit);
   if (categories.length === 0) return "";
+
+  // Theme Engine V3 — deli-counter: bold, bright, hard-edged category tiles
+  // (Breakfast · Sandwiches · Lunch Specials · Family Meals · Catering) with an
+  // uppercase label bar — quick to scan, distinct from Maison's tall editorial index.
+  if (ctx.definition.themeKey === "deli-counter") {
+    const tiles = categories
+      .map((category) => {
+        const count = category.items.filter((i) => i.isAvailable).length;
+        const img = category.imageUrl ?? deliTilePlaceholder(category.name);
+        return `<a href="/menu#${slugifyCategory(category.name)}" style="display:block;text-decoration:none;color:inherit;border:2px solid var(--color-surface-900);background:var(--color-surface-50);">
+        <img src="${escapeHtml(img)}" alt="${escapeHtml(category.name)}" loading="lazy" style="width:100%;aspect-ratio:16/10;object-fit:cover;display:block;border-bottom:2px solid var(--color-surface-900);" />
+        <div style="padding:0.7rem 0.85rem;display:flex;align-items:baseline;justify-content:space-between;gap:0.5rem;">
+          <span style="text-transform:uppercase;letter-spacing:0.02em;font-weight:800;font-family:var(--font-display);font-size:1.05rem;">${escapeHtml(category.name)}</span>
+          <span style="font-size:0.66rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-secondary-600);font-weight:700;white-space:nowrap;">${count} ${count === 1 ? "item" : "items"}</span>
+        </div>
+      </a>`;
+      })
+      .join("\n");
+    return `<section class="featured-categories" aria-labelledby="fc-title">
+  <p style="text-align:center;font-size:0.72rem;letter-spacing:0.26em;text-transform:uppercase;color:var(--color-secondary-600);margin:0 0 0.5rem;font-weight:700;">${escapeHtml(eyebrow)}</p>
+  <h2 id="fc-title" style="text-align:center;margin:0 0 2rem;text-transform:uppercase;letter-spacing:0.02em;font-size:var(--step-1);">${escapeHtml(title)}</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:1rem;">
+    ${tiles}
+  </div>
+</section>`;
+  }
 
   const cards = categories
     .map((category) => {

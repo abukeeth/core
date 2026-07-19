@@ -1,6 +1,6 @@
 import { escapeHtml } from "../html-escape";
 import { deterministicHue } from "../image-fallback";
-import { heroPlaceholder } from "../placeholder-imagery";
+import { deliSubPlaceholder, heroPlaceholder } from "../placeholder-imagery";
 import type { RenderContext } from "../render-context";
 import type { SectionBlock } from "../../types";
 
@@ -90,6 +90,36 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
       <a class="cta" href="${escapeHtml(ctaLink)}" id="primary-action" style="min-height:52px;display:inline-flex;align-items:center;padding:0 2rem;letter-spacing:0.03em;">${escapeHtml(ctaLabel)}</a>
       ${secondaryCinematic}
     </div>
+  </div>
+</section>`;
+  }
+
+  // Theme Engine V3 — "counter" (deli-counter): a bold, utility-first split
+  // hero — a solid deli-green block with a big condensed headline and fast
+  // ordering CTAs beside a bright sandwich image (tenant photo, else a
+  // saturated deli placeholder). Energetic and commerce-forward, the opposite
+  // of Maison's cinematic restraint.
+  if (variant === "counter") {
+    const img = ctx.assets.heroUrl ?? ctx.assets.heroBackgroundUrl ?? deliSubPlaceholder(ctx.definition.restaurantName);
+    const eyebrow = badge || "Neighborhood Deli";
+    const secondary = secondaryCtaLabel || "View menu";
+    return `<section class="hero hero--counter" style="padding:0;background:var(--color-primary-600);color:#fff;overflow:hidden;">
+  <style>
+    .hero--counter .hc-grid{display:grid;grid-template-columns:1fr;align-items:stretch;}
+    .hero--counter .hc-img{min-height:220px;}
+    @media (min-width:820px){ .hero--counter .hc-grid{grid-template-columns:1.05fr 0.95fr;} .hero--counter .hc-img{min-height:420px;} }
+  </style>
+  <div class="hc-grid">
+    <div style="padding:clamp(2rem,5vw,4rem);display:flex;flex-direction:column;justify-content:center;gap:1rem;">
+      <p style="margin:0;font-size:0.72rem;letter-spacing:0.28em;text-transform:uppercase;color:var(--color-accent-400);">${escapeHtml(eyebrow)}</p>
+      <h1 style="margin:0;color:#fff;font-size:clamp(2.6rem,6vw,4.4rem);line-height:0.98;text-transform:uppercase;letter-spacing:0.005em;">${escapeHtml(headline)}</h1>
+      ${subhead ? `<p style="margin:0.25rem 0 0;color:rgba(255,255,255,0.92);font-size:var(--step-0);max-width:34ch;">${escapeHtml(subhead)}</p>` : ""}
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:0.75rem;">
+        <a class="cta" href="${escapeHtml(ctaLink)}" id="primary-action" style="background:var(--color-accent-500);color:var(--color-text-900);font-weight:800;text-transform:uppercase;letter-spacing:0.04em;min-height:52px;display:inline-flex;align-items:center;padding:0 1.9rem;">${escapeHtml(ctaLabel)}</a>
+        <a href="${escapeHtml(secondaryCtaLink)}" style="min-height:52px;display:inline-flex;align-items:center;padding:0 1.6rem;border:2px solid rgba(255,255,255,0.7);color:#fff;text-decoration:none;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;">${escapeHtml(secondary)}</a>
+      </div>
+    </div>
+    <div class="hc-img" style="position:relative;"><img src="${escapeHtml(img)}" alt="${escapeHtml(heroName)}" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;" /></div>
   </div>
 </section>`;
   }

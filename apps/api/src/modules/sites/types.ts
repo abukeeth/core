@@ -308,8 +308,8 @@ export interface ThemeTokens {
 }
 
 export interface ThemeVariants {
-  hero: ("fullbleed-image" | "split" | "minimal-typographic" | "editorial-split" | "warm-frame" | "bold-block" | "cinematic")[];
-  menuLayout: ("classic-list" | "card-grid" | "two-column-elegant" | "editorial-rows" | "warm-cards" | "bold-grid" | "editorial-menu")[];
+  hero: ("fullbleed-image" | "split" | "minimal-typographic" | "editorial-split" | "warm-frame" | "bold-block" | "cinematic" | "counter")[];
+  menuLayout: ("classic-list" | "card-grid" | "two-column-elegant" | "editorial-rows" | "warm-cards" | "bold-grid" | "editorial-menu" | "deli-board")[];
   /** §Website Builder — drives header/nav structure (chrome.ts); "standard" is every pre-existing theme's unchanged behavior. */
   chrome: ("standard" | "editorial" | "warm" | "bold")[];
 }
