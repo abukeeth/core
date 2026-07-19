@@ -2,11 +2,15 @@ import { Role } from "@prisma/client";
 import type { NextFunction, Request, Response } from "express";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-// Mock only the business-id lookup so the middleware + real resolver can run
-// without a database. Everything else (JWT sign/verify, the resolver, the flag)
-// is exercised for real. vi.hoisted so the mock fn exists before vi.mock runs.
-const { getOwnRestaurantId } = vi.hoisted(() => ({ getOwnRestaurantId: vi.fn() }));
+// Mock the two DB lookups the resolver uses so the middleware + real resolver
+// can run without a database. Everything else (JWT sign/verify, the resolver,
+// the flag) is exercised for real. vi.hoisted so the mocks exist before vi.mock.
+const { getOwnRestaurantId, getOrganizationIdForBusiness } = vi.hoisted(() => ({
+  getOwnRestaurantId: vi.fn(),
+  getOrganizationIdForBusiness: vi.fn(),
+}));
 vi.mock("../restaurants/restaurant.service", () => ({ getOwnRestaurantId }));
+vi.mock("../organizations/organization.service", () => ({ getOrganizationIdForBusiness }));
 
 import { __resetEnvCacheForTests } from "../../config/env";
 import { signAccessToken } from "../../lib/jwt";
@@ -26,6 +30,7 @@ beforeAll(() => {
 
 afterEach(() => {
   getOwnRestaurantId.mockReset();
+  getOrganizationIdForBusiness.mockReset();
   delete process.env.TENANT_CONTEXT_ENABLED;
 });
 
@@ -77,14 +82,17 @@ describe("tenantContextMiddleware", () => {
     expect(getOwnRestaurantId).not.toHaveBeenCalled();
   });
 
-  it("flag ON, valid OWNER token: attaches req.tenant with businessId === getOwnRestaurantId result", async () => {
+  it("flag ON, valid OWNER token: attaches req.tenant with businessId and organizationId resolved end-to-end", async () => {
     enableFlag();
     getOwnRestaurantId.mockResolvedValue("rest-1");
+    getOrganizationIdForBusiness.mockResolvedValue("org-1");
 
     const { req, next } = await invoke(tokenFor("user-owner", Role.RESTAURANT_OWNER));
 
     expect(getOwnRestaurantId).toHaveBeenCalledWith("user-owner");
+    expect(getOrganizationIdForBusiness).toHaveBeenCalledWith("rest-1");
     expect(req.tenant?.businessId).toBe("rest-1");
+    expect(req.tenant?.organizationId).toBe("org-1");
     expect(req.tenant?.role).toBe(Role.RESTAURANT_OWNER);
     expect(req.tenant?.resolvedFrom).toBe("legacy-user-restaurant");
     expect(next).toHaveBeenCalledTimes(1);
