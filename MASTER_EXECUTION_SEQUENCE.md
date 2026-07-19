@@ -1,13 +1,46 @@
 # OrderVora — Master Execution Sequence
 
-> **Document type:** Phase 1, Deliverable 4.
-> **Purpose:** The complete implementation order required to reach blueprint
-> completion, starting from **current repository reality** — additive
+> **Document type:** Phase 1, Deliverable 4 — **now the single canonical
+> roadmap for OrderVora.** All other planning documents feed into this one; when
+> they disagree on ordering, this document wins.
+> **Purpose:** The complete implementation order required to evolve OrderVora
+> from its current restaurant-centric reality to (a) blueprint completion and
+> (b) the **Business Operating System (BOS)** target architecture — additive
 > evolution only, minimizing migration risk. No feature is built here; this is
 > the sequence.
-> **Repository:** `abukeeth/core` @ `main` `f126fef`. **Date:** 2026-07-19.
-> **Companions:** `ORDERVORA_SOURCE_OF_TRUTH.md`, `BLUEPRINT_GAP_MATRIX.md`,
-> `PHASE_1_FOUNDATION_COMPLETION_PLAN.md`.
+> **Repository:** `abukeeth/core` @ `main` `f126fef`. **Date:** 2026-07-19
+> (updated to fold in the approved BOS P0–P10 roadmap).
+> **Canonical inputs (cross-referenced throughout):**
+> - `ORDERVORA_SOURCE_OF_TRUTH.md` — verified current-state engineering facts.
+> - `BLUEPRINT_GAP_MATRIX.md` — per-capability gaps, risks, dependency chains.
+> - `PHASE_1_FOUNDATION_COMPLETION_PLAN.md` — the Phase-1 foundation decisions.
+> - `BUSINESS_OS_FOUNDATION.md` — the approved BOS target architecture.
+> - `BUSINESS_OS_IMPLEMENTATION_PLAN.md` — the approved BOS phase plan (P0–P10),
+>   whose full detail this document folds in and treats as authoritative.
+
+---
+
+## How this roadmap is structured (read this first)
+
+This document now carries **two complementary, reconciled views** of the same
+additive evolution — do not treat them as competing plans:
+
+1. **The BOS Evolution Roadmap (P0–P10)** — *the authoritative implementation
+   path.* It is the **structural spine**: how the platform evolves from a
+   `Restaurant`/`restaurantId` tenant model to the Organization → Business →
+   Location architecture, with Membership and Capabilities. Sourced verbatim in
+   intent from `BUSINESS_OS_IMPLEMENTATION_PLAN.md`. **When sequencing a piece
+   of work, start here.**
+
+2. **The Blueprint Feature Stages (Stage 0–9)** — *preserved historical view,
+   unchanged below.* It is the **feature-delivery** view: how blueprint
+   capabilities (isolation, billing, realtime, marketing, delivery, AI
+   consultant, bilingual, etc.) get delivered. Every feature stage now **maps
+   onto** a BOS phase (see the reconciliation table) rather than standing alone.
+
+The two are the same journey seen structurally vs. by feature. The
+**reconciliation map** (immediately after the BOS roadmap) is the join between
+them. Nothing from the original Stage 0–9 sequence has been removed.
 
 ---
 
@@ -45,6 +78,87 @@
   **No billing / subscription system.** The entire revenue model
   (Starter/Growth/Pro/Enterprise) is unbuilt; pilots cannot be monetized and
   referral rewards are inert. It blocks the business, not just a feature.
+
+---
+
+# PART A — BOS Evolution Roadmap (P0–P10) — AUTHORITATIVE
+
+*The approved structural implementation path from restaurant-centric to Business
+Operating System. Full per-phase detail (objective, why, repository areas, data
+model / API / UI impact, risks, acceptance criteria) lives in
+`BUSINESS_OS_IMPLEMENTATION_PLAN.md`; the architecture rationale lives in
+`BUSINESS_OS_FOUNDATION.md`. This is the canonical order — everything in Part B
+maps onto it.*
+
+**The load-bearing reinterpretation (from `BUSINESS_OS_FOUNDATION.md`):** the
+existing **`Restaurant` == a Business**, and **`restaurantId` == the Business
+scope key**. This holds from P0 onward *by convention*, before any physical
+rename (deferred to P10). All ~94 `restaurantId` references keep working.
+
+```
+P0  Terminology & Tenant Context        (no schema change; legacy = superset)
+P1  Organization layer                  (auto-wrap each existing Business)
+P2  Membership & scoped roles           (dual-read; ownership truth → Membership)
+P3  Capability / Module system          (seed from BusinessType; everyone = today)
+P4  Location layer                      (mirror single address; invisible)
+P5  DB-enforced isolation (RLS)         (keyed on Business == restaurantId)
+P6  Billing @ Organization              (entitlements → capabilities/quotas)
+P7  Multi-location activation           (place data separates from Business)
+P8  Multi-business ownership & Types    (one Org, many Businesses; new verticals)
+P9  New vertical modules                (Age Verification, Inventory-first, …)
+P10 Physical restaurantId → businessId  (optional, late, behind aliases)
+```
+
+| Phase | Delivers | Schema change? | Depends on | Reversible |
+|---|---|---|---|---|
+| **P0** | Terminology + Tenant Context seam | No | — | Yes |
+| **P1** | Organization layer | Additive | P0 | Yes |
+| **P2** | Membership & scoped roles (dual-read) | Additive | P1 | Yes |
+| **P3** | Capability/Module system | Additive | P2 | Yes |
+| **P4** | Location layer (mirror) | Additive | P1 | Yes |
+| **P5** | DB-enforced isolation (RLS) | Additive (policy) | P0, P4 | Yes (per-table) |
+| **P6** | Billing @ Organization | Additive | P1, P3 | Yes |
+| **P7** | Multi-location activation | Additive + read-move | P4, P5, P6 | Yes |
+| **P8** | Multi-business ownership & Type profiles | Additive | P2, P3, P6 | Yes |
+| **P9** | New vertical modules | Additive | P3, P5, P6, P8 | Yes |
+| **P10** | Physical rename (optional) | Additive→cutover | P0–P9 | Yes |
+
+**Where the audit's critical items land on the BOS spine:**
+- **RLS** (`BLUEPRINT_GAP_MATRIX.md` A1, the highest-priority architecture
+  milestone) → **P5**, after the Business scope key is stable and Tenant Context
+  (P0) exists.
+- **Billing** (gap J1, the biggest production blocker) → **P6**, right after its
+  home (Organization, P1) and its lever (Capabilities, P3) exist.
+- **Multi-location / multi-vertical** (gaps A2, I1; the BOS promise) → **P4/P7**
+  and **P8/P9**.
+
+---
+
+# PART B — Blueprint Feature Stages (Stage 0–9) — PRESERVED
+
+*The original feature-delivery sequence, unchanged. Each stage now maps onto a
+BOS phase from Part A via the reconciliation table below; nothing here has been
+removed or reordered.*
+
+## Reconciliation map — Feature Stages ↔ BOS Phases
+
+| Feature Stage (Part B) | Primary BOS Phase(s) (Part A) | Notes |
+|---|---|---|
+| **Stage 0** — Phase-1 Foundation (decisions/governance) | **P0** (+ sets up P1–P6 decisions) | Substrate/tenant/billing/bilingual decisions gate the BOS spine. |
+| **Stage 1** — Tenant Isolation Hardening (RLS) | **P5** | Same work; BOS names its prerequisites (P0 context, P4 location scope). |
+| **Stage 2** — Monetization Foundation | **P6** | BOS places billing at the Organization created in P1, gated by P3 capabilities. |
+| **Stage 3** — Realtime + Cron Substrate | cross-cuts **P4–P9** | Infrastructure the BOS phases consume (live location tracking, cron automations). |
+| **Stage 4** — Marketing + CRM + Compliance | rides on **P3/P6/P8** | Marketing becomes a **Capability** (P3), plan-gated (P6), Business-scoped (P8). |
+| **Stage 5** — Delivery-as-a-Service | **Delivery Capability** in **P3/P9**, per-location in **P7** | Delivery becomes a module enabled per Business/Location. |
+| **Stage 6** — AI Business Consultant + AI isolation | **P3 (AI Capability)** + **P5 (isolation)** | AI runs inside Tenant Context; isolation from P5, quotas from P6. |
+| **Stage 7** — Bilingual (EN/AR) + RTL | additive, sequence early per **Stage 0** decision | Orthogonal to the spine; schema seeding cheapest before data grows. |
+| **Stage 8** — Horizontal Expansion (Clover, vape/retail, multi-location, pgvector) | **P7 + P8 + P9** | This *is* the BOS multi-location / multi-vertical / new-module work. |
+| **Stage 9** — Enterprise (franchise, POS, API, MFA) | **P8 + P9** (franchise needs Org/Business/Location + Membership) | Enterprise is the mature end-state of the BOS spine. |
+
+**How to use both parts:** sequence *structural* work by **Part A (P0–P10)**;
+track *feature/blueprint* delivery by **Part B (Stage 0–9)**; use the table to
+translate between them. Part A is authoritative when the two imply different
+orderings (they are designed not to, but Part A wins by rule).
 
 ---
 
@@ -221,6 +335,16 @@ milestone.
   unsafe and unmonetizable" into "safe and sellable" — without building a
   single speculative feature.
 
+- **On the BOS spine (Part A), this milestone is not P5+P6 in isolation.** The
+  BOS ordering shows the true prerequisites: **P0 (Tenant Context)** and **P4
+  (Location layer)** must precede the RLS work (P5), and **P1 (Organization) +
+  P3 (Capabilities)** must precede billing (P6). In practice the first milestone
+  therefore sequences as **P0 → P1 → (P3, P4 in parallel) → P5 → P6** — the
+  smallest additive spine that makes isolation and monetization *correctly*
+  placed rather than bolted onto the `Restaurant` table. P2 (Membership) lands
+  alongside P1/P3 since billing and scoped access both depend on it. See
+  `BUSINESS_OS_IMPLEMENTATION_PLAN.md` for each phase's acceptance criteria.
+
 ---
 
 ## 5. Recommended PR sequence
@@ -257,9 +381,40 @@ Stage 5 (delivery) → Stage 6 (AI Consultant) → Stage 7 (bilingual) → Stage
 (horizontal) → Stage 9 (enterprise)**, each as its own additive PR series
 gated by the isolation and billing foundations above.
 
+**Mapped onto the BOS spine (Part A):** the PR sequence above realizes the BOS
+phases in order — governance/stability PRs (1–4) belong to **P0**; isolation PRs
+(5–8) realize **P5** (with P0 context + P4 location scope as prerequisites);
+monetization PRs (9–11) realize **P6** (on the P1 Organization, gated by P3
+Capabilities); and the later feature stages realize **P3/P4/P7/P8/P9** per the
+reconciliation map. Sequence structural PRs by Part A; describe their
+feature payload by Part B.
+
 ---
 
-*End of Master Execution Sequence. This document, with its three companions,
-constitutes the OrderVora Phase-1 governance and execution foundation:
-evidence-based, additive, and faithful to "own the platform, don't rebuild
-it."*
+## Canonical status & document hierarchy
+
+This document is the **single canonical roadmap for OrderVora**. Its inputs, and
+their roles:
+
+| Document | Role relative to this roadmap |
+|---|---|
+| `ORDERVORA_SOURCE_OF_TRUTH.md` | Verified current-state facts this roadmap starts from. |
+| `BLUEPRINT_GAP_MATRIX.md` | The gaps/risks each stage and phase closes (A1, J1, …). |
+| `PHASE_1_FOUNDATION_COMPLETION_PLAN.md` | The Phase-1 decisions that gate the spine (Stage 0 / P0). |
+| `BUSINESS_OS_FOUNDATION.md` | The approved BOS target architecture (the "why" behind Part A). |
+| `BUSINESS_OS_IMPLEMENTATION_PLAN.md` | The approved BOS phase detail (the authoritative "how/when" of Part A). |
+
+**Rule of precedence:** for *structural sequencing*, Part A (BOS P0–P10) is
+authoritative and defers to `BUSINESS_OS_IMPLEMENTATION_PLAN.md` for per-phase
+acceptance criteria. For *feature/blueprint tracking*, Part B (Stage 0–9)
+remains the reference. The reconciliation map is the join between them. If any
+other document implies a different order, **this roadmap wins** — update the
+other document, not this ordering.
+
+---
+
+*End of Master Execution Sequence — the single canonical OrderVora roadmap. It
+now carries both the preserved blueprint feature stages (Part B, Stage 0–9) and
+the authoritative Business OS evolution roadmap (Part A, P0–P10), reconciled.
+Evidence-based, additive, reversible, and faithful to "own the platform, don't
+rebuild it."*
