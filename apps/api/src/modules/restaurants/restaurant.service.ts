@@ -61,17 +61,32 @@ export async function createRestaurant(ownerId: string, input: CreateRestaurantI
     ? await prisma.restaurant.findUnique({ where: { referralCode: referrerCode }, select: { id: true } })
     : null;
 
+  // Sprint 18 Business Setup Wizard step 1 only collects businessType — the
+  // owner names their business in step 2 (Business Info). Resolved once here so
+  // the Organization and the Restaurant share the same name.
+  const businessName = name ?? "My Business";
+
   const restaurant = await prisma.$transaction(async (tx) => {
+    // BOS Phase 1 (P1.2a) — create the Organization that owns this Business,
+    // atomically with the Restaurant and the owner link. Uses tx.organization
+    // (NOT the global createOrganization helper) so it participates in this
+    // transaction and rolls back together on any failure — no orphan
+    // Organization and no orphan Restaurant. ownerUserId mirrors the owner
+    // pointer; this is not a membership/role (that is P2).
+    const organization = await tx.organization.create({
+      data: { name: businessName, ownerUserId: ownerId },
+    });
     const created = await createWithUniqueReferralCode(tx, {
       ownerId,
-      // Sprint 18 Business Setup Wizard step 1 only collects businessType —
-      // the owner names their business in step 2 (Business Info).
-      name: name ?? "My Business",
+      name: businessName,
       ...rest,
       // Choosing a business type (or the wizard creating this row at all)
       // completes step 1; the owner resumes at step 2 next.
       setupStep: "BUSINESS_INFO",
       referredById: referrer?.id,
+      // Link the Business to its Organization at creation time (P1.2a). The
+      // column remains nullable; backfill of pre-existing rows is P1.2b.
+      organizationId: organization.id,
     });
     await tx.user.update({ where: { id: ownerId }, data: { restaurantId: created.id } });
     return created;
