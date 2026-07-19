@@ -1,7 +1,30 @@
+import type { BusinessType } from "@prisma/client";
 import type { BrandPersonality, BrandProfile, StyleFamilyValue, ThemeCatalogEntry } from "./types";
 
 const PERSONALITY_WEIGHT = 0.8;
 const CUISINE_AFFINITY_WEIGHT = 0.2;
+/**
+ * Theme Engine V3 Milestone 1 — an exact business-type match dominates every
+ * personality/cuisine signal (whose combined score is ≤ ~1). A theme
+ * purpose-built for the tenant's business type therefore always wins its style
+ * family ahead of a type-agnostic theme, while the secondary signals still
+ * order ties among equally-matched themes.
+ */
+const BUSINESS_TYPE_MATCH_BOOST = 10;
+
+/** How a theme relates to a tenant's business type. */
+function typeRelation(
+  theme: ThemeCatalogEntry,
+  businessType: BusinessType | undefined,
+): "agnostic" | "match" | "mismatch" {
+  if (theme.businessTypes === undefined) return "agnostic";
+  if (businessType === undefined) return "agnostic"; // unknown type ⇒ don't exclude; fall back to personality
+  return theme.businessTypes.includes(businessType) ? "match" : "mismatch";
+}
+
+function humanizeBusinessType(businessType: BusinessType): string {
+  return businessType.toLowerCase().replace(/_/g, " ");
+}
 
 export interface ThemeFitResult {
   theme: ThemeCatalogEntry;
@@ -42,17 +65,33 @@ function describeTone(p: BrandPersonality): string {
  * photo-dependent theme excluded when there aren't enough photos). Returns
  * null when the theme is hard-excluded rather than merely scored low.
  */
-export function scoreTheme(theme: ThemeCatalogEntry, profile: BrandProfile, photoCount: number): ThemeFitResult | null {
+export function scoreTheme(
+  theme: ThemeCatalogEntry,
+  profile: BrandProfile,
+  photoCount: number,
+  businessType?: BusinessType,
+): ThemeFitResult | null {
   if (theme.constraints.minPhotos !== undefined && photoCount < theme.constraints.minPhotos) {
+    return null;
+  }
+
+  // §V3 M1 — a type-scoped theme is hard-excluded for a tenant of a different
+  // business type (e.g. a Restaurant theme is never eligible for a Vape Shop).
+  const relation = typeRelation(theme, businessType);
+  if (relation === "mismatch") {
     return null;
   }
 
   const similarity = personalitySimilarity(theme.personalityVector, profile.personality);
   const cuisineKey = profile.cuisine.trim().toLowerCase();
   const cuisineBonus = theme.cuisineAffinities[cuisineKey] ?? 0;
-  const score = similarity * PERSONALITY_WEIGHT + cuisineBonus * CUISINE_AFFINITY_WEIGHT;
+  const secondaryScore = similarity * PERSONALITY_WEIGHT + cuisineBonus * CUISINE_AFFINITY_WEIGHT;
+  const score = relation === "match" ? BUSINESS_TYPE_MATCH_BOOST + secondaryScore : secondaryScore;
 
   const reasons: string[] = [];
+  if (relation === "match" && businessType) {
+    reasons.push(`purpose-built for ${humanizeBusinessType(businessType)}`);
+  }
   if (cuisineBonus >= 0.5) {
     reasons.push(`strong ${profile.cuisine} affinity`);
   }
@@ -76,6 +115,7 @@ export function selectThemeForFamily(
   catalog: ThemeCatalogEntry[],
   profile: BrandProfile,
   photoCount: number,
+  businessType?: BusinessType,
 ): ThemeFitResult {
   // §Website Builder — deprecated themes stay in the catalog forever (so
   // already-published sites keep rendering byte-identically) but are never
@@ -86,7 +126,7 @@ export function selectThemeForFamily(
   }
 
   const scored = familyThemes
-    .map((theme) => scoreTheme(theme, profile, photoCount))
+    .map((theme) => scoreTheme(theme, profile, photoCount, businessType))
     .filter((result): result is ThemeFitResult => result !== null)
     .sort((a, b) => b.score - a.score);
 
@@ -94,22 +134,28 @@ export function selectThemeForFamily(
     return scored[0];
   }
 
-  const fallback = [...familyThemes].sort((a, b) => (a.constraints.minPhotos ?? 0) - (b.constraints.minPhotos ?? 0))[0];
+  // Fallback (every candidate hard-excluded, e.g. zero photos): the least
+  // photo-dependent theme that is still *type-eligible* — a type-scoped theme
+  // for a different business type is never resurrected here.
+  const eligible = familyThemes.filter((t) => typeRelation(t, businessType) !== "mismatch");
+  const fallbackPool = eligible.length > 0 ? eligible : familyThemes;
+  const fallback = [...fallbackPool].sort((a, b) => (a.constraints.minPhotos ?? 0) - (b.constraints.minPhotos ?? 0))[0];
   return { theme: fallback, score: 0, reasons: ["Fallback: no theme in this family met the photo requirement"] };
 }
 
 export type ThemeSelectionByFamily = Record<StyleFamilyValue, ThemeFitResult>;
 
-/** Deterministic — same catalog + profile + photoCount always yields the same picks. */
+/** Deterministic — same catalog + profile + photoCount (+ businessType) always yields the same picks. */
 export function selectThemesForAllFamilies(
   catalog: ThemeCatalogEntry[],
   profile: BrandProfile,
   photoCount: number,
+  businessType?: BusinessType,
 ): ThemeSelectionByFamily {
   return {
-    LUXURY: selectThemeForFamily("LUXURY", catalog, profile, photoCount),
-    MODERN: selectThemeForFamily("MODERN", catalog, profile, photoCount),
-    MINIMAL: selectThemeForFamily("MINIMAL", catalog, profile, photoCount),
+    LUXURY: selectThemeForFamily("LUXURY", catalog, profile, photoCount, businessType),
+    MODERN: selectThemeForFamily("MODERN", catalog, profile, photoCount, businessType),
+    MINIMAL: selectThemeForFamily("MINIMAL", catalog, profile, photoCount, businessType),
   };
 }
 

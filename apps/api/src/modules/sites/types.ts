@@ -1,3 +1,4 @@
+import type { BusinessType } from "@prisma/client";
 import { z } from "zod";
 
 /**
@@ -344,6 +345,16 @@ export interface ThemeCatalogEntry {
    */
   deprecated?: boolean;
   /**
+   * Theme Engine V3 (Milestone 1) — the business types this theme is
+   * purpose-built for. When set, the theme is *type-scoped*: it is only
+   * eligible for a tenant whose structured `Restaurant.businessType` is in
+   * this list, and it wins its style family for that tenant ahead of any
+   * personality/cuisine score. When omitted, the theme is *type-agnostic* —
+   * eligible for every business type, scored by personality + cuisine exactly
+   * as before (so every pre-V3 catalog entry is unaffected).
+   */
+  businessTypes?: BusinessType[];
+  /**
    * Theme Engine V3 — a theme may declare its own presentation defaults
    * (header/nav chrome settings, footer, product presentation, and brand
    * token overrides). assemble.ts copies these verbatim into the generated
@@ -379,6 +390,13 @@ export interface IngestData {
   menu: MenuItemSummary[];
   photoCount: number;
   logoColorSeed?: string;
+  /**
+   * The tenant's structured business type (Restaurant.businessType) — distinct
+   * from brandProfile.businessType, which is the LLM's free-text guess. Drives
+   * business-type-aware theme selection (theme-matching.ts). Optional so
+   * hand-built ingest fixtures need not supply it.
+   */
+  businessType?: BusinessType;
 }
 
 // ---------------------------------------------------------------------------

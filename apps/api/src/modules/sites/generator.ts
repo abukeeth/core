@@ -74,7 +74,7 @@ class InProcessGenerationJobRunner implements GenerationJobRunner {
       const brandProfile = await analyzeBrand(ingest);
 
       await this.setStage(jobId, "THEME_SELECTION");
-      const themeSelection = selectThemesForAllFamilies(THEME_CATALOG, brandProfile, ingest.photoCount);
+      const themeSelection = selectThemesForAllFamilies(THEME_CATALOG, brandProfile, ingest.photoCount, ingest.businessType);
 
       await this.setStage(jobId, "CONTENT_GENERATION");
       const contentCore = await generateContentCore(ingest, brandProfile);

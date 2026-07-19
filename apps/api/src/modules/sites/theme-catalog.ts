@@ -302,6 +302,10 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
     key: "restaurant-maison",
     version: 1,
     styleFamily: "LUXURY",
+    // §V3 M1 — purpose-built for full-service restaurants. Type-scoped: a
+    // RESTAURANT tenant selects Maison ahead of the type-agnostic bold-commerce;
+    // non-restaurant tenants never select it.
+    businessTypes: ["RESTAURANT"],
     personalityVector: {
       traditionalContemporary: 0.35,
       casualFormal: 0.9,

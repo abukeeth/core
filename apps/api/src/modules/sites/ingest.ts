@@ -41,5 +41,6 @@ export async function ingestRestaurantData(restaurantId: string): Promise<Ingest
     menu,
     photoCount: assetPhotoCount,
     logoColorSeed: undefined,
+    businessType: restaurant.businessType,
   };
 }

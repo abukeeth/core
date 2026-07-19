@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { THEME_CATALOG } from "./theme-catalog";
-import { cosineSimilarity, derivePaletteSeed, personalitySimilarity, selectThemesForAllFamilies } from "./theme-matching";
-import type { BrandProfile } from "./types";
+import { cosineSimilarity, derivePaletteSeed, personalitySimilarity, selectThemeForFamily, selectThemesForAllFamilies } from "./theme-matching";
+import type { BrandProfile, StyleFamilyValue, ThemeCatalogEntry } from "./types";
 
 const UPSCALE_SUSHI: BrandProfile = {
   cuisine: "japanese",
@@ -122,6 +122,91 @@ describe("selectThemesForAllFamilies (golden tests, deterministic)", () => {
       expect(deprecatedKeys.has(result.MODERN.theme.key)).toBe(false);
       expect(deprecatedKeys.has(result.MINIMAL.theme.key)).toBe(false);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Theme Engine V3 — Milestone 1: business-type-aware selection
+// ---------------------------------------------------------------------------
+
+/** A minimal well-formed catalog entry for synthetic-catalog selection tests. */
+function fakeTheme(key: string, styleFamily: StyleFamilyValue, over: Partial<ThemeCatalogEntry> = {}): ThemeCatalogEntry {
+  return {
+    key,
+    version: 1,
+    styleFamily,
+    personalityVector: { traditionalContemporary: 0.5, casualFormal: 0.5, playfulSerious: 0.5, understatedBold: 0.5, rusticPolished: 0.5 },
+    cuisineAffinities: {},
+    constraints: {},
+    tokens: { colorSeed: "#333333", typography: { display: "A", body: "B" }, radius: "soft", motion: "none", typeScaleRatio: 1.2 },
+    variants: { hero: ["minimal-typographic"], menuLayout: ["classic-list"], chrome: ["standard"] },
+    layouts: { home: ["hero", "footer"] },
+    ...over,
+  };
+}
+
+describe("business-type-aware selection (V3 Milestone 1)", () => {
+  it("a RESTAURANT tenant selects restaurant-maison for its LUXURY variation, even when personality alone wouldn't pick it", () => {
+    // CASUAL_TAQUERIA is bold/casual — on personality it would prefer bold-commerce.
+    const result = selectThemesForAllFamilies(THEME_CATALOG, CASUAL_TAQUERIA, 3, "RESTAURANT");
+    expect(result.LUXURY.theme.key).toBe("restaurant-maison");
+    expect(result.LUXURY.reasons[0]).toMatch(/purpose-built for restaurant/i);
+  });
+
+  it("a VAPE_SHOP tenant never selects a Restaurant theme — LUXURY falls to the type-agnostic bold-commerce", () => {
+    const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "VAPE_SHOP");
+    expect(result.LUXURY.theme.key).toBe("bold-commerce");
+    // restaurant-maison is scoped to RESTAURANT and must not appear in any family.
+    expect([result.LUXURY.theme.key, result.MODERN.theme.key, result.MINIMAL.theme.key]).not.toContain("restaurant-maison");
+  });
+
+  it("resolves a type-specific theme once one is added (e.g. a BAKERY theme wins for a bakery, and only for a bakery)", () => {
+    const catalog: ThemeCatalogEntry[] = [
+      fakeTheme("generic-minimal", "MINIMAL"), // type-agnostic
+      fakeTheme("bakery-warmth", "MINIMAL", { businessTypes: ["BAKERY"] }), // type-scoped
+    ];
+    const bakery = selectThemeForFamily("MINIMAL", catalog, FRENCH_PATISSERIE, 3, "BAKERY");
+    expect(bakery.theme.key).toBe("bakery-warmth");
+    // A different business type never gets the bakery theme; the agnostic one wins.
+    const deli = selectThemeForFamily("MINIMAL", catalog, FRENCH_PATISSERIE, 3, "DELI");
+    expect(deli.theme.key).toBe("generic-minimal");
+  });
+
+  it("the same mechanism resolves Cafe, Convenience and Retail themes once registered", () => {
+    const catalog: ThemeCatalogEntry[] = [
+      fakeTheme("generic-modern", "MODERN"),
+      fakeTheme("cafe-daybreak", "MODERN", { businessTypes: ["COFFEE_SHOP"] }),
+      fakeTheme("convenience-quickmart", "MODERN", { businessTypes: ["CONVENIENCE_STORE"] }),
+      fakeTheme("retail-storefront", "MODERN", { businessTypes: ["RETAIL"] }),
+    ];
+    expect(selectThemeForFamily("MODERN", catalog, CASUAL_TAQUERIA, 3, "COFFEE_SHOP").theme.key).toBe("cafe-daybreak");
+    expect(selectThemeForFamily("MODERN", catalog, CASUAL_TAQUERIA, 3, "CONVENIENCE_STORE").theme.key).toBe("convenience-quickmart");
+    expect(selectThemeForFamily("MODERN", catalog, CASUAL_TAQUERIA, 3, "RETAIL").theme.key).toBe("retail-storefront");
+    // A business type with no dedicated theme falls back to the agnostic one.
+    expect(selectThemeForFamily("MODERN", catalog, CASUAL_TAQUERIA, 3, "DELI").theme.key).toBe("generic-modern");
+  });
+
+  it("type-agnostic entries (no businessTypes[]) stay eligible for every business type", () => {
+    // modern-editorial / warm-local have no businessTypes — a Vape Shop still gets them.
+    const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "VAPE_SHOP");
+    expect(result.MODERN.theme.key).toBe("modern-editorial");
+    expect(result.MINIMAL.theme.key).toBe("warm-local");
+  });
+
+  it("is backward compatible: omitting businessType reproduces the pre-V3 personality-only picks (existing sites unaffected)", () => {
+    const withType = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "RESTAURANT");
+    const withoutType = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3);
+    // With no businessType, a fine-dining brand still lands on maison via personality —
+    // and MODERN/MINIMAL are identical with or without the new signal.
+    expect(withoutType.LUXURY.theme.key).toBe("restaurant-maison");
+    expect(withoutType.MODERN.theme.key).toBe(withType.MODERN.theme.key);
+    expect(withoutType.MINIMAL.theme.key).toBe(withType.MINIMAL.theme.key);
+  });
+
+  it("keeps the zero-photo fallback type-aware — a Vape Shop falls back to bold-commerce, never the photo-hungry restaurant theme", () => {
+    const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 0, "VAPE_SHOP");
+    expect(result.LUXURY.theme.key).toBe("bold-commerce");
+    expect(result.LUXURY.reasons[0]).toMatch(/fallback/i);
   });
 });
 
