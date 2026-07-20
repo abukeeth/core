@@ -97,6 +97,13 @@ export async function createStaff(ownerId: string, input: CreateStaffInput): Pro
 
   const passwordHash = await hashPassword(input.password);
 
+  // P2.6.1-pre-a — the owner selects the new staff's scoped Membership role
+  // (STAFF by default, or KITCHEN). This is validated to STAFF|KITCHEN at the
+  // edge (createStaffSchema), so OWNER/ADMIN/MANAGER/MARKETING/SUPPORT can never
+  // reach here. The legacy User.role stays RESTAURANT_STAFF regardless — only
+  // the Membership role varies.
+  const membershipRole = input.membershipRole === "KITCHEN" ? MembershipRole.KITCHEN : MembershipRole.STAFF;
+
   return prisma.$transaction(async (tx) => {
     const staff = await tx.user.create({
       data: {
@@ -111,14 +118,18 @@ export async function createStaff(ownerId: string, input: CreateStaffInput): Pro
 
     // Grant the new staff their scoped Membership atomically with the user,
     // closing the coverage gap (P2.3 created memberships for owners only). The
-    // staff assignment role RESTAURANT_STAFF maps to MembershipRole.STAFF,
-    // scoped to the owner's BUSINESS. A brand-new user cannot already hold a
-    // membership, so this never duplicates. Uses tx.membership (NOT the global
-    // helper) so it commits/rolls back with the user.
+    // selected staff role maps to MembershipRole.STAFF or .KITCHEN, scoped to
+    // the owner's BUSINESS. Duplicate prevention: the user is created inside
+    // this same transaction on the line above, so its id does not exist — and
+    // no row can reference it — until the transaction commits. No other writer
+    // can observe or attach a membership to this user id concurrently, so this
+    // is the only possible membership for it; the create cannot race a duplicate
+    // (the safety does not depend on an unprotected pre-read). Uses tx.membership
+    // (NOT the global helper) so it commits/rolls back with the user.
     await tx.membership.create({
       data: {
         userId: staff.id,
-        role: MembershipRole.STAFF,
+        role: membershipRole,
         scopeType: MembershipScope.BUSINESS,
         scopeId: businessId,
       },
