@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../restaurants/restaurant.service", () => ({
   getOwnRestaurantId: vi.fn(),
@@ -195,5 +195,133 @@ describe("assignDriverHandler", () => {
     await assignDriverHandler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(200);
+  });
+});
+
+describe("myAssignmentsHandler — kitchen financial firewall (P2.6.1)", () => {
+  const KITCHEN_TENANT = {
+    businessId: "rest-1",
+    organizationId: "org-1",
+    role: "RESTAURANT_STAFF",
+    locationId: null,
+    memberships: [
+      { id: "m1", userId: "u1", role: "KITCHEN", scopeType: "BUSINESS", scopeId: "rest-1", createdAt: new Date(), updatedAt: new Date() },
+    ],
+    capabilities: {},
+    resolvedFrom: "legacy-user-restaurant",
+  };
+
+  const assignmentRow = {
+    id: "da1",
+    driverId: "u1",
+    status: "OFFERED",
+    latitude: 1.23,
+    longitude: 4.56,
+    fulfillment: {
+      id: "f1",
+      restaurantId: "rest-1",
+      status: "AWAITING_DRIVER",
+      order: {
+        id: "o1",
+        orderNumber: "A-1",
+        status: "PREPARING",
+        subtotalCents: 1000,
+        taxCents: 80,
+        tipCents: 0,
+        deliveryFeeCents: 200,
+        serviceFeeCents: 0,
+        discountCents: 0,
+        totalCents: 1280,
+        createdAt: new Date(),
+      },
+    },
+  };
+
+  afterEach(() => {
+    delete process.env.KITCHEN_FIREWALL;
+  });
+
+  function kitchenReq(extra: Record<string, unknown> = {}) {
+    return { user: { id: "u1", role: "RESTAURANT_STAFF" }, tenant: KITCHEN_TENANT, ...extra } as unknown as Request;
+  }
+
+  function firstAssignment(res: Response) {
+    const body = vi.mocked(res.json).mock.calls[0][0] as { assignments: Array<{ status: string; fulfillment: { status: string; order: Record<string, unknown> } }> };
+    return body.assignments[0];
+  }
+
+  it("3. off mode: returns the embedded order money unchanged (inert)", async () => {
+    vi.mocked(getOwnRestaurantId).mockResolvedValue("rest-1");
+    vi.mocked(listMyDriverAssignments).mockResolvedValue([assignmentRow] as never);
+    const res = mockRes();
+
+    await myAssignmentsHandler(kitchenReq(), res);
+
+    expect(firstAssignment(res).fulfillment.order).toHaveProperty("totalCents", 1280);
+  });
+
+  it("4. observe mode: leaves the embedded order money unchanged (non-blocking)", async () => {
+    process.env.KITCHEN_FIREWALL = "observe";
+    vi.mocked(getOwnRestaurantId).mockResolvedValue("rest-1");
+    vi.mocked(listMyDriverAssignments).mockResolvedValue([assignmentRow] as never);
+    const res = mockRes();
+
+    await myAssignmentsHandler(kitchenReq(), res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(firstAssignment(res).fulfillment.order).toHaveProperty("totalCents", 1280);
+  });
+
+  it("5. enforce mode: redacts all embedded order money for a kitchen actor", async () => {
+    process.env.KITCHEN_FIREWALL = "enforce";
+    vi.mocked(getOwnRestaurantId).mockResolvedValue("rest-1");
+    vi.mocked(listMyDriverAssignments).mockResolvedValue([assignmentRow] as never);
+    const res = mockRes();
+
+    await myAssignmentsHandler(kitchenReq(), res);
+
+    const order = firstAssignment(res).fulfillment.order;
+    for (const f of ["subtotalCents", "taxCents", "tipCents", "deliveryFeeCents", "serviceFeeCents", "discountCents", "totalCents"]) {
+      expect(order).not.toHaveProperty(f);
+    }
+  });
+
+  it("7. enforce mode: preserves non-financial fulfillment/assignment/order fields", async () => {
+    process.env.KITCHEN_FIREWALL = "enforce";
+    vi.mocked(getOwnRestaurantId).mockResolvedValue("rest-1");
+    vi.mocked(listMyDriverAssignments).mockResolvedValue([assignmentRow] as never);
+    const res = mockRes();
+
+    await myAssignmentsHandler(kitchenReq(), res);
+
+    const a = firstAssignment(res);
+    expect(a.status).toBe("OFFERED");
+    expect(a.fulfillment.status).toBe("AWAITING_DRIVER");
+    expect(a.fulfillment.order).toMatchObject({ id: "o1", orderNumber: "A-1", status: "PREPARING" });
+  });
+
+  it("enforce mode: an OWNER (money-authorized) is NOT redacted", async () => {
+    process.env.KITCHEN_FIREWALL = "enforce";
+    vi.mocked(getOwnRestaurantId).mockResolvedValue("rest-1");
+    vi.mocked(listMyDriverAssignments).mockResolvedValue([assignmentRow] as never);
+    const ownerTenant = { ...KITCHEN_TENANT, memberships: [{ ...KITCHEN_TENANT.memberships[0], role: "OWNER" }] };
+    const res = mockRes();
+
+    await myAssignmentsHandler(kitchenReq({ tenant: ownerTenant }), res);
+
+    expect(firstAssignment(res).fulfillment.order).toHaveProperty("totalCents", 1280);
+  });
+
+  it("8. other fulfillment responses embed no order money (assignDriver returns a bare assignment)", async () => {
+    process.env.KITCHEN_FIREWALL = "enforce";
+    vi.mocked(getOwnRestaurantId).mockResolvedValue("rest-1");
+    vi.mocked(assignDriver).mockResolvedValue({ id: "da1", driverId: "u1", status: "OFFERED" } as never);
+    const res = mockRes();
+    const req = kitchenReq({ params: { id: "f1" }, body: { driverId: "u1" } });
+
+    await assignDriverHandler(req, res);
+
+    const body = vi.mocked(res.json).mock.calls[0][0];
+    expect(JSON.stringify(body)).not.toContain("Cents");
   });
 });

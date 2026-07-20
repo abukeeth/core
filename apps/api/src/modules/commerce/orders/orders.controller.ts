@@ -4,6 +4,8 @@ import { prisma } from "../../../lib/prisma";
 import { NoRestaurantError } from "../../restaurants/restaurant.errors";
 import { getOwnRestaurantId } from "../../restaurants/restaurant.service";
 import { RefundExceedsRemainingBalanceError, RefundFailedError } from "../payments/payments.errors";
+import { shouldRedactOrderFinancials } from "./order-firewall";
+import { redactOrderEvent, redactOrderFinancials } from "./order-redaction";
 import { InvalidOrderTransitionError } from "./order-state-machine";
 import { OrderNotFoundError } from "./orders.errors";
 import {
@@ -45,7 +47,8 @@ export async function listOrdersHandler(req: Request, res: Response): Promise<vo
   }
 
   const { orders, total } = await listOrders(restaurantId, parsed.data);
-  res.status(200).json({ orders, total, limit: parsed.data.limit, offset: parsed.data.offset });
+  const payload = shouldRedactOrderFinancials(req, "orders.list") ? orders.map((o) => redactOrderFinancials(o)) : orders;
+  res.status(200).json({ orders: payload, total, limit: parsed.data.limit, offset: parsed.data.offset });
 }
 
 export async function getOrderHandler(req: Request, res: Response): Promise<void> {
@@ -53,7 +56,9 @@ export async function getOrderHandler(req: Request, res: Response): Promise<void
   if (!restaurantId) return;
 
   try {
-    res.status(200).json({ order: await getOwnOrder(restaurantId, paramId(req)) });
+    const order = await getOwnOrder(restaurantId, paramId(req));
+    const payload = shouldRedactOrderFinancials(req, "orders.detail") ? redactOrderFinancials(order) : order;
+    res.status(200).json({ order: payload });
   } catch (err) {
     if (err instanceof OrderNotFoundError) {
       res.status(404).json({ error: err.message });
@@ -68,7 +73,9 @@ export async function getOrderEventsHandler(req: Request, res: Response): Promis
   if (!restaurantId) return;
 
   try {
-    res.status(200).json({ events: await getOrderEvents(restaurantId, paramId(req)) });
+    const events = await getOrderEvents(restaurantId, paramId(req));
+    const payload = shouldRedactOrderFinancials(req, "orders.events") ? events.map((e) => redactOrderEvent(e)) : events;
+    res.status(200).json({ events: payload });
   } catch (err) {
     if (err instanceof OrderNotFoundError) {
       res.status(404).json({ error: err.message });
