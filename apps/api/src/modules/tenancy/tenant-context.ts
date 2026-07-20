@@ -1,5 +1,6 @@
-import type { Role } from "@prisma/client";
+import type { Membership, Role } from "@prisma/client";
 import { createLogger } from "../../lib/logger";
+import { getMembershipsForUser } from "../memberships/membership.service";
 import { getOrganizationIdForBusiness } from "../organizations/organization.service";
 import { getOwnRestaurantId } from "../restaurants/restaurant.service";
 
@@ -27,10 +28,11 @@ import { getOwnRestaurantId } from "../restaurants/restaurant.service";
 const logger = createLogger("tenant-context");
 
 /**
- * Reserved for P2 (Membership). Left intentionally opaque in P0 so this module
- * takes no dependency on a Membership entity that does not exist yet.
+ * A scoped role grant held by the actor (User × MembershipRole × Scope).
+ * Tightened to the Prisma `Membership` record in P2.4 (was opaque in P0, before
+ * the entity existed). Read by nothing yet — dual-read authorization is P2.5.
  */
-export type TenantMembership = unknown;
+export type TenantMembership = Membership;
 
 /**
  * Reserved for P3 (Capabilities). An empty set in P0 — `Record<string, never>`
@@ -81,6 +83,7 @@ export interface TenantContextUser {
 export interface ResolveTenantContextDeps {
   getBusinessIdForUser?: (userId: string) => Promise<string | null>;
   getOrganizationIdForBusiness?: (businessId: string) => Promise<string | null>;
+  getMembershipsForUser?: (userId: string) => Promise<TenantMembership[]>;
 }
 
 /**
@@ -88,11 +91,11 @@ export interface ResolveTenantContextDeps {
  * public/unauthenticated request), produce the request's `TenantContext`.
  *
  * - No user → `undefined` (nothing to attach).
- * - Never throws: a business- or organization-lookup failure logs a warning and
- *   resolves that field to `null`, so a request that succeeds today can never
- *   fail because of this seam.
- * - Reads the business at most once, and the organization at most once (only
- *   when a business resolved).
+ * - Never throws: a business-, organization-, or membership-lookup failure logs
+ *   a warning and resolves that field to its empty value, so a request that
+ *   succeeds today can never fail because of this seam.
+ * - Reads the business at most once, the organization at most once (only when a
+ *   business resolved), and the memberships at most once.
  */
 export async function resolveTenantContext(
   user: TenantContextUser | undefined,
@@ -102,6 +105,7 @@ export async function resolveTenantContext(
 
   const businessLookup = deps.getBusinessIdForUser ?? getOwnRestaurantId;
   const organizationLookup = deps.getOrganizationIdForBusiness ?? getOrganizationIdForBusiness;
+  const membershipLookup = deps.getMembershipsForUser ?? getMembershipsForUser;
 
   let businessId: string | null = null;
   try {
@@ -131,12 +135,28 @@ export async function resolveTenantContext(
     }
   }
 
+  // BOS Phase 2 (P2.4) — populate the actor's scoped memberships. User-scoped
+  // (resolved from the user id, independent of the business), so it runs for any
+  // authenticated user. Never throws (memberships stays [] on any failure).
+  // Nothing consumes memberships yet — dual-read authorization is P2.5 — so this
+  // changes no observable behavior; it establishes the value for later phases.
+  let memberships: TenantMembership[] = [];
+  try {
+    memberships = await membershipLookup(user.id);
+  } catch (err) {
+    logger.warn(
+      { err, userId: user.id },
+      "tenant-context: membership lookup failed; resolving memberships=[] (behavior unchanged)",
+    );
+    memberships = [];
+  }
+
   return {
     businessId,
     role: user.role,
     organizationId,
     locationId: null,
-    memberships: [],
+    memberships,
     capabilities: {},
     resolvedFrom: "legacy-user-restaurant",
   };
