@@ -121,6 +121,16 @@ scopeId])` if lookups warrant it; start with the two above.
   prefers explicit nullable FKs later, that is an additive migration — not a
   reshape of the `(scopeType, scopeId)` contract.)*
 
+> **Architectural note (accepted 2026-07-20).** The polymorphic
+> `Membership.scopeId` (soft reference, no DB FK) is **accepted for Phase 2**.
+> **FK hardening is deferred and must be re-evaluated during P4/P5, after the
+> Location entity exists** — at which point explicit, per-scope foreign keys (or
+> equivalent DB-level referential integrity, alongside RLS in P5) can be added
+> **additively** without reshaping the `(scopeType, scopeId)` contract. Until
+> then, referential integrity for scope targets is enforced in the
+> service/backfill layer, consistent with the platform's existing app-layer
+> `restaurantId` scoping.
+
 ---
 
 ## 4. Membership service (minimal, inert)
