@@ -44,6 +44,7 @@ import {
   validateCredentials,
   verifyEmail,
 } from "./auth.service";
+import { createStaffSchema } from "./auth.validation";
 
 const mockPrisma = vi.mocked(prisma, { deep: true });
 const mockVerifyPassword = vi.mocked(verifyPassword);
@@ -529,5 +530,100 @@ describe("createStaff (P2.6.0 — scoped Membership on staff creation)", () => {
 
     await expect(createStaff("owner1", { email: "s@x.com", password: "pw", name: "S" })).rejects.toThrow(failure);
     expect(membershipCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe("createStaff (P2.6.1-pre-a — selectable membership role STAFF|KITCHEN)", () => {
+  function primeLookups(ownerRestaurantId: string | null) {
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce(null as never) // email available
+      .mockResolvedValueOnce({ restaurantId: ownerRestaurantId } as never); // owner's business
+    mockHashPassword.mockResolvedValue("hashed" as never);
+  }
+
+  function txMock() {
+    const userCreate = vi.fn().mockResolvedValue({ id: "staff-1", role: "RESTAURANT_STAFF", restaurantId: "rest-1" });
+    const membershipCreate = vi.fn().mockResolvedValue({ id: "mem-1" });
+    const tx = { user: { create: userCreate }, membership: { create: membershipCreate } };
+    (mockPrisma.$transaction as unknown as { mockImplementation: (fn: (cb: (t: typeof tx) => unknown) => unknown) => void })
+      .mockImplementation((fn) => fn(tx));
+    return { userCreate, membershipCreate };
+  }
+
+  it("defaults to a STAFF membership when membershipRole is omitted (backward compatible)", async () => {
+    primeLookups("rest-1");
+    const { membershipCreate } = txMock();
+
+    await createStaff("owner1", { email: "s@x.com", password: "pw", name: "S" });
+
+    expect(membershipCreate).toHaveBeenCalledWith({
+      data: { userId: "staff-1", role: "STAFF", scopeType: "BUSINESS", scopeId: "rest-1" },
+    });
+    expect(membershipCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates a STAFF @ BUSINESS membership when membershipRole is explicitly STAFF", async () => {
+    primeLookups("rest-1");
+    const { membershipCreate } = txMock();
+
+    await createStaff("owner1", { email: "s@x.com", password: "pw", name: "S", membershipRole: "STAFF" });
+
+    expect(membershipCreate).toHaveBeenCalledWith({
+      data: { userId: "staff-1", role: "STAFF", scopeType: "BUSINESS", scopeId: "rest-1" },
+    });
+    expect(membershipCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates a KITCHEN @ BUSINESS membership when membershipRole is KITCHEN", async () => {
+    primeLookups("rest-1");
+    const { membershipCreate } = txMock();
+
+    await createStaff("owner1", { email: "s@x.com", password: "pw", name: "S", membershipRole: "KITCHEN" });
+
+    expect(membershipCreate).toHaveBeenCalledWith({
+      data: { userId: "staff-1", role: "KITCHEN", scopeType: "BUSINESS", scopeId: "rest-1" },
+    });
+    // Exactly one membership — no duplicate for the freshly created user.
+    expect(membershipCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("scopes a KITCHEN membership to the owner's business id (correct BUSINESS scope)", async () => {
+    primeLookups("rest-OWNER");
+    const { membershipCreate } = txMock();
+
+    await createStaff("owner1", { email: "s@x.com", password: "pw", name: "S", membershipRole: "KITCHEN" });
+
+    expect(membershipCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ role: "KITCHEN", scopeType: "BUSINESS", scopeId: "rest-OWNER" }),
+    });
+  });
+
+  it("keeps User.role = RESTAURANT_STAFF regardless of the selected membership role", async () => {
+    for (const membershipRole of ["STAFF", "KITCHEN"] as const) {
+      vi.clearAllMocks();
+      primeLookups("rest-1");
+      const { userCreate } = txMock();
+
+      await createStaff("owner1", { email: "s@x.com", password: "pw", name: "S", membershipRole });
+
+      expect(userCreate).toHaveBeenCalledWith({
+        data: expect.objectContaining({ role: "RESTAURANT_STAFF" }),
+      });
+    }
+  });
+
+  it("rejects unsupported membership roles at the validation boundary (schema)", () => {
+    for (const role of ["OWNER", "ADMIN", "MANAGER", "MARKETING", "SUPPORT", "kitchen", ""]) {
+      const parsed = createStaffSchema.safeParse({ email: "s@x.com", password: "hunter22", name: "S", membershipRole: role });
+      expect(parsed.success).toBe(false);
+    }
+  });
+
+  it("applies the STAFF default through the schema when membershipRole is omitted", () => {
+    const parsed = createStaffSchema.safeParse({ email: "s@x.com", password: "hunter22", name: "S" });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.membershipRole).toBe("STAFF");
+    }
   });
 });
