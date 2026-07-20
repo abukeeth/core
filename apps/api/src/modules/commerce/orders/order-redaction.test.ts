@@ -1,6 +1,6 @@
 import type { Order, OrderEvent, OrderItem, Payment } from "@prisma/client";
 import { describe, expect, it } from "vitest";
-import { redactOrderEvent, redactOrderFinancials, redactOrderItem } from "./order-redaction";
+import { redactModifiersSnapshot, redactOrderEvent, redactOrderFinancials, redactOrderItem } from "./order-redaction";
 
 const ORDER_MONEY = [
   "subtotalCents",
@@ -80,6 +80,42 @@ describe("redactOrderFinancials", () => {
     expect(redacted).not.toHaveProperty("items");
     expect(redacted).not.toHaveProperty("payment");
   });
+
+  it("leaves NO financial token anywhere on a full detail order (order + items + modifiers + payment)", () => {
+    const detail = {
+      ...orderRow(),
+      items: [
+        itemRow({
+          modifiersSnapshot: {
+            variantName: "L",
+            modifiers: [{ groupName: "Cheese", optionName: "Cheddar", priceDeltaCents: 150 }],
+          } as never,
+        }),
+      ],
+      payment: { id: "pay-1", amountCents: 1530, authorizedAmountCents: 1530, capturedAmountCents: 1530, refundedAmountCents: 0 },
+    } as unknown as Order & { items: OrderItem[]; payment: Payment | null };
+
+    const json = JSON.stringify(redactOrderFinancials(detail));
+    for (const token of [
+      "subtotalCents",
+      "taxCents",
+      "tipCents",
+      "deliveryFeeCents",
+      "serviceFeeCents",
+      "discountCents",
+      "totalCents",
+      "unitPriceCents",
+      "lineTotalCents",
+      "priceDeltaCents",
+      "amountCents",
+      "Cents",
+    ]) {
+      expect(json).not.toContain(token);
+    }
+    // The ticket labels survive.
+    expect(json).toContain("Cheddar");
+    expect(json).toContain("Burger");
+  });
 });
 
 describe("redactOrderItem", () => {
@@ -88,6 +124,64 @@ describe("redactOrderItem", () => {
     expect(redacted).not.toHaveProperty("unitPriceCents");
     expect(redacted).not.toHaveProperty("lineTotalCents");
     expect(redacted).toMatchObject({ nameSnapshot: "Burger", quantity: 1 });
+  });
+
+  it("strips priceDeltaCents from the modifiersSnapshot while keeping labels", () => {
+    const item = itemRow({
+      modifiersSnapshot: {
+        variantName: "Large",
+        modifiers: [
+          { groupName: "Cheese", optionName: "Cheddar", priceDeltaCents: 150 },
+          { groupName: "Sauce", optionName: "BBQ", priceDeltaCents: 0 },
+        ],
+      } as never,
+    });
+    const redacted = redactOrderItem(item) as unknown as { modifiersSnapshot: { variantName: string; modifiers: Array<Record<string, unknown>> } };
+    expect(JSON.stringify(redacted.modifiersSnapshot)).not.toContain("priceDeltaCents");
+    expect(redacted.modifiersSnapshot).toEqual({
+      variantName: "Large",
+      modifiers: [
+        { groupName: "Cheese", optionName: "Cheddar" },
+        { groupName: "Sauce", optionName: "BBQ" },
+      ],
+    });
+  });
+
+  it("does not mutate the original item's modifiersSnapshot", () => {
+    const original = { variantName: "Large", modifiers: [{ groupName: "Cheese", optionName: "Cheddar", priceDeltaCents: 150 }] };
+    const item = itemRow({ modifiersSnapshot: original as never });
+    redactOrderItem(item);
+    expect((original.modifiers[0] as Record<string, unknown>).priceDeltaCents).toBe(150);
+  });
+});
+
+describe("redactModifiersSnapshot (null/empty/malformed safety)", () => {
+  it("returns null for a null snapshot", () => {
+    expect(redactModifiersSnapshot(null)).toBeNull();
+  });
+
+  it("returns null for a non-object (malformed) snapshot without throwing", () => {
+    expect(redactModifiersSnapshot("oops" as never)).toBeNull();
+    expect(redactModifiersSnapshot(42 as never)).toBeNull();
+    expect(redactModifiersSnapshot([1, 2, 3] as never)).toBeNull();
+  });
+
+  it("tolerates missing/!array modifiers and non-object modifier entries, never leaking money", () => {
+    expect(redactModifiersSnapshot({ variantName: "Small" } as never)).toEqual({ variantName: "Small" });
+    const weird = redactModifiersSnapshot({ modifiers: [null, "x", { groupName: "G", optionName: "O", priceDeltaCents: 99 }] } as never);
+    expect(JSON.stringify(weird)).not.toContain("priceDeltaCents");
+    expect(weird).toEqual({ modifiers: [{}, {}, { groupName: "G", optionName: "O" }] });
+  });
+
+  it("drops any stray extra key (whitelist-only), keeping only variant/group/option labels", () => {
+    const out = redactModifiersSnapshot({
+      variantName: "V",
+      surprise: 123,
+      modifiers: [{ groupName: "G", optionName: "O", priceDeltaCents: 5, extraCents: 9 }],
+    } as never) as Record<string, unknown>;
+    expect(out).not.toHaveProperty("surprise");
+    expect(JSON.stringify(out)).not.toContain("Cents");
+    expect(out).toEqual({ variantName: "V", modifiers: [{ groupName: "G", optionName: "O" }] });
   });
 });
 

@@ -2,6 +2,8 @@ import type { FulfillmentProviderType } from "@prisma/client";
 import type { Request, Response } from "express";
 import { NoRestaurantError } from "../../restaurants/restaurant.errors";
 import { getOwnRestaurantId } from "../../restaurants/restaurant.service";
+import { shouldRedactOrderFinancials } from "../orders/order-firewall";
+import { redactOrderFinancials } from "../orders/order-redaction";
 import {
   DriverAlreadyBusyError,
   DriverAssignmentNotFoundError,
@@ -200,7 +202,22 @@ export async function myAssignmentsHandler(req: Request, res: Response): Promise
   if (!restaurantId) return;
 
   const assignments = await listMyDriverAssignments(restaurantId, req.user!.id);
-  res.status(200).json({ assignments });
+  // P2.6.1 — this response embeds each assignment's fulfillment.order, which
+  // carries the order money snapshots. Redact that embedded order for a
+  // financially-restricted (kitchen) actor in enforce mode, reusing the central
+  // order-redaction helper (no duplicated logic). All fulfillment/assignment
+  // operational fields (status, driver, location, timing) are preserved. Observe
+  // mode logs but leaves the payload unredacted; off mode is a pass-through.
+  const payload = shouldRedactOrderFinancials(req, "fulfillment.my-assignments")
+    ? assignments.map((assignment) => ({
+        ...assignment,
+        fulfillment: {
+          ...assignment.fulfillment,
+          order: redactOrderFinancials(assignment.fulfillment.order),
+        },
+      }))
+    : assignments;
+  res.status(200).json({ assignments: payload });
 }
 
 /** A driver accepting/declining an OFFERED delivery. Tenant isolation is implicit — findOwnDriverAssignment scopes by driverId, so a mismatch is a 404, not a 403 (this driver never had this job). */

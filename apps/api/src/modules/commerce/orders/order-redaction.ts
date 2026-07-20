@@ -36,9 +36,42 @@ function omit<T extends object, K extends keyof T>(obj: T, keys: readonly K[]): 
 
 export type RedactedOrderItem = Omit<OrderItem, (typeof ORDER_ITEM_MONEY_FIELDS)[number]>;
 
-/** Keep name/variant/quantity/modifiers; drop unit + line money. */
+/**
+ * `OrderItem.modifiersSnapshot` is a Json blob written as
+ * `{ variantName, modifiers: [{ groupName, optionName, priceDeltaCents }] }`
+ * (see cart.service), so it EMBEDS money (`priceDeltaCents`). Rebuild it keeping
+ * only the non-financial ticket labels — variantName, and each modifier's
+ * groupName/optionName — and drop every price field. Whitelist-based, so any
+ * unexpected/extra key (including a stray money field) is dropped, not leaked.
+ * Null/empty/malformed snapshots are handled safely (→ null), and the original
+ * object is never mutated (a fresh value is always returned).
+ */
+export function redactModifiersSnapshot(snapshot: OrderItem["modifiersSnapshot"]): OrderItem["modifiersSnapshot"] {
+  if (snapshot === null || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    return null;
+  }
+  const snap = snapshot as Record<string, unknown>;
+  const result: Record<string, unknown> = {};
+  // variantName is a label (string) or absent — never money; preserve when a string.
+  if (typeof snap.variantName === "string") {
+    result.variantName = snap.variantName;
+  }
+  if (Array.isArray(snap.modifiers)) {
+    result.modifiers = snap.modifiers.map((entry) => {
+      const mod = entry !== null && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
+      const cleaned: Record<string, unknown> = {};
+      if (typeof mod.groupName === "string") cleaned.groupName = mod.groupName;
+      if (typeof mod.optionName === "string") cleaned.optionName = mod.optionName;
+      return cleaned;
+    });
+  }
+  return result as OrderItem["modifiersSnapshot"];
+}
+
+/** Keep name/variant/quantity + non-financial modifier labels; drop unit + line money and every modifier priceDeltaCents. */
 export function redactOrderItem(item: OrderItem): RedactedOrderItem {
-  return omit(item, ORDER_ITEM_MONEY_FIELDS);
+  const base = omit(item, ORDER_ITEM_MONEY_FIELDS);
+  return { ...base, modifiersSnapshot: redactModifiersSnapshot(item.modifiersSnapshot) };
 }
 
 export type RedactedOrder<T extends Order> = Omit<T, (typeof ORDER_MONEY_FIELDS)[number] | "items" | "payment"> & {

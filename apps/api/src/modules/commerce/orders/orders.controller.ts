@@ -1,11 +1,10 @@
 import type { Request, Response } from "express";
-import { createLogger } from "../../../lib/logger";
 import { completeIdempotencyKey, failIdempotencyKey, reserveIdempotencyKey } from "../../../lib/idempotency";
 import { prisma } from "../../../lib/prisma";
-import { evaluateFinancialFirewall } from "../../memberships/financial-firewall";
 import { NoRestaurantError } from "../../restaurants/restaurant.errors";
 import { getOwnRestaurantId } from "../../restaurants/restaurant.service";
 import { RefundExceedsRemainingBalanceError, RefundFailedError } from "../payments/payments.errors";
+import { shouldRedactOrderFinancials } from "./order-firewall";
 import { redactOrderEvent, redactOrderFinancials } from "./order-redaction";
 import { InvalidOrderTransitionError } from "./order-state-machine";
 import { OrderNotFoundError } from "./orders.errors";
@@ -23,26 +22,6 @@ import {
   startPreparing,
 } from "./orders.service";
 import { cancelOrderSchema, listOrdersQuerySchema, refundOrderSchema } from "./orders.validation";
-
-const firewallLogger = createLogger("kitchen-firewall");
-
-/**
- * P2.6.1 — decide whether to redact an order payload for this request. Returns
- * true only in enforce mode for a financially-restricted actor; in observe mode
- * it logs a would-redact decision and returns false (no access reduction); when
- * off / not restricted it returns false. Centralizes the flag+predicate check
- * so every REDACT order handler behaves identically.
- */
-function shouldRedactFinancials(req: Request, surface: string): boolean {
-  const action = evaluateFinancialFirewall(req.tenant);
-  if (action === "observe") {
-    firewallLogger.info(
-      { userId: req.user?.id, businessId: req.tenant?.businessId, surface },
-      "kitchen firewall would redact order financials (observe mode)",
-    );
-  }
-  return action === "enforce";
-}
 
 function paramId(req: Request): string {
   return req.params.id as string;
@@ -68,7 +47,7 @@ export async function listOrdersHandler(req: Request, res: Response): Promise<vo
   }
 
   const { orders, total } = await listOrders(restaurantId, parsed.data);
-  const payload = shouldRedactFinancials(req, "orders.list") ? orders.map((o) => redactOrderFinancials(o)) : orders;
+  const payload = shouldRedactOrderFinancials(req, "orders.list") ? orders.map((o) => redactOrderFinancials(o)) : orders;
   res.status(200).json({ orders: payload, total, limit: parsed.data.limit, offset: parsed.data.offset });
 }
 
@@ -78,7 +57,7 @@ export async function getOrderHandler(req: Request, res: Response): Promise<void
 
   try {
     const order = await getOwnOrder(restaurantId, paramId(req));
-    const payload = shouldRedactFinancials(req, "orders.detail") ? redactOrderFinancials(order) : order;
+    const payload = shouldRedactOrderFinancials(req, "orders.detail") ? redactOrderFinancials(order) : order;
     res.status(200).json({ order: payload });
   } catch (err) {
     if (err instanceof OrderNotFoundError) {
@@ -95,7 +74,7 @@ export async function getOrderEventsHandler(req: Request, res: Response): Promis
 
   try {
     const events = await getOrderEvents(restaurantId, paramId(req));
-    const payload = shouldRedactFinancials(req, "orders.events") ? events.map((e) => redactOrderEvent(e)) : events;
+    const payload = shouldRedactOrderFinancials(req, "orders.events") ? events.map((e) => redactOrderEvent(e)) : events;
     res.status(200).json({ events: payload });
   } catch (err) {
     if (err instanceof OrderNotFoundError) {
