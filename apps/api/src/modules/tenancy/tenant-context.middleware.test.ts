@@ -2,15 +2,17 @@ import { Role } from "@prisma/client";
 import type { NextFunction, Request, Response } from "express";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-// Mock the two DB lookups the resolver uses so the middleware + real resolver
+// Mock the three DB lookups the resolver uses so the middleware + real resolver
 // can run without a database. Everything else (JWT sign/verify, the resolver,
 // the flag) is exercised for real. vi.hoisted so the mocks exist before vi.mock.
-const { getOwnRestaurantId, getOrganizationIdForBusiness } = vi.hoisted(() => ({
+const { getOwnRestaurantId, getOrganizationIdForBusiness, getMembershipsForUser } = vi.hoisted(() => ({
   getOwnRestaurantId: vi.fn(),
   getOrganizationIdForBusiness: vi.fn(),
+  getMembershipsForUser: vi.fn(),
 }));
 vi.mock("../restaurants/restaurant.service", () => ({ getOwnRestaurantId }));
 vi.mock("../organizations/organization.service", () => ({ getOrganizationIdForBusiness }));
+vi.mock("../memberships/membership.service", () => ({ getMembershipsForUser }));
 
 import { __resetEnvCacheForTests } from "../../config/env";
 import { signAccessToken } from "../../lib/jwt";
@@ -31,6 +33,7 @@ beforeAll(() => {
 afterEach(() => {
   getOwnRestaurantId.mockReset();
   getOrganizationIdForBusiness.mockReset();
+  getMembershipsForUser.mockReset();
   delete process.env.TENANT_CONTEXT_ENABLED;
 });
 
@@ -82,17 +85,21 @@ describe("tenantContextMiddleware", () => {
     expect(getOwnRestaurantId).not.toHaveBeenCalled();
   });
 
-  it("flag ON, valid OWNER token: attaches req.tenant with businessId and organizationId resolved end-to-end", async () => {
+  it("flag ON, valid OWNER token: attaches req.tenant with businessId, organizationId, and memberships resolved end-to-end", async () => {
     enableFlag();
     getOwnRestaurantId.mockResolvedValue("rest-1");
     getOrganizationIdForBusiness.mockResolvedValue("org-1");
+    const membership = { id: "mem-1", userId: "user-owner", role: "OWNER", scopeType: "ORGANIZATION", scopeId: "org-1" };
+    getMembershipsForUser.mockResolvedValue([membership]);
 
     const { req, next } = await invoke(tokenFor("user-owner", Role.RESTAURANT_OWNER));
 
     expect(getOwnRestaurantId).toHaveBeenCalledWith("user-owner");
     expect(getOrganizationIdForBusiness).toHaveBeenCalledWith("rest-1");
+    expect(getMembershipsForUser).toHaveBeenCalledWith("user-owner");
     expect(req.tenant?.businessId).toBe("rest-1");
     expect(req.tenant?.organizationId).toBe("org-1");
+    expect(req.tenant?.memberships).toEqual([membership]);
     expect(req.tenant?.role).toBe(Role.RESTAURANT_OWNER);
     expect(req.tenant?.resolvedFrom).toBe("legacy-user-restaurant");
     expect(next).toHaveBeenCalledTimes(1);
