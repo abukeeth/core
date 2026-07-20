@@ -14,6 +14,7 @@ vi.mock("./auth.service", () => ({
   getUserById: vi.fn(),
   issueTokenPair: vi.fn(),
   listStaff: vi.fn(),
+  reassignStaffRole: vi.fn(),
   registerOwner: vi.fn(),
   requestPasswordReset: vi.fn(),
   resetPassword: vi.fn(),
@@ -29,12 +30,20 @@ vi.mock("./auth.service", () => ({
 }));
 
 import { completeIdempotencyKey, reserveIdempotencyKey } from "../../lib/idempotency";
-import { EmailInUseError, OwnerWithoutBusinessError } from "./auth.errors";
-import { forgotPassword, inviteStaff, login, register, resendVerificationHandler } from "./auth.controller";
+import { EmailInUseError, OwnerWithoutBusinessError, StaffNotFoundError } from "./auth.errors";
+import {
+  forgotPassword,
+  inviteStaff,
+  login,
+  reassignStaffRoleHandler,
+  register,
+  resendVerificationHandler,
+} from "./auth.controller";
 import {
   createStaff,
   dispatchSignupVerificationEmail,
   issueTokenPair,
+  reassignStaffRole,
   registerOwner,
   requestPasswordReset,
   sendEmailVerification,
@@ -220,5 +229,47 @@ describe("inviteStaff (P2.6.0 — fail safely when the owner has no business)", 
     await inviteStaff(staffReq(), res);
 
     expect(res.status).toHaveBeenCalledWith(201);
+  });
+});
+
+describe("reassignStaffRoleHandler (P2.6.1-pre-b — HTTP boundary)", () => {
+  function roleReq(body: unknown) {
+    return makeReq(body, {}, { user: { id: "owner1", role: "RESTAURANT_OWNER" }, params: { id: "staff-1" } } as Partial<Request>);
+  }
+
+  it("returns 200 with the updated staff summary on success", async () => {
+    vi.mocked(reassignStaffRole).mockResolvedValue({
+      id: "staff-1",
+      name: "S",
+      email: "s@x.com",
+      phone: null,
+      isActive: true,
+      createdAt: new Date(),
+      membershipRole: "KITCHEN",
+    } as never);
+    const res = makeRes();
+
+    await reassignStaffRoleHandler(roleReq({ membershipRole: "KITCHEN" }), res);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(reassignStaffRole).toHaveBeenCalledWith("owner1", "staff-1", "KITCHEN");
+  });
+
+  it("maps StaffNotFoundError to 404 (cross-business / missing / owner-without-business)", async () => {
+    vi.mocked(reassignStaffRole).mockRejectedValue(new StaffNotFoundError());
+    const res = makeRes();
+
+    await reassignStaffRoleHandler(roleReq({ membershipRole: "KITCHEN" }), res);
+
+    expect(res.status).toHaveBeenCalledWith(404);
+  });
+
+  it("returns 400 for an unsupported role without calling the service", async () => {
+    const res = makeRes();
+
+    await reassignStaffRoleHandler(roleReq({ membershipRole: "OWNER" }), res);
+
+    expect(res.status).toHaveBeenCalledWith(400);
+    expect(reassignStaffRole).not.toHaveBeenCalled();
   });
 });

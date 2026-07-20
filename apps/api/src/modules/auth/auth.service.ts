@@ -173,6 +173,84 @@ export async function setStaffActive(ownerId: string, staffId: string, isActive:
   };
 }
 
+export interface StaffMembershipSummary extends StaffSummary {
+  membershipRole: MembershipRole;
+}
+
+/**
+ * BOS Phase 2 (P2.6.1-pre-b) — reassign an existing staff member's single
+ * BUSINESS-scoped Membership between STAFF and KITCHEN, in place, so a KITCHEN
+ * role can be granted/removed after creation. The legacy User.role is never
+ * touched (stays RESTAURANT_STAFF), so no authorization changes; the KITCHEN
+ * grant is inert until the (future, flag-gated) kitchen firewall reads it.
+ *
+ * Same-business ownership is enforced exactly as setStaffActive: the target must
+ * be a RESTAURANT_STAFF user in the owner's business, else StaffNotFoundError —
+ * which also covers a missing/cross-business target and an owner with no business
+ * (businessId null), never revealing whether the staff exists.
+ */
+export async function reassignStaffRole(
+  ownerId: string,
+  staffId: string,
+  membershipRole: "STAFF" | "KITCHEN",
+): Promise<StaffMembershipSummary> {
+  const owner = await prisma.user.findUnique({ where: { id: ownerId }, select: { restaurantId: true } });
+  const businessId = owner?.restaurantId ?? null;
+  const target = membershipRole === "KITCHEN" ? MembershipRole.KITCHEN : MembershipRole.STAFF;
+
+  return prisma.$transaction(async (tx) => {
+    const staff = await tx.user.findUnique({ where: { id: staffId } });
+    // A null businessId (owner has no business) fails here too — and because it
+    // is checked with the same 404, it never reveals whether staffId exists.
+    // Guarding businessId explicitly also avoids a null === null match between an
+    // owner with no business and a legacy staff row with a null restaurantId.
+    if (!businessId || !staff || staff.role !== Role.RESTAURANT_STAFF || staff.restaurantId !== businessId) {
+      throw new StaffNotFoundError();
+    }
+
+    // Read only THIS user's memberships in THIS business scope — memberships in
+    // other businesses or other scopes (e.g. ORGANIZATION) are never selected,
+    // updated, or deleted.
+    const existing = await tx.membership.findMany({
+      where: { userId: staffId, scopeType: MembershipScope.BUSINESS, scopeId: businessId },
+      orderBy: { createdAt: "asc" },
+      select: { id: true, role: true },
+    });
+
+    if (existing.length === 0) {
+      // Zero-membership fallback (not possible for backfilled/pre-a-created
+      // staff): create exactly one valid membership with the target role.
+      await tx.membership.create({
+        data: { userId: staffId, role: target, scopeType: MembershipScope.BUSINESS, scopeId: businessId },
+      });
+    } else {
+      // Normal case: exactly one row → update in place. Anomaly: if multiple
+      // rows exist for this user/business scope, normalize to one inside the
+      // transaction — keep the earliest, delete the rest — so the member can
+      // never be left holding both STAFF and KITCHEN (or any duplicate). Then
+      // set the survivor's role (skipped when already the target → idempotent
+      // no-op).
+      const [keep, ...extras] = existing;
+      if (extras.length > 0) {
+        await tx.membership.deleteMany({ where: { id: { in: extras.map((m) => m.id) } } });
+      }
+      if (keep.role !== target) {
+        await tx.membership.update({ where: { id: keep.id }, data: { role: target } });
+      }
+    }
+
+    return {
+      id: staff.id,
+      name: staff.name,
+      email: staff.email,
+      phone: staff.phone,
+      isActive: staff.isActive,
+      createdAt: staff.createdAt,
+      membershipRole: target,
+    };
+  });
+}
+
 export async function validateCredentials(input: LoginInput): Promise<User> {
   const user = await prisma.user.findUnique({ where: { email: input.email } });
   if (!user || !(await verifyPassword(user.passwordHash, input.password))) {

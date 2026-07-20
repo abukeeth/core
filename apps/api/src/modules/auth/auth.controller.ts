@@ -19,6 +19,7 @@ import {
   getUserById,
   issueTokenPair,
   listStaff,
+  reassignStaffRole,
   registerOwner,
   requestPasswordReset,
   resetPassword,
@@ -37,6 +38,7 @@ import {
   confirmPasswordResetSchema,
   createStaffSchema,
   loginSchema,
+  reassignStaffRoleSchema,
   registerSchema,
   requestPasswordResetSchema,
   setStaffActiveSchema,
@@ -355,6 +357,25 @@ export async function setStaffActiveHandler(req: Request, res: Response): Promis
 
   try {
     const staff = await setStaffActive(req.user!.id, req.params.id as string, parsed.data.isActive);
+    res.status(200).json({ staff });
+  } catch (err) {
+    if (err instanceof StaffNotFoundError) {
+      res.status(404).json({ error: err.message });
+      return;
+    }
+    throw err;
+  }
+}
+
+export async function reassignStaffRoleHandler(req: Request, res: Response): Promise<void> {
+  const parsed = reassignStaffRoleSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+    return;
+  }
+
+  try {
+    const staff = await reassignStaffRole(req.user!.id, req.params.id as string, parsed.data.membershipRole);
     res.status(200).json({ staff });
   } catch (err) {
     if (err instanceof StaffNotFoundError) {
