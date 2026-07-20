@@ -13,6 +13,7 @@ import {
   InvalidEmailVerificationTokenError,
   InvalidPasswordResetTokenError,
   InvalidRefreshTokenError,
+  OwnerWithoutBusinessError,
   StaffNotFoundError,
 } from "./auth.errors";
 import type {
@@ -81,11 +82,20 @@ export async function registerOwner(input: RegisterInput): Promise<User> {
 
 export async function createStaff(ownerId: string, input: CreateStaffInput): Promise<User> {
   await assertEmailAvailable(input.email);
-  const passwordHash = await hashPassword(input.password);
   const owner = await prisma.user.findUnique({ where: { id: ownerId }, select: { restaurantId: true } });
   // The new staff belongs to the owner's business (Restaurant); this is also the
   // BUSINESS scope for their Membership.
   const businessId = owner?.restaurantId ?? null;
+
+  // BOS Phase 2 (P2.6.0) — every new staff user MUST receive a scoped Membership
+  // before membership-primary cutover. If the owner has no business there is no
+  // BUSINESS scope to attach, so we fail safely (no User, no Membership) instead
+  // of creating a legacy-only RESTAURANT_STAFF user. Checked before any write.
+  if (!businessId) {
+    throw new OwnerWithoutBusinessError();
+  }
+
+  const passwordHash = await hashPassword(input.password);
 
   return prisma.$transaction(async (tx) => {
     const staff = await tx.user.create({
@@ -99,24 +109,20 @@ export async function createStaff(ownerId: string, input: CreateStaffInput): Pro
       },
     });
 
-    // BOS Phase 2 (P2.6.0) — grant the new staff their scoped Membership,
-    // atomically with the user, closing the coverage gap (P2.3 created
-    // memberships for owners only). The staff assignment role RESTAURANT_STAFF
-    // maps to MembershipRole.STAFF, scoped to the owner's BUSINESS. A brand-new
-    // user cannot already hold a membership, so this never duplicates. Uses
-    // tx.membership (NOT the global helper) so it commits/rolls back with the
-    // user. Skipped only when the owner has no business yet (no BUSINESS scope
-    // to attach to) — an edge case that leaves legacy behavior unchanged.
-    if (businessId) {
-      await tx.membership.create({
-        data: {
-          userId: staff.id,
-          role: MembershipRole.STAFF,
-          scopeType: MembershipScope.BUSINESS,
-          scopeId: businessId,
-        },
-      });
-    }
+    // Grant the new staff their scoped Membership atomically with the user,
+    // closing the coverage gap (P2.3 created memberships for owners only). The
+    // staff assignment role RESTAURANT_STAFF maps to MembershipRole.STAFF,
+    // scoped to the owner's BUSINESS. A brand-new user cannot already hold a
+    // membership, so this never duplicates. Uses tx.membership (NOT the global
+    // helper) so it commits/rolls back with the user.
+    await tx.membership.create({
+      data: {
+        userId: staff.id,
+        role: MembershipRole.STAFF,
+        scopeType: MembershipScope.BUSINESS,
+        scopeId: businessId,
+      },
+    });
 
     return staff;
   });

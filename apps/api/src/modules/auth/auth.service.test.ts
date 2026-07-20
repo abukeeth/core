@@ -29,6 +29,7 @@ import {
   InvalidCredentialsError,
   InvalidEmailVerificationTokenError,
   InvalidPasswordResetTokenError,
+  OwnerWithoutBusinessError,
   StaffNotFoundError,
 } from "./auth.errors";
 import {
@@ -482,13 +483,26 @@ describe("createStaff (P2.6.0 — scoped Membership on staff creation)", () => {
     });
   });
 
-  it("skips membership creation when the owner has no business yet (no BUSINESS scope)", async () => {
+  it("rejects with OwnerWithoutBusinessError when the owner has no business yet", async () => {
+    primeLookups(null);
+    txMock();
+
+    await expect(createStaff("owner1", { email: "s@x.com", password: "pw", name: "S" })).rejects.toBeInstanceOf(
+      OwnerWithoutBusinessError,
+    );
+  });
+
+  it("creates neither a User nor a Membership when the owner has no business (fails before any write)", async () => {
     primeLookups(null);
     const { userCreate, membershipCreate } = txMock();
 
-    await createStaff("owner1", { email: "s@x.com", password: "pw", name: "S" });
+    await expect(createStaff("owner1", { email: "s@x.com", password: "pw", name: "S" })).rejects.toBeInstanceOf(
+      OwnerWithoutBusinessError,
+    );
 
-    expect(userCreate).toHaveBeenCalled();
+    // No transaction is opened and no rows are written.
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(userCreate).not.toHaveBeenCalled();
     expect(membershipCreate).not.toHaveBeenCalled();
   });
 

@@ -9,6 +9,7 @@ import {
   InvalidEmailVerificationTokenError,
   InvalidPasswordResetTokenError,
   InvalidRefreshTokenError,
+  OwnerWithoutBusinessError,
   StaffNotFoundError,
 } from "./auth.errors";
 import {
@@ -329,6 +330,10 @@ export async function inviteStaff(req: Request, res: Response): Promise<void> {
     res.status(201).json({ user: toPublicUser(staff) });
   } catch (err) {
     if (err instanceof EmailInUseError) {
+      res.status(409).json({ error: err.message });
+      return;
+    }
+    if (err instanceof OwnerWithoutBusinessError) {
       res.status(409).json({ error: err.message });
       return;
     }
