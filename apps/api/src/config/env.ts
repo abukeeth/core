@@ -195,6 +195,19 @@ export function isTenantContextEnabled(): boolean {
 }
 
 /**
+ * BOS Phase 2 (P2.5) feature flag. When enabled, `requireRole` additionally
+ * grants access if an in-scope Membership maps to one of the allowed legacy
+ * roles (dual-read). WIDEN-ONLY: the legacy role check remains authoritative and
+ * is evaluated first; this branch can only grant, never deny. Default OFF. Also
+ * inert unless `TENANT_CONTEXT_ENABLED` is on (it reads `req.tenant`). The
+ * membership-primary cutover is a separate, later flag (P2.6). See
+ * P2_5_EXECUTION_SPEC.md.
+ */
+export function isMembershipDualReadEnabled(): boolean {
+  return getBooleanEnv("MEMBERSHIP_DUAL_READ", false);
+}
+
+/**
  * Every environment variable this application reads anywhere, for the
  * safe startup summary below. Keeping this list here (rather than scanning
  * process.env dynamically) means an accidental future call site added
