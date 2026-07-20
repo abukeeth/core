@@ -1,4 +1,4 @@
-import { Prisma, type Restaurant } from "@prisma/client";
+import { MembershipRole, MembershipScope, Prisma, type Restaurant } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { bestEffort } from "../../lib/best-effort";
 import { ensureOnboardingStatus, recordOnboardingActivity } from "../onboarding/onboarding.service";
@@ -89,6 +89,22 @@ export async function createRestaurant(ownerId: string, input: CreateRestaurantI
       organizationId: organization.id,
     });
     await tx.user.update({ where: { id: ownerId }, data: { restaurantId: created.id } });
+
+    // BOS Phase 2 (P2.3) — grant the owner their scoped OWNER memberships,
+    // atomically with the Organization/Restaurant above. Uses tx.membership
+    // (NOT the global createMembership helper) so it participates in this
+    // transaction and rolls back together on any failure — no partial grants.
+    // Mirrors what the P2.2 backfill created for pre-existing owners; nothing
+    // reads memberships yet (dual-read is P2.5), so this changes no observable
+    // behavior. A fresh owner (guarded above by RestaurantAlreadyExistsError)
+    // has no prior memberships, so no idempotency guard is needed here.
+    await tx.membership.create({
+      data: { userId: ownerId, role: MembershipRole.OWNER, scopeType: MembershipScope.ORGANIZATION, scopeId: organization.id },
+    });
+    await tx.membership.create({
+      data: { userId: ownerId, role: MembershipRole.OWNER, scopeType: MembershipScope.BUSINESS, scopeId: created.id },
+    });
+
     return created;
   });
   // Open the onboarding lifecycle record so progress is tracked from step 1.
