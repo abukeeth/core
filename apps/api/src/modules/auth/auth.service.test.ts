@@ -36,6 +36,7 @@ import {
   changePassword,
   createStaff,
   listStaff,
+  reassignStaffRole,
   requestPasswordReset,
   resetPassword,
   rotateRefreshToken,
@@ -44,7 +45,7 @@ import {
   validateCredentials,
   verifyEmail,
 } from "./auth.service";
-import { createStaffSchema } from "./auth.validation";
+import { createStaffSchema, reassignStaffRoleSchema } from "./auth.validation";
 
 const mockPrisma = vi.mocked(prisma, { deep: true });
 const mockVerifyPassword = vi.mocked(verifyPassword);
@@ -625,5 +626,222 @@ describe("createStaff (P2.6.1-pre-a — selectable membership role STAFF|KITCHEN
     if (parsed.success) {
       expect(parsed.data.membershipRole).toBe("STAFF");
     }
+  });
+});
+
+describe("reassignStaffRole (P2.6.1-pre-b — STAFF↔KITCHEN reassignment in place)", () => {
+  const staffRow = {
+    id: "staff-1",
+    name: "S",
+    email: "s@x.com",
+    phone: null,
+    isActive: true,
+    createdAt: new Date("2026-01-01T00:00:00Z"),
+    role: "RESTAURANT_STAFF",
+    restaurantId: "rest-1",
+  };
+
+  // The owner lookup runs on prisma.user.findUnique (outside the tx); the staff
+  // lookup + all membership work run on the tx object built here.
+  function primeOwner(businessId: string | null) {
+    mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: businessId } as never);
+  }
+
+  function reassignTx(opts: {
+    staff?: unknown;
+    existing?: Array<{ id: string; role: string }>;
+    updateRejects?: Error;
+  }) {
+    const userFindUnique = vi.fn().mockResolvedValue(opts.staff === undefined ? staffRow : opts.staff);
+    const membershipFindMany = vi.fn().mockResolvedValue(opts.existing ?? [{ id: "mem-1", role: "STAFF" }]);
+    const membershipCreate = vi.fn().mockResolvedValue({ id: "mem-new" });
+    const membershipUpdate = opts.updateRejects
+      ? vi.fn().mockRejectedValue(opts.updateRejects)
+      : vi.fn().mockResolvedValue({ id: "mem-1" });
+    const membershipDeleteMany = vi.fn().mockResolvedValue({ count: 0 });
+    const tx = {
+      user: { findUnique: userFindUnique, update: vi.fn() },
+      membership: {
+        findMany: membershipFindMany,
+        create: membershipCreate,
+        update: membershipUpdate,
+        deleteMany: membershipDeleteMany,
+      },
+    };
+    (mockPrisma.$transaction as unknown as { mockImplementation: (fn: (cb: (t: typeof tx) => unknown) => unknown) => void })
+      .mockImplementation((fn) => fn(tx));
+    return { tx, ...tx.membership, userUpdate: tx.user.update };
+  }
+
+  it("1. reassigns STAFF → KITCHEN, updating the existing membership in place", async () => {
+    primeOwner("rest-1");
+    const { update, create, deleteMany } = reassignTx({ existing: [{ id: "mem-1", role: "STAFF" }] });
+
+    const result = await reassignStaffRole("owner1", "staff-1", "KITCHEN");
+
+    expect(update).toHaveBeenCalledWith({ where: { id: "mem-1" }, data: { role: "KITCHEN" } });
+    expect(create).not.toHaveBeenCalled();
+    expect(deleteMany).not.toHaveBeenCalled();
+    expect(result).toEqual(expect.objectContaining({ id: "staff-1", membershipRole: "KITCHEN" }));
+  });
+
+  it("2. reassigns KITCHEN → STAFF", async () => {
+    primeOwner("rest-1");
+    const { update } = reassignTx({ existing: [{ id: "mem-1", role: "KITCHEN" }] });
+
+    const result = await reassignStaffRole("owner1", "staff-1", "STAFF");
+
+    expect(update).toHaveBeenCalledWith({ where: { id: "mem-1" }, data: { role: "STAFF" } });
+    expect(result.membershipRole).toBe("STAFF");
+  });
+
+  it("3. is idempotent when assigning the current role (no write, single row preserved)", async () => {
+    primeOwner("rest-1");
+    const { update, create, deleteMany } = reassignTx({ existing: [{ id: "mem-1", role: "KITCHEN" }] });
+
+    const result = await reassignStaffRole("owner1", "staff-1", "KITCHEN");
+
+    // Already KITCHEN and no extras → no update, no create, no delete.
+    expect(update).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(deleteMany).not.toHaveBeenCalled();
+    expect(result.membershipRole).toBe("KITCHEN");
+  });
+
+  it("4. never touches User.role (no user update is performed)", async () => {
+    primeOwner("rest-1");
+    const { userUpdate } = reassignTx({ existing: [{ id: "mem-1", role: "STAFF" }] });
+
+    await reassignStaffRole("owner1", "staff-1", "KITCHEN");
+
+    expect(userUpdate).not.toHaveBeenCalled();
+    expect(mockPrisma.user.update).not.toHaveBeenCalled();
+  });
+
+  it("5. operates only within the owner's business scope", async () => {
+    primeOwner("rest-OWNER");
+    const staff = { ...staffRow, restaurantId: "rest-OWNER" };
+    const { findMany, update } = reassignTx({ staff, existing: [{ id: "mem-1", role: "STAFF" }] });
+
+    await reassignStaffRole("owner1", "staff-1", "KITCHEN");
+
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "staff-1", scopeType: "BUSINESS", scopeId: "rest-OWNER" },
+      }),
+    );
+    expect(update).toHaveBeenCalledWith({ where: { id: "mem-1" }, data: { role: "KITCHEN" } });
+  });
+
+  it("6. returns StaffNotFoundError for a staff member of a different business (no writes)", async () => {
+    primeOwner("rest-1");
+    const { findMany, update, create, deleteMany } = reassignTx({ staff: { ...staffRow, restaurantId: "rest-OTHER" } });
+
+    await expect(reassignStaffRole("owner1", "staff-1", "KITCHEN")).rejects.toBeInstanceOf(StaffNotFoundError);
+    expect(findMany).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("7. returns StaffNotFoundError when the owner has no business (no writes, no existence leak)", async () => {
+    primeOwner(null);
+    const { findMany, update, create } = reassignTx({ staff: staffRow });
+
+    await expect(reassignStaffRole("owner1", "staff-1", "KITCHEN")).rejects.toBeInstanceOf(StaffNotFoundError);
+    expect(findMany).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("8. rejects unsupported target roles at the validation boundary", () => {
+    for (const membershipRole of ["OWNER", "ADMIN", "MANAGER", "MARKETING", "SUPPORT", "kitchen", ""]) {
+      expect(reassignStaffRoleSchema.safeParse({ membershipRole }).success).toBe(false);
+    }
+    // Missing field is also rejected (no default on reassignment).
+    expect(reassignStaffRoleSchema.safeParse({}).success).toBe(false);
+    // The two supported roles pass.
+    expect(reassignStaffRoleSchema.safeParse({ membershipRole: "STAFF" }).success).toBe(true);
+    expect(reassignStaffRoleSchema.safeParse({ membershipRole: "KITCHEN" }).success).toBe(true);
+  });
+
+  it("9. zero-membership fallback creates exactly one valid membership", async () => {
+    primeOwner("rest-1");
+    const { create, update, deleteMany } = reassignTx({ existing: [] });
+
+    await reassignStaffRole("owner1", "staff-1", "KITCHEN");
+
+    expect(create).toHaveBeenCalledWith({
+      data: { userId: "staff-1", role: "KITCHEN", scopeType: "BUSINESS", scopeId: "rest-1" },
+    });
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(update).not.toHaveBeenCalled();
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+
+  it("10. normalizes multiple memberships to one inside the transaction (deletes extras, keeps earliest)", async () => {
+    primeOwner("rest-1");
+    const { deleteMany, update, create } = reassignTx({
+      existing: [
+        { id: "mem-1", role: "STAFF" },
+        { id: "mem-2", role: "KITCHEN" },
+      ],
+    });
+
+    await reassignStaffRole("owner1", "staff-1", "KITCHEN");
+
+    // Extras (all but the earliest) are deleted; the survivor is set to target.
+    expect(deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["mem-2"] } } });
+    expect(update).toHaveBeenCalledWith({ where: { id: "mem-1" }, data: { role: "KITCHEN" } });
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it("11. rolls back (rejects) when the membership mutation fails", async () => {
+    primeOwner("rest-1");
+    const failure = new Error("membership update failed");
+    reassignTx({ existing: [{ id: "mem-1", role: "STAFF" }], updateRejects: failure });
+
+    await expect(reassignStaffRole("owner1", "staff-1", "KITCHEN")).rejects.toThrow(failure);
+  });
+
+  it("12. selects/mutates only BUSINESS-scoped rows for this user+business (other scopes untouched)", async () => {
+    primeOwner("rest-1");
+    const { findMany, deleteMany } = reassignTx({
+      existing: [
+        { id: "mem-1", role: "STAFF" },
+        { id: "mem-2", role: "STAFF" },
+      ],
+    });
+
+    await reassignStaffRole("owner1", "staff-1", "KITCHEN");
+
+    // The read is scoped to BUSINESS + this business id only — an ORGANIZATION or
+    // other-business membership is never in the working set.
+    expect(findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { userId: "staff-1", scopeType: "BUSINESS", scopeId: "rest-1" },
+      }),
+    );
+    // Deletes target only ids returned by that scoped read.
+    expect(deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["mem-2"] } } });
+  });
+
+  it("13. leaves no mixed STAFF+KITCHEN state — a single row of the target role survives", async () => {
+    primeOwner("rest-1");
+    const { deleteMany, update, create } = reassignTx({
+      existing: [
+        { id: "mem-staff", role: "STAFF" },
+        { id: "mem-kitchen", role: "KITCHEN" },
+      ],
+    });
+
+    const result = await reassignStaffRole("owner1", "staff-1", "STAFF");
+
+    // The KITCHEN duplicate is removed and the survivor is STAFF → one role only.
+    expect(deleteMany).toHaveBeenCalledWith({ where: { id: { in: ["mem-kitchen"] } } });
+    // Keep (mem-staff) is already STAFF → no redundant update needed.
+    expect(update).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+    expect(result.membershipRole).toBe("STAFF");
   });
 });

@@ -12,6 +12,7 @@ import {
   logout,
   logoutAllDevicesHandler,
   me,
+  reassignStaffRoleHandler,
   refresh,
   register,
   resendVerificationHandler,
@@ -38,3 +39,4 @@ authRouter.post("/resend-verification", requireAuth, authRateLimiter, resendVeri
 authRouter.post("/staff", requireAuth, requireRole(Role.RESTAURANT_OWNER), inviteStaff);
 authRouter.get("/staff", requireAuth, requireRole(Role.RESTAURANT_OWNER), listStaffHandler);
 authRouter.patch("/staff/:id", requireAuth, requireRole(Role.RESTAURANT_OWNER), setStaffActiveHandler);
+authRouter.patch("/staff/:id/role", requireAuth, requireRole(Role.RESTAURANT_OWNER), reassignStaffRoleHandler);

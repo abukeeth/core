@@ -18,6 +18,10 @@ export const createStaffSchema = z.object({
   membershipRole: staffMembershipRoleSchema.default("STAFF"),
 });
 export const setStaffActiveSchema = z.object({ isActive: z.boolean() });
+// P2.6.1-pre-b — reassign an existing staff member's scoped Membership between
+// STAFF and KITCHEN. Required (no default): reassignment is an explicit action.
+// Reuses the pre-a enum, so OWNER/ADMIN/MANAGER/MARKETING/SUPPORT are rejected.
+export const reassignStaffRoleSchema = z.object({ membershipRole: staffMembershipRoleSchema });
 export const requestPasswordResetSchema = z.object({ email });
 export const confirmPasswordResetSchema = z.object({ token: z.string().min(1), newPassword: password });
 export const changePasswordSchema = z.object({ currentPassword: z.string().min(1), newPassword: password });
@@ -34,6 +38,7 @@ export type LoginInput = z.infer<typeof loginSchema>;
 // an omitted value as STAFF, so callers may omit it for backward compatibility.
 export type CreateStaffInput = z.input<typeof createStaffSchema>;
 export type SetStaffActiveInput = z.infer<typeof setStaffActiveSchema>;
+export type ReassignStaffRoleInput = z.infer<typeof reassignStaffRoleSchema>;
 export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetSchema>;
 export type ConfirmPasswordResetInput = z.infer<typeof confirmPasswordResetSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
