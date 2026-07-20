@@ -1,5 +1,6 @@
 import { Role } from "@prisma/client";
 import { Router } from "express";
+import { denyFinancialForKitchen } from "../../../middleware/deny-financial-for-kitchen";
 import { publicCommerceRateLimiter, staffActionRateLimiter, webhookRateLimiter } from "../../../middleware/rate-limit";
 import { requireAuth } from "../../../middleware/require-auth";
 import { requireRole } from "../../../middleware/require-role";
@@ -20,19 +21,20 @@ export const paymentsRouter = Router();
 
 const staffOrOwner = requireRole(Role.RESTAURANT_OWNER, Role.RESTAURANT_STAFF);
 
-paymentsRouter.get("/me/payment-providers", requireAuth, staffOrOwner, staffActionRateLimiter, listProvidersHandler);
-paymentsRouter.post("/me/payment-providers/:type/connect", requireAuth, staffOrOwner, staffActionRateLimiter, connectProviderHandler);
-paymentsRouter.delete("/me/payment-providers/:type", requireAuth, staffOrOwner, staffActionRateLimiter, disconnectProviderHandler);
+paymentsRouter.get("/me/payment-providers", requireAuth, staffOrOwner, denyFinancialForKitchen, staffActionRateLimiter, listProvidersHandler);
+paymentsRouter.post("/me/payment-providers/:type/connect", requireAuth, staffOrOwner, denyFinancialForKitchen, staffActionRateLimiter, connectProviderHandler);
+paymentsRouter.delete("/me/payment-providers/:type", requireAuth, staffOrOwner, denyFinancialForKitchen, staffActionRateLimiter, disconnectProviderHandler);
 paymentsRouter.patch(
   "/me/payment-providers/:type/priority",
   requireAuth,
   staffOrOwner,
+  denyFinancialForKitchen,
   staffActionRateLimiter,
   updateProviderPriorityHandler,
 );
 
-paymentsRouter.get("/me/payment-methods", requireAuth, staffOrOwner, staffActionRateLimiter, listMethodsHandler);
-paymentsRouter.patch("/me/payment-methods/:methodType", requireAuth, staffOrOwner, staffActionRateLimiter, updateMethodHandler);
+paymentsRouter.get("/me/payment-methods", requireAuth, staffOrOwner, denyFinancialForKitchen, staffActionRateLimiter, listMethodsHandler);
+paymentsRouter.patch("/me/payment-methods/:methodType", requireAuth, staffOrOwner, denyFinancialForKitchen, staffActionRateLimiter, updateMethodHandler);
 
 // Public webhook router — no requireAuth, signature-verified instead.
 export const paymentWebhookRouter = Router();

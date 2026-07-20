@@ -208,6 +208,29 @@ export function isMembershipDualReadEnabled(): boolean {
 }
 
 /**
+ * BOS Phase 2 (P2.6.1) — the kitchen financial firewall mode. Tri-state so the
+ * one access-reducing behavior can be *observed before it is enforced*:
+ *   - `off` (default, unset, or any unrecognized value): fully inert — no
+ *     redaction, no denial; behavior is byte-for-byte pre-firewall.
+ *   - `observe`: the predicate runs and "would-restrict"/"would-deny" is logged,
+ *     but NO access is reduced (responses are unredacted, endpoints allowed).
+ *   - `enforce`: financial fields are redacted and financial endpoints denied
+ *     for a financially-restricted (kitchen) actor.
+ * Deliberately strict, like getBooleanEnv: only the exact strings "observe" and
+ * "enforce" are honored, so a typo can never silently enable a reduction. Also
+ * inert unless `TENANT_CONTEXT_ENABLED` is on (the predicate reads req.tenant).
+ * Independent of MEMBERSHIP_DUAL_READ / the (future) MEMBERSHIP_PRIMARY cutover.
+ * See P2_6_1_EXECUTION_SPEC.md.
+ */
+export type KitchenFirewallMode = "off" | "observe" | "enforce";
+
+export function getKitchenFirewallMode(): KitchenFirewallMode {
+  const raw = process.env.KITCHEN_FIREWALL;
+  if (raw === "observe" || raw === "enforce") return raw;
+  return "off";
+}
+
+/**
  * Every environment variable this application reads anywhere, for the
  * safe startup summary below. Keeping this list here (rather than scanning
  * process.env dynamically) means an accidental future call site added

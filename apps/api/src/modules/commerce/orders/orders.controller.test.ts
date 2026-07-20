@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../lib/idempotency", () => ({
   reserveIdempotencyKey: vi.fn(),
@@ -35,7 +35,9 @@ import { getOwnRestaurantId } from "../../restaurants/restaurant.service";
 import {
   cancelHandler,
   completeHandler,
+  getOrderEventsHandler,
   getOrderHandler,
+  listOrdersHandler,
   markPaidHandler,
   publicGetOrderHandler,
   publicGetOrderTimelineHandler,
@@ -45,7 +47,16 @@ import {
 import { RefundExceedsRemainingBalanceError, RefundFailedError } from "../payments/payments.errors";
 import { InvalidOrderTransitionError } from "./order-state-machine";
 import { OrderNotFoundError } from "./orders.errors";
-import { completeOrder, getOrderTimeline, getOwnOrder, markPaidCash, refundOrder, startPreparing } from "./orders.service";
+import {
+  completeOrder,
+  getOrderEvents,
+  getOrderTimeline,
+  getOwnOrder,
+  listOrders,
+  markPaidCash,
+  refundOrder,
+  startPreparing,
+} from "./orders.service";
 
 function mockRes() {
   const res = { status: vi.fn().mockReturnThis(), json: vi.fn() };
@@ -357,5 +368,120 @@ describe("public order tracking", () => {
     await publicGetOrderTimelineHandler(req, res);
 
     expect(res.status).toHaveBeenCalledWith(404);
+  });
+});
+
+describe("kitchen financial firewall — order response redaction (P2.6.1)", () => {
+  const KITCHEN_TENANT = {
+    businessId: "rest-1",
+    organizationId: "org-1",
+    role: "RESTAURANT_STAFF",
+    locationId: null,
+    memberships: [
+      { id: "m1", userId: "u1", role: "KITCHEN", scopeType: "BUSINESS", scopeId: "rest-1", createdAt: new Date(), updatedAt: new Date() },
+    ],
+    capabilities: {},
+    resolvedFrom: "legacy-user-restaurant",
+  };
+
+  const orderRow = {
+    id: "order-1",
+    restaurantId: "rest-1",
+    orderNumber: "A-001",
+    status: "PENDING",
+    subtotalCents: 1000,
+    taxCents: 80,
+    tipCents: 0,
+    deliveryFeeCents: 0,
+    serviceFeeCents: 0,
+    discountCents: 0,
+    totalCents: 1080,
+    createdAt: new Date(),
+  };
+
+  afterEach(() => {
+    delete process.env.KITCHEN_FIREWALL;
+  });
+
+  function kitchenReq(extra: Record<string, unknown> = {}) {
+    return { user: { id: "u1", role: "RESTAURANT_STAFF" }, tenant: KITCHEN_TENANT, params: { id: "order-1" }, query: {}, ...extra } as unknown as Request;
+  }
+
+  it("flag off: returns full financial fields to a kitchen actor (inert)", async () => {
+    vi.mocked(getOwnRestaurantId).mockResolvedValue("rest-1");
+    vi.mocked(getOwnOrder).mockResolvedValue({ ...orderRow, items: [], payment: null } as never);
+    const res = mockRes();
+
+    await getOrderHandler(kitchenReq(), res);
+
+    const body = vi.mocked(res.json).mock.calls[0][0] as { order: Record<string, unknown> };
+    expect(body.order).toHaveProperty("totalCents", 1080);
+  });
+
+  it("observe: logs but does NOT redact (kitchen still sees money)", async () => {
+    process.env.KITCHEN_FIREWALL = "observe";
+    vi.mocked(getOwnRestaurantId).mockResolvedValue("rest-1");
+    vi.mocked(getOwnOrder).mockResolvedValue({ ...orderRow, items: [], payment: null } as never);
+    const res = mockRes();
+
+    await getOrderHandler(kitchenReq(), res);
+
+    const body = vi.mocked(res.json).mock.calls[0][0] as { order: Record<string, unknown> };
+    expect(body.order).toHaveProperty("totalCents", 1080);
+  });
+
+  it("enforce: redacts all order money fields for a kitchen actor (detail)", async () => {
+    process.env.KITCHEN_FIREWALL = "enforce";
+    vi.mocked(getOwnRestaurantId).mockResolvedValue("rest-1");
+    vi.mocked(getOwnOrder).mockResolvedValue({ ...orderRow, items: [], payment: null } as never);
+    const res = mockRes();
+
+    await getOrderHandler(kitchenReq(), res);
+
+    const body = vi.mocked(res.json).mock.calls[0][0] as { order: Record<string, unknown> };
+    expect(body.order).not.toHaveProperty("totalCents");
+    expect(body.order).not.toHaveProperty("subtotalCents");
+    expect(body.order).toMatchObject({ id: "order-1", status: "PENDING" });
+  });
+
+  it("enforce: redacts the list payload for a kitchen actor", async () => {
+    process.env.KITCHEN_FIREWALL = "enforce";
+    vi.mocked(getOwnRestaurantId).mockResolvedValue("rest-1");
+    vi.mocked(listOrders).mockResolvedValue({ orders: [orderRow], total: 1 } as never);
+    const res = mockRes();
+
+    await listOrdersHandler(kitchenReq(), res);
+
+    const body = vi.mocked(res.json).mock.calls[0][0] as { orders: Array<Record<string, unknown>> };
+    expect(body.orders[0]).not.toHaveProperty("totalCents");
+    expect(body.orders[0]).toMatchObject({ id: "order-1" });
+  });
+
+  it("enforce: omits event payload for a kitchen actor", async () => {
+    process.env.KITCHEN_FIREWALL = "enforce";
+    vi.mocked(getOwnRestaurantId).mockResolvedValue("rest-1");
+    vi.mocked(getOrderEvents).mockResolvedValue([
+      { id: "ev-1", orderId: "order-1", type: "PAID", payload: { amountCents: 1080 }, actorType: "STAFF", actorId: "u1", createdAt: new Date() },
+    ] as never);
+    const res = mockRes();
+
+    await getOrderEventsHandler(kitchenReq(), res);
+
+    const body = vi.mocked(res.json).mock.calls[0][0] as { events: Array<Record<string, unknown>> };
+    expect(body.events[0]).not.toHaveProperty("payload");
+    expect(body.events[0]).toMatchObject({ type: "PAID" });
+  });
+
+  it("enforce: an OWNER (money-authorized) is NOT redacted", async () => {
+    process.env.KITCHEN_FIREWALL = "enforce";
+    vi.mocked(getOwnRestaurantId).mockResolvedValue("rest-1");
+    vi.mocked(getOwnOrder).mockResolvedValue({ ...orderRow, items: [], payment: null } as never);
+    const ownerTenant = { ...KITCHEN_TENANT, memberships: [{ ...KITCHEN_TENANT.memberships[0], role: "OWNER" }] };
+    const res = mockRes();
+
+    await getOrderHandler(kitchenReq({ tenant: ownerTenant }), res);
+
+    const body = vi.mocked(res.json).mock.calls[0][0] as { order: Record<string, unknown> };
+    expect(body.order).toHaveProperty("totalCents", 1080);
   });
 });

@@ -1,5 +1,6 @@
 import { Role } from "@prisma/client";
 import { Router } from "express";
+import { denyFinancialForKitchen } from "../../../middleware/deny-financial-for-kitchen";
 import { publicCommerceRateLimiter, staffActionRateLimiter } from "../../../middleware/rate-limit";
 import { requireAuth } from "../../../middleware/require-auth";
 import { requireIdempotencyKey } from "../../../middleware/require-idempotency-key";
@@ -43,6 +44,7 @@ ordersRouter.patch(
   "/me/orders/:id/mark-paid",
   requireAuth,
   staffOrOwner,
+  denyFinancialForKitchen,
   staffActionRateLimiter,
   requireIdempotencyKey,
   markPaidHandler,
@@ -51,6 +53,7 @@ ordersRouter.post(
   "/me/orders/:id/refund",
   requireAuth,
   staffOrOwner,
+  denyFinancialForKitchen,
   staffActionRateLimiter,
   requireIdempotencyKey,
   refundHandler,

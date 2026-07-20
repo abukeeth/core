@@ -7,6 +7,7 @@ import {
   getNumberEnv,
   getOptionalEnv,
   getSafeEnvSummary,
+  getKitchenFirewallMode,
   getStringEnv,
   isMembershipDualReadEnabled,
   isTenantContextEnabled,
@@ -353,5 +354,30 @@ describe("isMembershipDualReadEnabled (BOS P2.5 flag)", () => {
   it("is false for any non-\"true\" value", () => {
     process.env.MEMBERSHIP_DUAL_READ = "1";
     expect(isMembershipDualReadEnabled()).toBe(false);
+  });
+});
+
+describe("getKitchenFirewallMode (BOS P2.6.1 flag)", () => {
+  afterEach(() => {
+    delete process.env.KITCHEN_FIREWALL;
+  });
+
+  it("defaults to \"off\" when unset", () => {
+    delete process.env.KITCHEN_FIREWALL;
+    expect(getKitchenFirewallMode()).toBe("off");
+  });
+
+  it("recognizes \"observe\" and \"enforce\" exactly", () => {
+    process.env.KITCHEN_FIREWALL = "observe";
+    expect(getKitchenFirewallMode()).toBe("observe");
+    process.env.KITCHEN_FIREWALL = "enforce";
+    expect(getKitchenFirewallMode()).toBe("enforce");
+  });
+
+  it("falls back to \"off\" for any unrecognized value (typo never enables a reduction)", () => {
+    for (const raw of ["on", "true", "ENFORCE", "1", ""]) {
+      process.env.KITCHEN_FIREWALL = raw;
+      expect(getKitchenFirewallMode()).toBe("off");
+    }
   });
 });
