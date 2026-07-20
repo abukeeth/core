@@ -2,10 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../lib/prisma", () => ({
   prisma: {
-    user: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn() },
+    user: { findUnique: vi.fn(), findMany: vi.fn(), update: vi.fn(), create: vi.fn() },
+    membership: { create: vi.fn() },
     refreshToken: { findUnique: vi.fn(), update: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
     passwordResetToken: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
     emailVerificationToken: { findUnique: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -27,10 +29,12 @@ import {
   InvalidCredentialsError,
   InvalidEmailVerificationTokenError,
   InvalidPasswordResetTokenError,
+  OwnerWithoutBusinessError,
   StaffNotFoundError,
 } from "./auth.errors";
 import {
   changePassword,
+  createStaff,
   listStaff,
   requestPasswordReset,
   resetPassword,
@@ -428,5 +432,102 @@ describe("setStaffActive", () => {
     await setStaffActive("owner1", "s1", true);
 
     expect(mockPrisma.refreshToken.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("createStaff (P2.6.0 — scoped Membership on staff creation)", () => {
+  // assertEmailAvailable does user.findUnique({where:{email}}) first (→ null =
+  // available), then createStaff does user.findUnique({where:{id},select:...})
+  // for the owner's business id.
+  function primeLookups(ownerRestaurantId: string | null) {
+    mockPrisma.user.findUnique
+      .mockResolvedValueOnce(null as never) // email available
+      .mockResolvedValueOnce({ restaurantId: ownerRestaurantId } as never); // owner's business
+    mockHashPassword.mockResolvedValue("hashed" as never);
+  }
+
+  function txMock() {
+    const userCreate = vi.fn().mockResolvedValue({ id: "staff-1", role: "RESTAURANT_STAFF", restaurantId: "rest-1" });
+    const membershipCreate = vi.fn().mockResolvedValue({ id: "mem-1" });
+    const tx = { user: { create: userCreate }, membership: { create: membershipCreate } };
+    (mockPrisma.$transaction as unknown as { mockImplementation: (fn: (cb: (t: typeof tx) => unknown) => unknown) => void })
+      .mockImplementation((fn) => fn(tx));
+    return { userCreate, membershipCreate };
+  }
+
+  it("creates a RESTAURANT_STAFF user and a STAFF @ BUSINESS membership scoped to the owner's business, in one transaction", async () => {
+    primeLookups("rest-1");
+    const { userCreate, membershipCreate } = txMock();
+
+    const staff = await createStaff("owner1", { email: "s@x.com", password: "pw", name: "S" });
+
+    expect(staff).toEqual(expect.objectContaining({ id: "staff-1", role: "RESTAURANT_STAFF" }));
+    expect(userCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ role: "RESTAURANT_STAFF", invitedById: "owner1", restaurantId: "rest-1" }),
+    });
+    expect(membershipCreate).toHaveBeenCalledWith({
+      data: { userId: "staff-1", role: "STAFF", scopeType: "BUSINESS", scopeId: "rest-1" },
+    });
+    // Fresh user → exactly one membership (no duplicate).
+    expect(membershipCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it("scopes the membership to the OWNER's business id (never a cross-business id)", async () => {
+    primeLookups("rest-OWNER");
+    const { membershipCreate } = txMock();
+
+    await createStaff("owner1", { email: "s@x.com", password: "pw", name: "S" });
+
+    expect(membershipCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ scopeType: "BUSINESS", scopeId: "rest-OWNER" }),
+    });
+  });
+
+  it("rejects with OwnerWithoutBusinessError when the owner has no business yet", async () => {
+    primeLookups(null);
+    txMock();
+
+    await expect(createStaff("owner1", { email: "s@x.com", password: "pw", name: "S" })).rejects.toBeInstanceOf(
+      OwnerWithoutBusinessError,
+    );
+  });
+
+  it("creates neither a User nor a Membership when the owner has no business (fails before any write)", async () => {
+    primeLookups(null);
+    const { userCreate, membershipCreate } = txMock();
+
+    await expect(createStaff("owner1", { email: "s@x.com", password: "pw", name: "S" })).rejects.toBeInstanceOf(
+      OwnerWithoutBusinessError,
+    );
+
+    // No transaction is opened and no rows are written.
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
+    expect(userCreate).not.toHaveBeenCalled();
+    expect(membershipCreate).not.toHaveBeenCalled();
+  });
+
+  it("rolls back the whole transaction if membership creation fails (staff not returned)", async () => {
+    primeLookups("rest-1");
+    const failure = new Error("membership write failed");
+    const userCreate = vi.fn().mockResolvedValue({ id: "staff-1" });
+    const membershipCreate = vi.fn().mockRejectedValue(failure);
+    const tx = { user: { create: userCreate }, membership: { create: membershipCreate } };
+    (mockPrisma.$transaction as unknown as { mockImplementation: (fn: (cb: (t: typeof tx) => unknown) => unknown) => void })
+      .mockImplementation((fn) => fn(tx));
+
+    await expect(createStaff("owner1", { email: "s@x.com", password: "pw", name: "S" })).rejects.toThrow(failure);
+  });
+
+  it("does not create a membership if user creation fails (transaction aborts first)", async () => {
+    primeLookups("rest-1");
+    const failure = new Error("user write failed");
+    const userCreate = vi.fn().mockRejectedValue(failure);
+    const membershipCreate = vi.fn();
+    const tx = { user: { create: userCreate }, membership: { create: membershipCreate } };
+    (mockPrisma.$transaction as unknown as { mockImplementation: (fn: (cb: (t: typeof tx) => unknown) => unknown) => void })
+      .mockImplementation((fn) => fn(tx));
+
+    await expect(createStaff("owner1", { email: "s@x.com", password: "pw", name: "S" })).rejects.toThrow(failure);
+    expect(membershipCreate).not.toHaveBeenCalled();
   });
 });

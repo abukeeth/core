@@ -29,9 +29,10 @@ vi.mock("./auth.service", () => ({
 }));
 
 import { completeIdempotencyKey, reserveIdempotencyKey } from "../../lib/idempotency";
-import { EmailInUseError } from "./auth.errors";
-import { forgotPassword, login, register, resendVerificationHandler } from "./auth.controller";
+import { EmailInUseError, OwnerWithoutBusinessError } from "./auth.errors";
+import { forgotPassword, inviteStaff, login, register, resendVerificationHandler } from "./auth.controller";
 import {
+  createStaff,
   dispatchSignupVerificationEmail,
   issueTokenPair,
   registerOwner,
@@ -189,5 +190,35 @@ describe("auth.controller stabilization", () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(validateCredentials).not.toHaveBeenCalled();
     expect(issueTokenPair).not.toHaveBeenCalled();
+  });
+});
+
+describe("inviteStaff (P2.6.0 — fail safely when the owner has no business)", () => {
+  function staffReq() {
+    return makeReq(
+      { email: "s@x.com", password: "hunter222", name: "S" },
+      {},
+      { user: { id: "owner1", role: "RESTAURANT_OWNER" } } as Partial<Request>,
+    );
+  }
+
+  it("maps OwnerWithoutBusinessError to a 409 and does not 201", async () => {
+    vi.mocked(createStaff).mockRejectedValue(new OwnerWithoutBusinessError());
+    const res = makeRes();
+
+    await inviteStaff(staffReq(), res);
+
+    expect(res.status).toHaveBeenCalledWith(409);
+    expect(res.status).not.toHaveBeenCalledWith(201);
+  });
+
+  it("returns 201 with the created staff on success", async () => {
+    vi.mocked(createStaff).mockResolvedValue({ id: "staff-1", role: "RESTAURANT_STAFF" } as never);
+    vi.mocked(toPublicUser).mockImplementation((user) => user as never);
+    const res = makeRes();
+
+    await inviteStaff(staffReq(), res);
+
+    expect(res.status).toHaveBeenCalledWith(201);
   });
 });

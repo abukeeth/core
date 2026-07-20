@@ -28,6 +28,12 @@ export class StaffNotFoundError extends Error {
   }
 }
 
+export class OwnerWithoutBusinessError extends Error {
+  constructor() {
+    super("Cannot invite staff before a business is set up");
+  }
+}
+
 export class InvalidPasswordResetTokenError extends Error {
   constructor() {
     super("Invalid or expired reset link");
