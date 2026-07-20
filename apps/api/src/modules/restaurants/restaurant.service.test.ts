@@ -81,6 +81,7 @@ describe("createRestaurant", () => {
     const txOrganizationCreate = vi.fn().mockResolvedValue({ id: "org-1" });
     const txMock = {
       organization: { create: txOrganizationCreate },
+      membership: { create: vi.fn() },
       restaurant: { create: txRestaurantCreate },
       user: { update: txUserUpdate },
     };
@@ -108,6 +109,7 @@ describe("createRestaurant", () => {
     const txRestaurantCreate = vi.fn().mockResolvedValue({ id: "new-restaurant" });
     const txMock = {
       organization: { create: txOrganizationCreate },
+      membership: { create: vi.fn() },
       restaurant: { create: txRestaurantCreate },
       user: { update: vi.fn() },
     };
@@ -128,6 +130,34 @@ describe("createRestaurant", () => {
     });
   });
 
+  it("grants the owner OWNER memberships @ Organization and @ Business in the same transaction (P2.3)", async () => {
+    mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null } as never);
+
+    const txMembershipCreate = vi.fn();
+    const txMock = {
+      organization: { create: vi.fn().mockResolvedValue({ id: "org-1" }) },
+      membership: { create: txMembershipCreate },
+      restaurant: { create: vi.fn().mockResolvedValue({ id: "new-restaurant" }) },
+      user: { update: vi.fn() },
+    };
+    const transactionMock = mockPrisma.$transaction as unknown as {
+      mockImplementation: (fn: (callback: (tx: typeof txMock) => unknown) => unknown) => void;
+    };
+    transactionMock.mockImplementation((fn) => fn(txMock));
+
+    await createRestaurant("owner-1", { name: "Joe's Deli" });
+
+    // OWNER @ ORGANIZATION (scoped to the new org) and OWNER @ BUSINESS (scoped
+    // to the new restaurant), both created inside the transaction.
+    expect(txMembershipCreate).toHaveBeenCalledWith({
+      data: { userId: "owner-1", role: "OWNER", scopeType: "ORGANIZATION", scopeId: "org-1" },
+    });
+    expect(txMembershipCreate).toHaveBeenCalledWith({
+      data: { userId: "owner-1", role: "OWNER", scopeType: "BUSINESS", scopeId: "new-restaurant" },
+    });
+    expect(txMembershipCreate).toHaveBeenCalledTimes(2);
+  });
+
   it("uses the placeholder name for BOTH the Organization and the Restaurant when only a businessType is given", async () => {
     mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null } as never);
 
@@ -135,6 +165,7 @@ describe("createRestaurant", () => {
     const txRestaurantCreate = vi.fn().mockResolvedValue({ id: "new-restaurant" });
     const txMock = {
       organization: { create: txOrganizationCreate },
+      membership: { create: vi.fn() },
       restaurant: { create: txRestaurantCreate },
       user: { update: vi.fn() },
     };
@@ -159,6 +190,7 @@ describe("createRestaurant", () => {
     const txUserUpdate = vi.fn();
     const txMock = {
       organization: { create: txOrganizationCreate },
+      membership: { create: vi.fn() },
       restaurant: { create: txRestaurantCreate },
       user: { update: txUserUpdate },
     };
@@ -178,7 +210,7 @@ describe("createRestaurant", () => {
     mockPrisma.restaurant.findUnique.mockResolvedValue(null);
 
     const txRestaurantCreate = vi.fn().mockResolvedValue({ id: "new-restaurant" });
-    const txMock = { organization: { create: vi.fn().mockResolvedValue({ id: "org-1" }) }, restaurant: { create: txRestaurantCreate }, user: { update: vi.fn() } };
+    const txMock = { organization: { create: vi.fn().mockResolvedValue({ id: "org-1" }) }, membership: { create: vi.fn() }, restaurant: { create: txRestaurantCreate }, user: { update: vi.fn() } };
     const transactionMock = mockPrisma.$transaction as unknown as {
       mockImplementation: (fn: (callback: (tx: typeof txMock) => unknown) => unknown) => void;
     };
@@ -196,7 +228,7 @@ describe("createRestaurant", () => {
     mockPrisma.restaurant.findUnique.mockResolvedValue({ id: "referrer-1" } as never);
 
     const txRestaurantCreate = vi.fn().mockResolvedValue({ id: "new-restaurant" });
-    const txMock = { organization: { create: vi.fn().mockResolvedValue({ id: "org-1" }) }, restaurant: { create: txRestaurantCreate }, user: { update: vi.fn() } };
+    const txMock = { organization: { create: vi.fn().mockResolvedValue({ id: "org-1" }) }, membership: { create: vi.fn() }, restaurant: { create: txRestaurantCreate }, user: { update: vi.fn() } };
     const transactionMock = mockPrisma.$transaction as unknown as {
       mockImplementation: (fn: (callback: (tx: typeof txMock) => unknown) => unknown) => void;
     };
@@ -213,7 +245,7 @@ describe("createRestaurant", () => {
     mockPrisma.user.findUnique.mockResolvedValue({ restaurantId: null } as never);
 
     const txRestaurantCreate = vi.fn().mockResolvedValue({ id: "new-restaurant" });
-    const txMock = { organization: { create: vi.fn().mockResolvedValue({ id: "org-1" }) }, restaurant: { create: txRestaurantCreate }, user: { update: vi.fn() } };
+    const txMock = { organization: { create: vi.fn().mockResolvedValue({ id: "org-1" }) }, membership: { create: vi.fn() }, restaurant: { create: txRestaurantCreate }, user: { update: vi.fn() } };
     const transactionMock = mockPrisma.$transaction as unknown as {
       mockImplementation: (fn: (callback: (tx: typeof txMock) => unknown) => unknown) => void;
     };
@@ -239,7 +271,7 @@ describe("createRestaurant", () => {
       meta: { target: ["referralCode"] },
     });
     const txRestaurantCreate = vi.fn().mockRejectedValue(collision);
-    const txMock = { organization: { create: vi.fn().mockResolvedValue({ id: "org-1" }) }, restaurant: { create: txRestaurantCreate }, user: { update: vi.fn() } };
+    const txMock = { organization: { create: vi.fn().mockResolvedValue({ id: "org-1" }) }, membership: { create: vi.fn() }, restaurant: { create: txRestaurantCreate }, user: { update: vi.fn() } };
     const transactionMock = mockPrisma.$transaction as unknown as {
       mockImplementation: (fn: (callback: (tx: typeof txMock) => unknown) => unknown) => void;
     };
