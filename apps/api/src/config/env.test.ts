@@ -8,6 +8,7 @@ import {
   getOptionalEnv,
   getSafeEnvSummary,
   getStringEnv,
+  isMembershipDualReadEnabled,
   isTenantContextEnabled,
   requireEnv,
 } from "./env";
@@ -331,5 +332,26 @@ describe("isTenantContextEnabled (BOS P0 flag)", () => {
   it("is false for any non-\"true\" value", () => {
     process.env.TENANT_CONTEXT_ENABLED = "1";
     expect(isTenantContextEnabled()).toBe(false);
+  });
+});
+
+describe("isMembershipDualReadEnabled (BOS P2.5 flag)", () => {
+  afterEach(() => {
+    delete process.env.MEMBERSHIP_DUAL_READ;
+  });
+
+  it("defaults to false when unset", () => {
+    delete process.env.MEMBERSHIP_DUAL_READ;
+    expect(isMembershipDualReadEnabled()).toBe(false);
+  });
+
+  it("is true when set to \"true\"", () => {
+    process.env.MEMBERSHIP_DUAL_READ = "true";
+    expect(isMembershipDualReadEnabled()).toBe(true);
+  });
+
+  it("is false for any non-\"true\" value", () => {
+    process.env.MEMBERSHIP_DUAL_READ = "1";
+    expect(isMembershipDualReadEnabled()).toBe(false);
   });
 });
