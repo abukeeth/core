@@ -55,8 +55,12 @@ function ctxFor(definition: ReturnType<typeof buildSiteDefinition>): RenderConte
     activeOffers: [],
     loyaltyProgram: null,
     definition,
+    // Sprint 5 · T1 — these tests assert each theme's photo-forward grid design
+    // system, so the item carries an image (full coverage). Below the coverage
+    // threshold a photo grid is intentionally re-routed to the typographic menu
+    // (covered in menu-section.test.ts's "Coverage-Aware Layout" block).
     liveMenu: [
-      { name: "Mains", items: [{ name: "Spaghetti Carbonara", description: "Classic Roman pasta", priceCents: 1800, isAvailable: true }] },
+      { name: "Mains", items: [{ name: "Spaghetti Carbonara", description: "Classic Roman pasta", priceCents: 1800, isAvailable: true, imageUrl: "/assets/carbonara.png" }] },
     ],
     assets: { galleryImages: [] },
   };
