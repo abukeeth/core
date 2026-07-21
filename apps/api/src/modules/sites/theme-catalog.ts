@@ -240,7 +240,7 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       typeScaleRatio: 1.3,
     },
     variants: { hero: ["editorial-split"], menuLayout: ["editorial-rows"], chrome: ["editorial"] },
-    layouts: { home: ["hero", "aboutTeaser", "signatureDishes", "gallery", "hoursLocation", "ctaBanner", "footer"] },
+    layouts: { home: ["hero", "aboutTeaser", "signatureDishes", "features", "gallery", "hoursLocation", "ctaBanner", "footer"] },
   },
   {
     key: "warm-local",
@@ -263,7 +263,7 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       typeScaleRatio: 1.2,
     },
     variants: { hero: ["warm-frame"], menuLayout: ["warm-cards"], chrome: ["warm"] },
-    layouts: { home: ["hero", "signatureDishes", "hoursLocation", "aboutTeaser", "gallery", "footer"] },
+    layouts: { home: ["hero", "signatureDishes", "features", "hoursLocation", "aboutTeaser", "gallery", "footer"] },
   },
   {
     key: "bold-commerce",
@@ -286,7 +286,7 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       typeScaleRatio: 1.4,
     },
     variants: { hero: ["bold-block"], menuLayout: ["bold-grid"], chrome: ["bold"] },
-    layouts: { home: ["hero", "signatureDishes", "ctaBanner", "gallery", "aboutTeaser", "hoursLocation", "footer"] },
+    layouts: { home: ["hero", "signatureDishes", "features", "ctaBanner", "gallery", "aboutTeaser", "hoursLocation", "footer"] },
   },
 
   // --- Theme Engine V3 · Restaurant identity -------------------------------

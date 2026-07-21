@@ -40,6 +40,12 @@ export const sectionTypeSchema = z.enum([
   "loyalty",
   "appPromotion",
   "ctaBanner",
+  // Sprint 5 · T5 — Marketing "Why Choose Us" band (icon features + trust
+  // badges). Content is generic, non-fabricated benefit copy tied to real
+  // platform capabilities (online ordering, pickup, secure checkout) — never a
+  // business-specific claim — so it renders for any business without invented
+  // facts. Reads only the business name from the definition.
+  "features",
   "menu",
   "contactInfo",
   "contactForm",
