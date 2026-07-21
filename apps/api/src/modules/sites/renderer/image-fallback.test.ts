@@ -33,4 +33,26 @@ describe("renderImageOrFallback — §Website Builder polished deterministic fal
     const fallback = renderImageOrFallback("<script>x</script>", undefined);
     expect(fallback).not.toContain("<script>x</script>");
   });
+
+  it("Sprint 5 · T2 — renders a premium inline-SVG monogram tile using the theme display font", () => {
+    const html = renderImageOrFallback("Spaghetti", undefined);
+    expect(html).toContain("<svg");
+    expect(html).toContain('role="img"');
+    expect(html).toContain("var(--font-display)");
+    expect(html).toContain("border-radius:var(--radius)");
+    // Self-contained: no external asset and no hotlink.
+    expect(html).not.toContain("http");
+    expect(html).not.toContain("<defs");
+  });
+
+  it("Sprint 5 · T2 — is accessible: aria-label and <title> carry the item name", () => {
+    const html = renderImageOrFallback("Zesty Tacos", undefined);
+    expect(html).toContain('aria-label="Zesty Tacos"');
+    expect(html).toContain("<title>Zesty Tacos</title>");
+  });
+
+  it("Sprint 5 · T2 — scales to the requested aspect ratio (thumbnail vs card)", () => {
+    expect(renderImageOrFallback("Spaghetti", undefined, "1")).toContain("aspect-ratio:1;");
+    expect(renderImageOrFallback("Spaghetti", undefined, "4/3")).toContain("aspect-ratio:4/3;");
+  });
 });
