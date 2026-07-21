@@ -166,7 +166,13 @@ export async function renderSitePage(input: RenderSiteInput, slug: string): Prom
       restaurantId: input.restaurantId,
       definition: input.definition,
       liveMenu,
-      assets,
+      // Sprint 5.5 — surface the once-generated AI impression images into the
+      // resolver's AI slot; a real uploaded/Google photo still wins over AI.
+      assets: {
+        ...assets,
+        aiHeroUrl: input.definition.aiAssets?.heroUrl,
+        aiCategoryImages: input.definition.aiAssets?.categoryImages,
+      },
       orderingBaseUrl: FRONTEND_URL,
       bestSellers,
       activeOffers,
@@ -198,7 +204,11 @@ export async function renderAllPages(input: RenderSiteInput): Promise<Map<string
     restaurantId: input.restaurantId,
     definition: input.definition,
     liveMenu,
-    assets,
+    assets: {
+      ...assets,
+      aiHeroUrl: input.definition.aiAssets?.heroUrl,
+      aiCategoryImages: input.definition.aiAssets?.categoryImages,
+    },
     orderingBaseUrl: FRONTEND_URL,
     bestSellers,
     activeOffers,

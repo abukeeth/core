@@ -218,6 +218,29 @@ export const siteDefinitionSchema = z.object({
   header: headerSettingsSchema.optional(),
   footer: footerSettingsSchema.optional(),
   productPresentation: productPresentationSchema.optional(),
+  // Sprint 5.5 — Brand Kit outputs persisted on the definition. Optional and
+  // additive: a definition without them renders byte-identically to before.
+  // `vocabulary` makes labels vertical-aware ("Products" vs "Dishes");
+  // `aiAssets` carries the once-generated impression image URLs that populate
+  // the renderer's AI slots (ctx.assets.aiHeroUrl / aiCategoryImages).
+  vocabulary: z
+    .object({
+      catalogNoun: z.string(),
+      itemNoun: z.string(),
+      itemPlural: z.string(),
+      categoryUnitSingular: z.string(),
+      categoryUnitPlural: z.string(),
+      primaryCta: z.string(),
+      exploreLabel: z.string(),
+    })
+    .optional(),
+  aiAssets: z
+    .object({
+      heroUrl: z.string().optional(),
+      categoryImages: z.record(z.string(), z.string()).optional(),
+      marketingUrl: z.string().optional(),
+    })
+    .optional(),
   pages: z.array(sitePageSchema).min(1),
 });
 export type SiteDefinition = z.infer<typeof siteDefinitionSchema>;
