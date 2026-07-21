@@ -68,21 +68,24 @@ describe("cosineSimilarity / personalitySimilarity", () => {
 });
 
 describe("selectThemesForAllFamilies (golden tests, deterministic)", () => {
+  // These profiles are restaurants, so they pass businessType RESTAURANT — the
+  // realistic call (every tenant has a type). Type-scoped vertical themes
+  // (cafe/deli/vape) are hard-excluded for a restaurant and never interfere.
   it("picks restaurant-maison (the polished fine-dining Luxury design system) for an upscale sushi restaurant's Luxury variation", () => {
-    const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3);
+    const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "RESTAURANT");
     // V3 — a formal, polished, understated fine-dining brand fits Maison
     // better than the bold bold-commerce system.
     expect(result.LUXURY.theme.key).toBe("restaurant-maison");
     expect(result.LUXURY.reasons.length).toBeGreaterThan(0);
   });
 
-  it("picks modern-editorial (the only active Modern design system) for a casual taqueria's Modern variation", () => {
-    const result = selectThemesForAllFamilies(THEME_CATALOG, CASUAL_TAQUERIA, 3);
+  it("picks modern-editorial (the type-agnostic Modern design system) for a casual taqueria's Modern variation", () => {
+    const result = selectThemesForAllFamilies(THEME_CATALOG, CASUAL_TAQUERIA, 3, "RESTAURANT");
     expect(result.MODERN.theme.key).toBe("modern-editorial");
   });
 
-  it("picks restaurant-maison (strong French affinity, polished tone) for a French patisserie's Luxury variation", () => {
-    const result = selectThemesForAllFamilies(THEME_CATALOG, FRENCH_PATISSERIE, 3);
+  it("picks restaurant-maison for a French patisserie's Luxury variation", () => {
+    const result = selectThemesForAllFamilies(THEME_CATALOG, FRENCH_PATISSERIE, 3, "RESTAURANT");
     expect(result.LUXURY.theme.key).toBe("restaurant-maison");
   });
 
@@ -103,11 +106,13 @@ describe("selectThemesForAllFamilies (golden tests, deterministic)", () => {
   });
 
   it("still picks a theme in every family when there are zero photos, via the fallback path", () => {
-    const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 0);
-    // bold-commerce (the sole active Luxury design system) requires a
-    // photo; the fallback still returns it (with a polished non-photo
-    // fallback tile at render time — see image-fallback.ts) rather than
-    // leaving the family empty.
+    const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 0, "RESTAURANT");
+    // For a restaurant, LUXURY candidates are bold-commerce (needs 1 photo) and
+    // restaurant-maison (needs 2); vape-vapor is VAPE-scoped and excluded. Both
+    // eligible themes are photo-excluded at zero photos, so the fallback returns
+    // the least photo-dependent one, bold-commerce (with a polished non-photo
+    // tile at render time — see image-fallback.ts), rather than leaving the
+    // family empty.
     expect(result.LUXURY.theme.key).toBe("bold-commerce");
     expect(result.LUXURY.reasons[0]).toMatch(/fallback/i);
     // Minimal themes have no photo constraint, so it's a real (non-fallback) pick.
@@ -153,11 +158,32 @@ describe("business-type-aware selection (V3 Milestone 1)", () => {
     expect(result.LUXURY.reasons[0]).toMatch(/purpose-built for restaurant/i);
   });
 
-  it("a VAPE_SHOP tenant never selects a Restaurant theme — LUXURY falls to the type-agnostic bold-commerce", () => {
+  it("a VAPE_SHOP tenant selects the purpose-built vape-vapor for LUXURY and never a Restaurant theme", () => {
     const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "VAPE_SHOP");
-    expect(result.LUXURY.theme.key).toBe("bold-commerce");
+    // vape-vapor is VAPE-scoped and wins its family by the business-type boost,
+    // even against a formal/polished profile that personality alone would send
+    // elsewhere.
+    expect(result.LUXURY.theme.key).toBe("vape-vapor");
     // restaurant-maison is scoped to RESTAURANT and must not appear in any family.
     expect([result.LUXURY.theme.key, result.MODERN.theme.key, result.MINIMAL.theme.key]).not.toContain("restaurant-maison");
+  });
+
+  it("resolves the Sprint-5 vertical themes for their business types (and only for them)", () => {
+    const cafe = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "COFFEE_SHOP");
+    expect(cafe.MINIMAL.theme.key).toBe("cafe-daybreak");
+
+    const deli = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "DELI");
+    expect(deli.MODERN.theme.key).toBe("deli-counter");
+
+    const vape = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "VAPE_SHOP");
+    expect(vape.LUXURY.theme.key).toBe("vape-vapor");
+
+    // A restaurant never receives any of the three vertical themes.
+    const restaurant = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "RESTAURANT");
+    const picked = [restaurant.LUXURY.theme.key, restaurant.MODERN.theme.key, restaurant.MINIMAL.theme.key];
+    expect(picked).not.toContain("cafe-daybreak");
+    expect(picked).not.toContain("deli-counter");
+    expect(picked).not.toContain("vape-vapor");
   });
 
   it("resolves a type-specific theme once one is added (e.g. a BAKERY theme wins for a bakery, and only for a bakery)", () => {
@@ -193,20 +219,20 @@ describe("business-type-aware selection (V3 Milestone 1)", () => {
     expect(result.MINIMAL.theme.key).toBe("warm-local");
   });
 
-  it("is backward compatible: omitting businessType reproduces the pre-V3 personality-only picks (existing sites unaffected)", () => {
-    const withType = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "RESTAURANT");
-    const withoutType = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3);
-    // With no businessType, a fine-dining brand still lands on maison via personality —
-    // and MODERN/MINIMAL are identical with or without the new signal.
-    expect(withoutType.LUXURY.theme.key).toBe("restaurant-maison");
-    expect(withoutType.MODERN.theme.key).toBe(withType.MODERN.theme.key);
-    expect(withoutType.MINIMAL.theme.key).toBe(withType.MINIMAL.theme.key);
+  it("is backward compatible: a restaurant's picks are unaffected by the Sprint-5 vertical themes", () => {
+    // The vertical themes are type-scoped, so a restaurant keeps the pre-Sprint-5
+    // picks (maison / modern-editorial / warm-local) and never sees them.
+    const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "RESTAURANT");
+    expect(result.LUXURY.theme.key).toBe("restaurant-maison");
+    expect(result.MODERN.theme.key).toBe("modern-editorial");
+    expect(result.MINIMAL.theme.key).toBe("warm-local");
   });
 
-  it("keeps the zero-photo fallback type-aware — a Vape Shop falls back to bold-commerce, never the photo-hungry restaurant theme", () => {
+  it("a Vape Shop with zero photos still gets its purpose-built theme (no photo requirement), never the photo-hungry restaurant theme", () => {
     const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 0, "VAPE_SHOP");
-    expect(result.LUXURY.theme.key).toBe("bold-commerce");
-    expect(result.LUXURY.reasons[0]).toMatch(/fallback/i);
+    // vape-vapor has no photo constraint, so this is a real pick, not a fallback.
+    expect(result.LUXURY.theme.key).toBe("vape-vapor");
+    expect(result.LUXURY.reasons[0]).toMatch(/purpose-built for vape/i);
   });
 });
 

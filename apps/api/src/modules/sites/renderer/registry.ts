@@ -1,5 +1,6 @@
 import type { SectionBlock, SectionType } from "../types";
 import { renderAboutStory, renderAboutTeaser } from "./components/about-teaser";
+import { renderAgeGate } from "./components/age-gate";
 import { renderAppPromotion } from "./components/app-promotion";
 import { renderBestSellers } from "./components/best-sellers";
 import { renderContactForm, renderContactInfo } from "./components/contact";
@@ -40,6 +41,7 @@ const REGISTRY: Partial<Record<SectionType, SectionRenderer>> = {
   featuredCategories: renderFeaturedCategories,
   featuredProducts: renderFeaturedProducts,
   features: renderFeatures,
+  ageGate: renderAgeGate,
   bestSellers: renderBestSellers,
   offers: renderOffers,
   aboutTeaser: renderAboutTeaser,

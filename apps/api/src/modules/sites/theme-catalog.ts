@@ -385,4 +385,153 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
       },
     },
   },
+
+  // --- Vertical theme · Cafe -----------------------------------------------
+  // "Daybreak" — a warm, high-key cafe design system. Type-scoped to
+  // COFFEE_SHOP: a cafe tenant selects it ahead of the type-agnostic warm-local
+  // in the MINIMAL family; other business types never select it. Reuses the
+  // existing warm variants (warm-frame / warm-cards / warm chrome) — no new
+  // rendering surface — with a coffee/terracotta palette and a rewards band.
+  {
+    key: "cafe-daybreak",
+    version: 1,
+    styleFamily: "MINIMAL",
+    businessTypes: ["COFFEE_SHOP"],
+    personalityVector: {
+      traditionalContemporary: 0.5,
+      casualFormal: 0.22,
+      playfulSerious: 0.45,
+      understatedBold: 0.3,
+      rusticPolished: 0.5,
+    },
+    cuisineAffinities: { cafe: 0.9, coffee: 0.9, bakery: 0.6, brunch: 0.6, breakfast: 0.6 },
+    constraints: {},
+    tokens: {
+      colorSeed: "#9C6644",
+      typography: { display: "Fraunces", body: "Nunito Sans" },
+      radius: "rounded",
+      motion: "subtle",
+      typeScaleRatio: 1.2,
+    },
+    variants: { hero: ["warm-frame"], menuLayout: ["warm-cards"], chrome: ["warm"] },
+    layouts: { home: ["hero", "featuredCategories", "signatureDishes", "features", "loyalty", "gallery", "hoursLocation", "footer"] },
+    presentation: {
+      header: { logoPosition: "left", headerLayout: "standard", stickyHeader: true, announcementBar: { enabled: true }, showSearch: true, showCart: true, showOrderButton: true, mobileNavStyle: "drawer" },
+      footer: { showContactInfo: true, showHours: true, newsletterEnabled: true },
+      productPresentation: { categoryNavStyle: "sticky", cardLayout: "grid", infoDensity: "detailed", priceStyle: "standard", outOfStockAppearance: "badge", addToCartStyle: "button" },
+      brandSettings: {
+        primaryColor: "#9C6644",
+        accentColor: "#7A8450",
+        backgroundColor: "#FBF6EE",
+        textColor: "#3B322A",
+        headingFont: "Fraunces",
+        bodyFont: "Nunito Sans",
+        buttonStyle: "rounded",
+        borderRadius: 14,
+        shadowIntensity: "soft",
+        pageWidth: "standard",
+        contentSpacing: "spacious",
+      },
+    },
+  },
+
+  // --- Vertical theme · Deli -----------------------------------------------
+  // "Counter" — a bold, appetite-forward deli design system. Type-scoped to
+  // DELI: a deli tenant selects it ahead of the type-agnostic modern-editorial
+  // in the MODERN family. Reuses the existing bold variants (bold-block /
+  // bold-grid / bold chrome) with a deli-green + mustard palette; leads with a
+  // daily-special (offers) and fast-pickup service band.
+  {
+    key: "deli-counter",
+    version: 1,
+    styleFamily: "MODERN",
+    businessTypes: ["DELI"],
+    personalityVector: {
+      traditionalContemporary: 0.55,
+      casualFormal: 0.28,
+      playfulSerious: 0.35,
+      understatedBold: 0.75,
+      rusticPolished: 0.5,
+    },
+    cuisineAffinities: { deli: 0.9, sandwiches: 0.9, american: 0.6, breakfast: 0.5, catering: 0.6 },
+    constraints: {},
+    tokens: {
+      colorSeed: "#2F6B3A",
+      typography: { display: "Oswald", body: "Inter" },
+      radius: "sharp",
+      motion: "energetic",
+      typeScaleRatio: 1.3,
+    },
+    variants: { hero: ["bold-block"], menuLayout: ["bold-grid"], chrome: ["bold"] },
+    layouts: { home: ["hero", "featuredCategories", "signatureDishes", "features", "offers", "serviceOptions", "hoursLocation", "footer"] },
+    presentation: {
+      header: { logoPosition: "left", headerLayout: "standard", stickyHeader: true, announcementBar: { enabled: true }, showSearch: true, showCart: true, showOrderButton: true, mobileNavStyle: "drawer" },
+      footer: { showContactInfo: true, showHours: true, newsletterEnabled: false },
+      productPresentation: { categoryNavStyle: "sticky", cardLayout: "grid", infoDensity: "detailed", priceStyle: "bold", outOfStockAppearance: "badge", addToCartStyle: "button" },
+      brandSettings: {
+        primaryColor: "#2F6B3A",
+        accentColor: "#C9A227",
+        backgroundColor: "#FBFAF5",
+        textColor: "#22261F",
+        headingFont: "Oswald",
+        bodyFont: "Inter",
+        buttonStyle: "square",
+        borderRadius: 2,
+        shadowIntensity: "medium",
+        pageWidth: "standard",
+        contentSpacing: "comfortable",
+      },
+    },
+  },
+
+  // --- Vertical theme · Vape ------------------------------------------------
+  // "Vapor" — a dark, premium, neon-accented design system for vape/smoke shops.
+  // Type-scoped to VAPE_SHOP: a vape tenant selects it ahead of the type-agnostic
+  // bold-commerce in the LUXURY family; a vape shop must never be handed a
+  // restaurant theme. Reuses the existing bold variants with a near-black palette
+  // and neon violet/cyan accents, and — uniquely — leads with the age-gate
+  // (21+) blocking overlay (compliance). A product-grid catalog with no photo
+  // dependency (constraints: {}), so it is premium even before any photos exist.
+  {
+    key: "vape-vapor",
+    version: 1,
+    styleFamily: "LUXURY",
+    businessTypes: ["VAPE_SHOP"],
+    personalityVector: {
+      traditionalContemporary: 0.8,
+      casualFormal: 0.6,
+      playfulSerious: 0.7,
+      understatedBold: 0.95,
+      rusticPolished: 0.85,
+    },
+    cuisineAffinities: {},
+    constraints: {},
+    tokens: {
+      colorSeed: "#12091F",
+      typography: { display: "Space Grotesk", body: "IBM Plex Mono" },
+      radius: "sharp",
+      motion: "energetic",
+      typeScaleRatio: 1.35,
+    },
+    variants: { hero: ["bold-block"], menuLayout: ["bold-grid"], chrome: ["bold"] },
+    layouts: { home: ["hero", "ageGate", "featuredCategories", "featuredProducts", "features", "gallery", "hoursLocation", "footer"] },
+    presentation: {
+      header: { logoPosition: "left", headerLayout: "standard", stickyHeader: true, announcementBar: { enabled: true }, showSearch: true, showCart: true, showOrderButton: true, mobileNavStyle: "drawer" },
+      footer: { showContactInfo: true, showHours: true, newsletterEnabled: true },
+      productPresentation: { categoryNavStyle: "sticky", cardLayout: "grid", infoDensity: "compact", priceStyle: "bold", outOfStockAppearance: "badge", addToCartStyle: "button" },
+      brandSettings: {
+        primaryColor: "#7C3AED",
+        accentColor: "#22D3EE",
+        backgroundColor: "#0B0713",
+        textColor: "#ECEAF2",
+        headingFont: "Space Grotesk",
+        bodyFont: "IBM Plex Mono",
+        buttonStyle: "square",
+        borderRadius: 4,
+        shadowIntensity: "strong",
+        pageWidth: "standard",
+        contentSpacing: "comfortable",
+      },
+    },
+  },
 ];

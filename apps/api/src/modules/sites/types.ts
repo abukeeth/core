@@ -46,6 +46,11 @@ export const sectionTypeSchema = z.enum([
   // business-specific claim — so it renders for any business without invented
   // facts. Reads only the business name from the definition.
   "features",
+  // Sprint 5 — Age verification gate (21+) for restricted-goods storefronts
+  // (vape/tobacco). A blocking, accessible overlay; compliance, not styling.
+  // Rendered by the vape-vapor theme's layout. As a fixed top-layer overlay its
+  // position in the section order does not matter (it covers the whole page).
+  "ageGate",
   "menu",
   "contactInfo",
   "contactForm",
