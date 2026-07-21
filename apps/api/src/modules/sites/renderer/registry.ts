@@ -1,5 +1,6 @@
 import type { SectionBlock, SectionType } from "../types";
 import { renderAboutStory, renderAboutTeaser } from "./components/about-teaser";
+import { renderAgeGate } from "./components/age-gate";
 import { renderAppPromotion } from "./components/app-promotion";
 import { renderBestSellers } from "./components/best-sellers";
 import { renderContactForm, renderContactInfo } from "./components/contact";
@@ -7,6 +8,7 @@ import { renderCtaBanner } from "./components/cta-banner";
 import { renderCustomTextImage } from "./components/custom-text-image";
 import { renderFeaturedCategories } from "./components/featured-categories";
 import { renderFeaturedProducts } from "./components/featured-products";
+import { renderFeatures } from "./components/features";
 import { renderFooter } from "./components/footer";
 import { renderGallery } from "./components/gallery";
 import { renderHero } from "./components/hero";
@@ -38,6 +40,8 @@ const REGISTRY: Partial<Record<SectionType, SectionRenderer>> = {
   signatureDishes: renderSignatureDishes,
   featuredCategories: renderFeaturedCategories,
   featuredProducts: renderFeaturedProducts,
+  features: renderFeatures,
+  ageGate: renderAgeGate,
   bestSellers: renderBestSellers,
   offers: renderOffers,
   aboutTeaser: renderAboutTeaser,

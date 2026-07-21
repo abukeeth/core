@@ -55,8 +55,12 @@ function ctxFor(definition: ReturnType<typeof buildSiteDefinition>): RenderConte
     activeOffers: [],
     loyaltyProgram: null,
     definition,
+    // Sprint 5 · T1 — these tests assert each theme's photo-forward grid design
+    // system, so the item carries an image (full coverage). Below the coverage
+    // threshold a photo grid is intentionally re-routed to the typographic menu
+    // (covered in menu-section.test.ts's "Coverage-Aware Layout" block).
     liveMenu: [
-      { name: "Mains", items: [{ name: "Spaghetti Carbonara", description: "Classic Roman pasta", priceCents: 1800, isAvailable: true }] },
+      { name: "Mains", items: [{ name: "Spaghetti Carbonara", description: "Classic Roman pasta", priceCents: 1800, isAvailable: true, imageUrl: "/assets/carbonara.png" }] },
     ],
     assets: { galleryImages: [] },
   };
@@ -64,7 +68,15 @@ function ctxFor(definition: ReturnType<typeof buildSiteDefinition>): RenderConte
 
 describe("§Website Builder — the 3 design systems render materially differently", () => {
   it("registers the active design systems (V3 adds restaurant-maison to the base three)", () => {
-    expect(ACTIVE_THEMES.map((t) => t.key).sort()).toEqual(["bold-commerce", "modern-editorial", "restaurant-maison", "warm-local"]);
+    expect(ACTIVE_THEMES.map((t) => t.key).sort()).toEqual([
+      "bold-commerce",
+      "cafe-daybreak",
+      "deli-counter",
+      "modern-editorial",
+      "restaurant-maison",
+      "vape-vapor",
+      "warm-local",
+    ]);
   });
 
   it("renders a genuinely different home page for each of the 3 design systems, not just a palette swap", () => {

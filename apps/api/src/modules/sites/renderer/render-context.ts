@@ -13,6 +13,15 @@ export interface RenderAssets {
   galleryImages: { url: string; alt: string }[];
   logoUrl?: string;
   faviconUrl?: string;
+  // Sprint 5.5 AI atmospheric slot — populated upstream by the AI image stage.
+  // Undefined until then, so the impression resolver (asset-resolver.ts) falls
+  // through to curated stock / the premium SVG floor. Reserving the slot here
+  // (and the resolver order real → AI → stock → SVG) makes enabling AI
+  // zero-rework: the 5.5 stage only needs to fill these fields.
+  aiHeroUrl?: string;
+  aiCategoryImages?: Record<string, string>;
+  /** Sprint 5.5 — AI marketing/gallery banner (populates the gallery when the owner has no photos). */
+  aiMarketingUrl?: string;
 }
 
 /** Real order history, not fabricated — see analytics.service.ts's getTopItems. */

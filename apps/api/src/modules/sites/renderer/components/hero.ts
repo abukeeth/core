@@ -1,3 +1,4 @@
+import { resolveHeroImage, resolveHeroInsetImage } from "../asset-resolver";
 import { escapeHtml } from "../html-escape";
 import { deterministicHue } from "../image-fallback";
 import { heroPlaceholder } from "../placeholder-imagery";
@@ -69,7 +70,9 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   // a bottom scrim: a spaced brass eyebrow, a large serif headline, a hairline
   // rule, the subhead, and light-on-dark CTAs.
   if (variant === "cinematic") {
-    const bg = ctx.assets.heroBackgroundUrl ?? ctx.assets.heroUrl ?? heroPlaceholder(ctx.definition.restaurantName);
+    // Impression resolver: real → AI (Sprint 5.5) → curated stock; the SVG floor
+    // (heroPlaceholder) is applied here when the chain yields nothing.
+    const bg = resolveHeroImage(ctx) ?? heroPlaceholder(ctx.definition.restaurantName);
     const cinematicHeight = HEIGHT_VH[height] ?? "82vh";
     const eyebrow = ctx.definition.cuisine ? ctx.definition.cuisine.toUpperCase() : "";
     const eyebrowHtml = eyebrow
@@ -95,7 +98,7 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   }
 
   if (FULL_BLEED_VARIANTS.has(variant)) {
-    const backgroundUrl = ctx.assets.heroBackgroundUrl ?? ctx.assets.heroUrl;
+    const backgroundUrl = resolveHeroImage(ctx);
     const imageHtml = backgroundUrl
       ? `<img src="${escapeHtml(backgroundUrl)}" alt="${escapeHtml(heroName)}" style="width:100%;height:${minHeight};object-fit:cover;display:block;" />`
       : fullBleedFallback(heroName, minHeight);
@@ -124,7 +127,7 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   // Inset-image variants: split, minimal-typographic, editorial-split, warm-frame.
   // A real photo (or the fallback tile) sits beside/above the text, never a
   // full-bleed background, preserving each variant's text-forward identity.
-  const insetImageUrl = ctx.assets.heroUrl;
+  const insetImageUrl = resolveHeroInsetImage(ctx);
   const insetMaxWidth = variant === "minimal-typographic" ? "280px" : isEditorial ? "560px" : "420px";
   const hue = deterministicHue(heroName);
   const frameBorder = isWarmFrame ? "border:8px solid var(--color-surface-50);" : "";

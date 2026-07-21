@@ -40,6 +40,17 @@ export const sectionTypeSchema = z.enum([
   "loyalty",
   "appPromotion",
   "ctaBanner",
+  // Sprint 5 · T5 — Marketing "Why Choose Us" band (icon features + trust
+  // badges). Content is generic, non-fabricated benefit copy tied to real
+  // platform capabilities (online ordering, pickup, secure checkout) — never a
+  // business-specific claim — so it renders for any business without invented
+  // facts. Reads only the business name from the definition.
+  "features",
+  // Sprint 5 — Age verification gate (21+) for restricted-goods storefronts
+  // (vape/tobacco). A blocking, accessible overlay; compliance, not styling.
+  // Rendered by the vape-vapor theme's layout. As a fixed top-layer overlay its
+  // position in the section order does not matter (it covers the whole page).
+  "ageGate",
   "menu",
   "contactInfo",
   "contactForm",
@@ -207,6 +218,29 @@ export const siteDefinitionSchema = z.object({
   header: headerSettingsSchema.optional(),
   footer: footerSettingsSchema.optional(),
   productPresentation: productPresentationSchema.optional(),
+  // Sprint 5.5 — Brand Kit outputs persisted on the definition. Optional and
+  // additive: a definition without them renders byte-identically to before.
+  // `vocabulary` makes labels vertical-aware ("Products" vs "Dishes");
+  // `aiAssets` carries the once-generated impression image URLs that populate
+  // the renderer's AI slots (ctx.assets.aiHeroUrl / aiCategoryImages).
+  vocabulary: z
+    .object({
+      catalogNoun: z.string(),
+      itemNoun: z.string(),
+      itemPlural: z.string(),
+      categoryUnitSingular: z.string(),
+      categoryUnitPlural: z.string(),
+      primaryCta: z.string(),
+      exploreLabel: z.string(),
+    })
+    .optional(),
+  aiAssets: z
+    .object({
+      heroUrl: z.string().optional(),
+      categoryImages: z.record(z.string(), z.string()).optional(),
+      marketingUrl: z.string().optional(),
+    })
+    .optional(),
   pages: z.array(sitePageSchema).min(1),
 });
 export type SiteDefinition = z.infer<typeof siteDefinitionSchema>;

@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { THEME_CATALOG } from "./theme-catalog";
 
 describe("THEME_CATALOG", () => {
-  it("has 2-4 themes in each of the three style families, counting deprecated ones kept for backward compatibility", () => {
+  it("keeps each style family to a small set (deprecated + active), room for the vertical themes", () => {
     for (const family of ["LUXURY", "MODERN", "MINIMAL"] as const) {
       const count = THEME_CATALOG.filter((t) => t.styleFamily === family).length;
       expect(count).toBeGreaterThanOrEqual(2);
-      expect(count).toBeLessThanOrEqual(4);
+      // Each family carries 4 deprecated/base themes plus one Sprint-5 vertical
+      // theme (cafe-daybreak / deli-counter / vape-vapor) = 5.
+      expect(count).toBeLessThanOrEqual(5);
     }
   });
 
@@ -15,11 +17,13 @@ describe("THEME_CATALOG", () => {
       THEME_CATALOG.filter((t) => t.styleFamily === family && !t.deprecated)
         .map((t) => t.key)
         .sort();
-    expect(activeByFamily("MODERN")).toEqual(["modern-editorial"]);
-    expect(activeByFamily("MINIMAL")).toEqual(["warm-local"]);
-    // Theme Engine V3 adds restaurant-maison as a second selectable LUXURY
-    // design system; theme-matching picks it for polished fine-dining brands.
-    expect(activeByFamily("LUXURY")).toEqual(["bold-commerce", "restaurant-maison"]);
+    // Sprint 5 adds one type-scoped vertical theme per family (cafe-daybreak,
+    // deli-counter, vape-vapor) alongside the type-agnostic base systems.
+    expect(activeByFamily("MODERN")).toEqual(["deli-counter", "modern-editorial"]);
+    expect(activeByFamily("MINIMAL")).toEqual(["cafe-daybreak", "warm-local"]);
+    // LUXURY carries restaurant-maison (RESTAURANT) and vape-vapor (VAPE_SHOP)
+    // alongside the type-agnostic bold-commerce.
+    expect(activeByFamily("LUXURY")).toEqual(["bold-commerce", "restaurant-maison", "vape-vapor"]);
   });
 
   it("has unique key+version pairs", () => {

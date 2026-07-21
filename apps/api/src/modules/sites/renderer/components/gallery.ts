@@ -42,7 +42,15 @@ export function renderGallery(section: SectionBlock, ctx: RenderContext): string
 </section>`;
   }
 
-  if (uploaded.length === 0) return "";
+  // Sprint 5.5 — when the owner has no photos, show the AI marketing/gallery
+  // banner (atmospheric, on-brand) instead of omitting the section entirely.
+  if (uploaded.length === 0) {
+    if (!ctx.assets.aiMarketingUrl) return "";
+    return `<section class="gallery">
+  ${intro ? `<h2 style="text-align:center;margin:0 0 1.5rem;">${escapeHtml(intro)}</h2>` : ""}
+  <img src="${escapeHtml(ctx.assets.aiMarketingUrl)}" alt="" loading="lazy" style="width:100%;max-height:440px;object-fit:cover;border-radius:var(--radius);display:block;" />
+</section>`;
+  }
 
   const items = uploaded
     .map(

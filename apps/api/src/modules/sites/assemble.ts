@@ -1,3 +1,4 @@
+import type { BrandKit } from "./branding/brand-kit";
 import { computeCtaLabel } from "./cta";
 import { filterSectionsByAvailability } from "./section-rules";
 import { buildMetaDescription, buildPageTitle, guessCityFromAddress } from "./seo";
@@ -24,6 +25,30 @@ export interface AssembleInput {
   colorSeed: string;
   /** ThemeFitResult.reasons from theme-matching.ts — surfaced as "why this design" in the Variation Picker. */
   designRationale?: string[];
+  /** Sprint 5.5 — the per-business Brand Kit. When present it OWNS color (palette
+   * → brandSettings) and vocabulary; the theme contributes structure only. */
+  brandKit?: BrandKit;
+  /** Sprint 5.5 — once-generated impression image URLs (hero/category/marketing). */
+  aiAssets?: { heroUrl?: string; categoryImages?: Record<string, string>; marketingUrl?: string };
+}
+
+/**
+ * Sprint 5.5 — the Brand Kit palette OWNS the storefront's color: its colors
+ * override the theme's brandSettings colors, while the theme keeps structural
+ * settings (button style, radius, spacing, fonts). Returns the theme's own
+ * brandSettings untouched when there is no Brand Kit (byte-identical).
+ */
+function resolveBrandSettings(theme: ThemeCatalogEntry, brandKit?: BrandKit) {
+  const themeBrand = theme.presentation?.brandSettings;
+  if (!brandKit) return themeBrand;
+  return {
+    ...themeBrand,
+    primaryColor: brandKit.palette.primary,
+    secondaryColor: brandKit.palette.secondary ?? themeBrand?.secondaryColor,
+    accentColor: brandKit.palette.accent,
+    backgroundColor: brandKit.palette.background,
+    textColor: brandKit.palette.text,
+  };
 }
 
 function truncate(text: string, maxLength: number): string {
@@ -65,7 +90,9 @@ function buildHomeSection(type: SectionType, input: AssembleInput, facts: SiteFa
         props: { headline: input.content.heroHeadline, subhead: input.content.heroSubhead, ctaLabel: computeCtaLabel(facts, input.family) },
       };
     case "featuredProducts":
-      return { type, props: { title: "Signature Dishes", eyebrow: "Favourites" } };
+      return input.brandKit
+        ? { type, props: { title: `Featured ${input.brandKit.vocabulary.itemPlural}`, eyebrow: "Featured" } }
+        : { type, props: { title: "Signature Dishes", eyebrow: "Favourites" } };
     case "signatureDishes":
       return { type, props: { intro: input.content.signatureDishesIntro, items: pickSignatureDishes(input.ingest.menu) } };
     case "aboutTeaser":
@@ -187,7 +214,12 @@ export function buildSiteDefinition(input: AssembleInput): SiteDefinition {
     header: input.theme.presentation?.header,
     footer: input.theme.presentation?.footer,
     productPresentation: input.theme.presentation?.productPresentation,
-    brandSettings: input.theme.presentation?.brandSettings,
+    // Sprint 5.5 — Brand Kit owns color (palette → brandSettings) and vocabulary;
+    // both are omitted (undefined) when there is no Brand Kit, keeping existing
+    // output byte-identical.
+    brandSettings: resolveBrandSettings(input.theme, input.brandKit),
+    vocabulary: input.brandKit?.vocabulary,
+    aiAssets: input.aiAssets,
     pages: [
       buildHomePage(input, facts, city),
       buildMenuPage(input, city),

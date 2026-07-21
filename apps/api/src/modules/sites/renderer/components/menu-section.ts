@@ -1,3 +1,4 @@
+import { catalogImageCoverage, selectCatalogLayout } from "../coverage";
 import { escapeHtml } from "../html-escape";
 import { renderImageOrFallback } from "../image-fallback";
 import { formatPrice, type RenderContext, type LiveMenuCategory } from "../render-context";
@@ -236,10 +237,19 @@ export function renderMenuSection(section: SectionBlock, ctx: RenderContext): st
 
   const nav = categoryNav(categoriesWithVisibleItems, navStyle);
 
-  if (section.variant === "editorial-menu") return renderEditorialMenu(categoriesWithVisibleItems, outOfStock, nav);
-  if (section.variant === "editorial-rows") return renderEditorialRows(categoriesWithVisibleItems, outOfStock, nav);
-  if (section.variant === "warm-cards") return renderWarmCards(categoriesWithVisibleItems, outOfStock, nav);
-  if (section.variant === "bold-grid") return renderBoldGrid(categoriesWithVisibleItems, outOfStock, nav);
+  // Sprint 5 · T1 — Coverage-Aware Layout. A photo-forward grid (warm-cards /
+  // bold-grid) whose live catalog has too few item photos is presented as the
+  // premium typographic menu instead, so a photo-less catalog reads as an
+  // intentional à-la-carte design rather than a wall of placeholder tiles.
+  // Computed from ctx.liveMenu, so the layout flips automatically as the owner
+  // adds photos — no regeneration. Every other variant is returned unchanged.
+  const coverage = catalogImageCoverage(categoriesWithVisibleItems);
+  const variant = selectCatalogLayout(section.variant, coverage);
+
+  if (variant === "editorial-menu") return renderEditorialMenu(categoriesWithVisibleItems, outOfStock, nav);
+  if (variant === "editorial-rows") return renderEditorialRows(categoriesWithVisibleItems, outOfStock, nav);
+  if (variant === "warm-cards") return renderWarmCards(categoriesWithVisibleItems, outOfStock, nav);
+  if (variant === "bold-grid") return renderBoldGrid(categoriesWithVisibleItems, outOfStock, nav);
 
   const priceStyleAttr = priceStyle === "bold" ? "font-weight:800;font-size:var(--step-0);" : priceStyle === "minimal" ? "font-weight:400;color:var(--color-text-700);" : "font-weight:600;";
 

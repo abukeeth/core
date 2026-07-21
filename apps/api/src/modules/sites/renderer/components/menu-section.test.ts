@@ -99,8 +99,12 @@ describe("renderMenuSection", () => {
 });
 
 describe("renderMenuSection — §Website Builder design-system category layouts", () => {
+  // Sprint 5 · T1 — these tests assert how each *photo-forward* variant renders,
+  // so the item carries an image (100% coverage). Below the coverage threshold a
+  // photo grid is intentionally re-routed to the typographic menu (see the
+  // "Coverage-Aware Layout" block); that behaviour is tested there, not here.
   const menu: RenderContext["liveMenu"] = [
-    { name: "Mains", items: [{ name: "Spaghetti", description: "Handmade pasta", priceCents: 1500, isAvailable: true }] },
+    { name: "Mains", items: [{ name: "Spaghetti", description: "Handmade pasta", priceCents: 1500, isAvailable: true, imageUrl: "/assets/spaghetti.png" }] },
   ];
 
   it("editorial-rows: renders a full-width alternating row layout with no card boxes", () => {
@@ -141,5 +145,61 @@ describe("renderMenuSection — §Website Builder design-system category layouts
       expect(html).not.toContain("<script>x</script>");
       expect(html).not.toContain("<img onerror=alert(1)>");
     }
+  });
+});
+
+describe("renderMenuSection — Sprint 5 · T1 Coverage-Aware Layout", () => {
+  /** One category of `total` items, the first `withImage` of which carry a photo. */
+  function menuWithCoverage(total: number, withImage: number): RenderContext["liveMenu"] {
+    return [
+      {
+        name: "Mains",
+        items: Array.from({ length: total }, (_, i) => ({
+          name: `Item ${i}`,
+          priceCents: 100,
+          isAvailable: true,
+          imageUrl: i < withImage ? `/assets/item-${i}.png` : undefined,
+        })),
+      },
+    ];
+  }
+
+  // Distinctive markup markers for each layout.
+  const EDITORIAL = "À la carte"; // renderEditorialMenu eyebrow (typographic)
+  const WARM_CARD = "box-shadow:var(--shadow)"; // renderWarmCards card box
+  const BOLD_CELL = "border:2px solid var(--color-surface-900)"; // renderBoldGrid cell
+
+  it("0% coverage: a photo-forward grid renders the premium typographic menu", () => {
+    const html = renderMenuSection({ type: "menu", variant: "warm-cards", props: {} }, ctx(menuWithCoverage(4, 0)));
+    expect(html).toContain(EDITORIAL);
+    expect(html).not.toContain(WARM_CARD);
+  });
+
+  it("20% coverage: still below threshold → typographic", () => {
+    const html = renderMenuSection({ type: "menu", variant: "bold-grid", props: {} }, ctx(menuWithCoverage(5, 1)));
+    expect(html).toContain(EDITORIAL);
+    expect(html).not.toContain(BOLD_CELL);
+  });
+
+  it("50% coverage: at/above threshold → the theme's photo grid is kept", () => {
+    const html = renderMenuSection({ type: "menu", variant: "warm-cards", props: {} }, ctx(menuWithCoverage(2, 1)));
+    expect(html).toContain(WARM_CARD);
+    expect(html).not.toContain(EDITORIAL);
+  });
+
+  it("100% coverage: the theme's photo grid is kept", () => {
+    const html = renderMenuSection({ type: "menu", variant: "bold-grid", props: {} }, ctx(menuWithCoverage(3, 3)));
+    expect(html).toContain(BOLD_CELL);
+    expect(html).not.toContain(EDITORIAL);
+  });
+
+  it("an already-typographic variant is unaffected by coverage", () => {
+    const html = renderMenuSection({ type: "menu", variant: "editorial-menu", props: {} }, ctx(menuWithCoverage(4, 4)));
+    expect(html).toContain(EDITORIAL);
+  });
+
+  it("the default (undefined) layout is never re-routed, preserving legacy output", () => {
+    const html = renderMenuSection({ type: "menu", props: {} }, ctx(menuWithCoverage(4, 0)));
+    expect(html).not.toContain(EDITORIAL);
   });
 });
