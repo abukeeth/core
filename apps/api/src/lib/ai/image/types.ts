@@ -1,5 +1,3 @@
-import type { AIMediaType } from "../types";
-
 /**
  * Sprint 5.5 — provider-agnostic AI image generation.
  *
@@ -23,10 +21,13 @@ export interface ImageGenerationRequest {
   seed?: number;
 }
 
+/** Output media types a backend may return (broader than vision *input* types — includes SVG). */
+export type GeneratedMediaType = "image/png" | "image/jpeg" | "image/webp" | "image/svg+xml";
+
 export interface GeneratedImage {
   /** Raw image bytes — stored in our own object storage, never hotlinked. */
   data: Buffer;
-  mediaType: AIMediaType;
+  mediaType: GeneratedMediaType;
 }
 
 /** A single image backend (Stability, OpenAI, …). Kept intentionally minimal. */

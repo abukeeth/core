@@ -44,10 +44,13 @@ export class InMemoryBrandAssetStore implements BrandAssetStore {
     return this.assets.get(cacheKey) ?? null;
   }
 
-  async put(cacheKey: string, _image: GeneratedImage, meta: { businessId: string; surface: string; altText?: string }): Promise<StoredBrandAsset> {
-    const storageKey = `brand-assets/${cacheKey}.png`;
+  async put(cacheKey: string, image: GeneratedImage, meta: { businessId: string; surface: string; altText?: string }): Promise<StoredBrandAsset> {
+    const storageKey = `brand-assets/${cacheKey}`;
+    // Self-contained data URI so the in-memory store renders without a server —
+    // used by tests and demos. The production store persists bytes to object
+    // storage and returns a hosted URL (see persistent-asset-store.ts).
     const asset: StoredBrandAsset = {
-      url: `/assets/${storageKey}`,
+      url: `data:${image.mediaType};base64,${image.data.toString("base64")}`,
       storageKey,
       source: "ai_generated",
       cacheKey,

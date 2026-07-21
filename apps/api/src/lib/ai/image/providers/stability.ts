@@ -1,5 +1,4 @@
 import { getOptionalEnv, getStringEnv } from "../../../../config/env";
-import type { AIMediaType } from "../../types";
 import { ImageGenerationError, type GeneratedImage, type ImageAspect, type ImageGenerationRequest, type ImageProvider } from "../types";
 
 /**
@@ -64,6 +63,6 @@ export class StabilityImageProvider implements ImageProvider {
     if (data.length === 0) {
       throw new ImageGenerationError("provider_error", "Stability returned an empty image", true);
     }
-    return { data, mediaType: "image/png" as AIMediaType };
+    return { data, mediaType: "image/png" };
   }
 }

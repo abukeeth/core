@@ -7,6 +7,7 @@ import { buildSiteDefinition } from "./assemble";
 import { analyzeBrand } from "./brand-analysis";
 import { generateBrandAssets } from "./branding/asset-generator";
 import { generateBrandKit } from "./branding/brand-generator";
+import { createBrandAssetStore } from "./branding/persistent-asset-store";
 import { adaptToneForVariation, generateContentCore } from "./content-generator";
 import { ingestRestaurantData } from "./ingest";
 import { scoreSiteDefinition } from "./scoring/score-aggregator";
@@ -88,11 +89,17 @@ class InProcessGenerationJobRunner implements GenerationJobRunner {
       // a safe no-op that falls back to stock/SVG when the AI image layer is off
       // or a provider refuses. Never product tiles or branded products.
       const brandKit = await generateBrandKit({ ingest, brandProfile, vertical: ingest.businessType });
-      const brandAssets = await generateBrandAssets({
-        brandKit,
-        businessId: site.restaurantId,
-        categories: [...new Set((ingest.menu ?? []).map((item) => item.categoryName))],
-      });
+      const brandAssets = await generateBrandAssets(
+        {
+          brandKit,
+          businessId: site.restaurantId,
+          categories: [...new Set((ingest.menu ?? []).map((item) => item.categoryName))],
+        },
+        // Persistent, object-storage-backed store so generated assets survive
+        // restarts and are reused across variations/renders (no-op while the AI
+        // image flag is off).
+        { store: createBrandAssetStore() },
+      );
       const aiAssets = { heroUrl: brandAssets.heroUrl, categoryImages: brandAssets.categoryImages, marketingUrl: brandAssets.marketingUrl };
 
       await this.setStage(jobId, "ASSEMBLY");

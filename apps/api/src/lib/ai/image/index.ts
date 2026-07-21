@@ -1,4 +1,5 @@
 import { getBooleanEnv, getNumberEnv, getStringEnv } from "../../../config/env";
+import { LocalImageProvider } from "./providers/local";
 import { StabilityImageProvider } from "./providers/stability";
 import { ImageGenerationError, type GeneratedImage, type ImageGenerationRequest, type ImageProvider } from "./types";
 
@@ -24,6 +25,10 @@ export function isImageGenerationEnabled(): boolean {
 type ImageProviderFactory = () => ImageProvider;
 const BACKENDS: Record<string, ImageProviderFactory> = {
   stability: () => new StabilityImageProvider(),
+  // Real, self-contained, keyless backend for dev / offline / demo. Selected via
+  // AI_IMAGE_BACKEND=local (or per-vertical routes); swappable for a hosted
+  // provider with no application-code change.
+  local: () => new LocalImageProvider(),
 };
 
 /** Parse `AI_IMAGE_ROUTES` ("VAPE_SHOP=stability,COFFEE_SHOP=openai") into a map. */

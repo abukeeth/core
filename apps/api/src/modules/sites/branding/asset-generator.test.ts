@@ -81,6 +81,32 @@ describe("generateBrandAssets", () => {
     expect(result.heroUrl).toBeUndefined();
   });
 
+  it("RATE LIMITED (429) omits the surface and falls back", async () => {
+    const generate = vi.fn(async () => {
+      throw new ImageGenerationError("rate_limited", "429", true);
+    });
+    const result = await generateBrandAssets({ brandKit: brandKit(), businessId: "b1", categories: ["Disposables"] }, { isEnabled: enabled, generate, store: new InMemoryBrandAssetStore() });
+    expect(result.heroUrl).toBeUndefined();
+    expect(result.generated).toBe(0);
+  });
+
+  it("shares assets across all three variations (generated once, reused after)", async () => {
+    const generate = vi.fn(async () => PNG);
+    const store = new InMemoryBrandAssetStore();
+    const input = { brandKit: brandKit(), businessId: "b1", categories: ["Disposables", "E-Liquids"] };
+
+    const v1 = await generateBrandAssets(input, { isEnabled: enabled, generate, store });
+    const callsAfterV1 = generate.mock.calls.length;
+    const v2 = await generateBrandAssets(input, { isEnabled: enabled, generate, store });
+    const v3 = await generateBrandAssets(input, { isEnabled: enabled, generate, store });
+
+    expect(generate.mock.calls.length).toBe(callsAfterV1); // variations 2 & 3 generate nothing
+    expect(v2.generated).toBe(0);
+    expect(v3.generated).toBe(0);
+    expect(v2.heroUrl).toBe(v1.heroUrl); // identical assets across variations
+    expect(v3.categoryImages).toEqual(v1.categoryImages);
+  });
+
   it("respects the per-business cost CAP", async () => {
     const generate = vi.fn(async () => PNG);
     const result = await generateBrandAssets(
