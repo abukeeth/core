@@ -1,3 +1,4 @@
+import { resolveCategoryImage } from "../asset-resolver";
 import { escapeHtml } from "../html-escape";
 import { ambientPlaceholder } from "../placeholder-imagery";
 import type { RenderContext } from "../render-context";
@@ -25,7 +26,9 @@ export function renderFeaturedCategories(section: SectionBlock, ctx: RenderConte
   const cards = categories
     .map((category) => {
       const count = category.items.filter((i) => i.isAvailable).length;
-      const img = category.imageUrl ?? ambientPlaceholder(category.name);
+      // Impression resolver: real → AI (Sprint 5.5) → curated stock; the SVG
+      // floor (ambientPlaceholder) is applied here when the chain yields nothing.
+      const img = resolveCategoryImage(category.name, category.imageUrl, ctx) ?? ambientPlaceholder(category.name);
       return `<a href="/menu#${slugifyCategory(category.name)}" class="cat-card" style="position:relative;display:block;aspect-ratio:4/5;border-radius:2px;overflow:hidden;text-decoration:none;color:#fff;isolation:isolate;">
       <img src="${escapeHtml(img)}" alt="${escapeHtml(category.name)}" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:-2;" />
       <span aria-hidden="true" style="position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg, rgba(10,7,5,0.05) 30%, rgba(10,7,5,0.72) 100%);"></span>
