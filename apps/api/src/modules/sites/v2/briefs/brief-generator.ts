@@ -95,7 +95,14 @@ interface Angle {
   photoTreatment: string;
   emphasis: string;
   trust: string[];
-  midSections: string[];
+  /** The conversion philosophy — it OWNS the whole page program below. */
+  philosophy: string;
+  /** Complete home program (hero first, footer appended by the composer):
+   * different angles have genuinely different information hierarchies —
+   * catalog-first vs story-first vs visit-first — different lengths, and
+   * their own CTA cadence. */
+  program: string[];
+  hero: { scale: "compact" | "standard" | "tall" | "full"; alignment: "left" | "center" | "right" };
 }
 
 function anglesFor(u: BusinessUnderstanding, random: () => number): Angle[] {
@@ -122,7 +129,9 @@ function anglesFor(u: BusinessUnderstanding, random: () => number): Angle[] {
       photoTreatment: "reportage process photography, honest and unstaged",
       emphasis: "the method behind each item",
       trust: ["Made in-house daily"],
-      midSections: ["aboutTeaser", "signatureDishes", "features"],
+      philosophy: "editorial: the story earns the sale — method before catalog",
+      program: ["customTextImage", "signatureDishes", "menu", "hoursLocation"],
+      hero: { scale: "tall", alignment: "left" },
     });
   }
 
@@ -141,7 +150,9 @@ function anglesFor(u: BusinessUnderstanding, random: () => number): Angle[] {
       photoTreatment: "studio-lit portraits of the finished piece, clean backdrops",
       emphasis: "the occasion line first, daily items second",
       trust: ["Order-ahead promise", "Serves guidance on every item"],
-      midSections: ["signatureDishes", "reviews", "aboutTeaser"],
+      philosophy: "concierge: reassure, then book the date — one ask, made early",
+      program: ["featuredProducts", "ctaBanner", "aboutTeaser", "contactInfo"],
+      hero: { scale: "full", alignment: "center" },
     });
   }
 
@@ -159,7 +170,9 @@ function anglesFor(u: BusinessUnderstanding, random: () => number): Angle[] {
       photoTreatment: "candle-warm low-key tabletop photography",
       emphasis: "pairings and shareables over single items",
       trust: ["Open late"],
-      midSections: ["signatureDishes", "gallery", "aboutTeaser"],
+      philosophy: "ambiance: sell the evening, not the item — mood first, hours prominent",
+      program: ["featuredProducts", "customTextImage", "hoursLocation", "ctaBanner"],
+      hero: { scale: "tall", alignment: "right" },
     });
   }
 
@@ -177,7 +190,9 @@ function anglesFor(u: BusinessUnderstanding, random: () => number): Angle[] {
       photoTreatment: "hard single-light product photography, true to color",
       emphasis: "stock states, compatibility, speed",
       trust: ["Always in stock", "Fresh inventory"],
-      midSections: ["featuredCategories", "features", "aboutTeaser"],
+      philosophy: "conversion: the catalog IS the homepage — compact hero, buy within one scroll",
+      program: ["menu", "features", "ctaBanner", "hoursLocation"],
+      hero: { scale: "compact", alignment: "left" },
     });
   }
 
@@ -196,7 +211,9 @@ function anglesFor(u: BusinessUnderstanding, random: () => number): Angle[] {
       photoTreatment: "single-subject hero photography, shallow depth",
       emphasis: `${flagship} first; everything else supports it`,
       trust: [`Known for ${flagship}`],
-      midSections: ["signatureDishes", "reviews", "features"],
+      philosophy: "spotlight: one product, one argument — everything else is an appendix",
+      program: ["signatureDishes", "customTextImage", "ctaBanner", "menu"],
+      hero: { scale: "full", alignment: "center" },
     },
     {
       key: "neighborhood",
@@ -211,7 +228,9 @@ function anglesFor(u: BusinessUnderstanding, random: () => number): Angle[] {
       photoTreatment: "natural-light lifestyle photography, people welcome",
       emphasis: "familiarity — favorites and staff picks",
       trust: ["Independent & local"],
-      midSections: ["featuredCategories", "aboutTeaser", "gallery"],
+      philosophy: "community: visit-us before sell-to-us — hours and place lead, catalog follows",
+      program: ["hoursLocation", "featuredCategories", "customTextImage", "ctaBanner"],
+      hero: { scale: "standard", alignment: "center" },
     },
     {
       key: "speed",
@@ -226,7 +245,9 @@ function anglesFor(u: BusinessUnderstanding, random: () => number): Angle[] {
       photoTreatment: "bright clean daylight, overhead order-ready shots",
       emphasis: "speed badges and prep times beside items",
       trust: ["Ready in minutes"],
-      midSections: ["featuredCategories", "features", "hoursLocation"],
+      philosophy: "utility: answer 'what can I get right now' immediately — no storytelling",
+      program: ["menu", "features", "hoursLocation"],
+      hero: { scale: "compact", alignment: "center" },
     },
     {
       key: "range",
@@ -241,11 +262,27 @@ function anglesFor(u: BusinessUnderstanding, random: () => number): Angle[] {
       photoTreatment: "overhead abundance photography, full-table spreads",
       emphasis: "category navigation as the primary journey",
       trust: ["Something for everyone"],
-      midSections: ["featuredCategories", "signatureDishes", "features"],
+      philosophy: "discovery: the map is the message — categories as the primary navigation",
+      program: ["featuredCategories", "menu", "ctaBanner", "aboutTeaser"],
+      hero: { scale: "standard", alignment: "center" },
     },
   );
 
-  return pickDistinct(pool, 3, random);
+  // Three angles whose OPENING HIERARCHY differs: the section right after the
+  // hero must be pairwise different, so the three storefronts diverge from the
+  // very first scroll — not just in skin.
+  const shuffled = pickDistinct(pool, pool.length, random);
+  const chosen: Angle[] = [];
+  for (const candidate of shuffled) {
+    if (chosen.length === 3) break;
+    if (chosen.some((a) => a.program[0] === candidate.program[0])) continue;
+    chosen.push(candidate);
+  }
+  for (const candidate of shuffled) {
+    if (chosen.length === 3) break;
+    if (!chosen.includes(candidate)) chosen.push(candidate);
+  }
+  return chosen;
 }
 
 // ---------------------------------------------------------------------------
@@ -283,9 +320,9 @@ function proceduralBriefs(u: BusinessUnderstanding, seedText: string): CreativeB
     const brand = hslToHex(hue, 0.55, groundClass === "dark" ? 0.55 : 0.34);
     const accent = hslToHex((hue + 40) % 360, 0.65, groundClass === "dark" ? 0.62 : 0.45);
 
-    const home = ["hero", ...angle.midSections.filter((s) => sections.has(s)), "hoursLocation", "ctaBanner", "footer"].filter(
-      (s, idx, arr) => arr.indexOf(s) === idx,
-    );
+    // The angle's philosophy OWNS the page program (hierarchy, rhythm, CTA
+    // cadence, length) — the composer only guarantees hero/footer bookends.
+    const home = ["hero", ...angle.program.filter((s) => sections.has(s)), "footer"].filter((s, idx, arr) => arr.indexOf(s) === idx);
 
     return creativeBriefSchema.parse({
       schemaVersion: 1,
@@ -311,7 +348,14 @@ function proceduralBriefs(u: BusinessUnderstanding, seedText: string): CreativeB
         brand,
         accent,
       },
-      heroConcept: { composition: heroes[i], headline: angle.headline, subhead: angle.subhead, imageSubject: angle.photoSubjects[0] },
+      heroConcept: {
+        composition: heroes[i],
+        headline: angle.headline,
+        subhead: angle.subhead,
+        imageSubject: angle.photoSubjects[0],
+        scale: angle.hero.scale,
+        alignment: angle.hero.alignment,
+      },
       productPresentation: { layout: layouts[i], emphasis: angle.emphasis },
       shape: {
         buttonStyle: (["rounded", "pill", "square"] as const)[Math.floor(random() * 3)],
@@ -319,7 +363,7 @@ function proceduralBriefs(u: BusinessUnderstanding, seedText: string): CreativeB
         shadowIntensity: (["none", "soft", "medium"] as const)[Math.floor(random() * 3)],
       },
       conversionStrategy: { primaryCta: angle.cta, trustSignals: angle.trust },
-      structure: { home },
+      structure: { home, philosophy: angle.philosophy },
       origin: "procedural",
     });
   });
@@ -349,11 +393,13 @@ function buildPrompt(u: BusinessUnderstanding): string {
     `schemaVersion:1, id, centralIdea, targetCustomer, brandPersonality[2-6], valueProposition, differentiator,`,
     `copyVoice{voice,sampleHeadline,sampleCta}, photography{treatment,lighting,backdrop,subjects[]},`,
     `typography{display,body}, colorLogic{rationale,ground{hex,luminanceClass:dark|light|tinted},ink,brand,accent},`,
-    `heroConcept{composition,headline,subhead,imageSubject}, productPresentation{layout,emphasis},`,
+    `heroConcept{composition,headline,subhead,imageSubject,scale:compact|standard|tall|full,alignment:left|center|right},`,
+    `productPresentation{layout,emphasis},`,
     `shape{buttonStyle:rounded|pill|square,borderRadius:0-32,shadowIntensity:none|soft|medium|strong},`,
-    `conversionStrategy{primaryCta,trustSignals[],secondaryPath?}, structure{home[]}.`,
+    `conversionStrategy{primaryCta,trustSignals[],secondaryPath?}, structure{home[],philosophy}.`,
     `All hex values as #RRGGBB. Headlines must be specific to this business (name real products).`,
     `VISUAL BALANCE RULE: at most ONE of the three briefs may use a dark ground, and only when the business evidence truly supports it; never use black-and-gold as a shortcut for premium. Favor light, bright, cream, or color-led grounds.`,
+    `EXPERIENTIAL DIVERSITY RULE (hard): each agency must commit to a DIFFERENT conversion philosophy (e.g. editorial story-first, conversion catalog-first, community visit-first, product spotlight, discovery) and structure.home must express it: the section immediately after "hero" must be different in all three briefs, section counts should differ, CTA cadence is yours (a brief may omit ctaBanner entirely or place it twice), and hero scale/alignment should match the philosophy (a conversion-first page opens compact; an editorial one may open full). "customTextImage" is a story chapter you may use. Do NOT converge on hero → products → why-us.`,
   ].join("\n");
 }
 

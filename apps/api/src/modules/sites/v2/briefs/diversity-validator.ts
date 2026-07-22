@@ -87,14 +87,28 @@ function jaccard(a: string[], b: string[]): number {
   return union === 0 ? 0 : shared / union;
 }
 
+/** The first CONTENT section — what the visitor meets right after the hero
+ * (compliance gates and the hero itself don't count as content). This is the
+ * information hierarchy's opening move. */
+function openingSection(brief: CreativeBrief): string | undefined {
+  return brief.structure.home.find((s) => s !== "hero" && s !== "ageGate");
+}
+
 function scorePair(a: CreativeBrief, b: CreativeBrief): PairReport {
   const hardFailures: string[] = [];
   if (a.heroConcept.composition === b.heroConcept.composition) hardFailures.push("hero composition identical");
   if (a.typography.display === b.typography.display) hardFailures.push("display typeface identical");
   if (!groundsDiffer(a, b)) hardFailures.push("grounds too similar (luminance + hue)");
+  // Experiential diversity: the page must diverge from the very first scroll.
+  // "Same opening, different colors" is a skin, not a different storefront.
+  if (openingSection(a) !== undefined && openingSection(a) === openingSection(b)) {
+    hardFailures.push(`opening hierarchy identical (both lead with ${openingSection(a)})`);
+  }
 
+  const contentLength = (brief: CreativeBrief) => brief.structure.home.filter((s) => s !== "ageGate").length;
   const scored: [string, boolean][] = [
-    ["section order", sectionOrderDistance(a.structure.home, b.structure.home) >= 0.4],
+    ["section order", sectionOrderDistance(a.structure.home, b.structure.home) >= 0.45],
+    ["page rhythm (length)", Math.abs(contentLength(a) - contentLength(b)) >= 1],
     [
       "photography",
       overlapRatio(words(`${a.photography.lighting} ${a.photography.backdrop}`), words(`${b.photography.lighting} ${b.photography.backdrop}`)) < 0.5,
@@ -106,7 +120,7 @@ function scorePair(a: CreativeBrief, b: CreativeBrief): PairReport {
   const scoredPassed = scored.filter(([, ok]) => ok).map(([name]) => name);
   const scoredFailed = scored.filter(([, ok]) => !ok).map(([name]) => name);
 
-  return { pair: [a.id, b.id], hardFailures, scoredPassed, scoredFailed, pass: hardFailures.length === 0 && scoredPassed.length >= 3 };
+  return { pair: [a.id, b.id], hardFailures, scoredPassed, scoredFailed, pass: hardFailures.length === 0 && scoredPassed.length >= 4 };
 }
 
 export function validateDiversity(briefs: CreativeBrief[]): DiversityReport {

@@ -133,6 +133,11 @@ export const creativeBriefSchema = z.object({
     headline: z.string().min(1),
     subhead: z.string().min(1),
     imageSubject: z.string().min(1),
+    /** Page-rhythm levers: how much of the first viewport the hero claims, and
+     * where its content sits. A conversion-first storefront may open compact
+     * and get to the catalog immediately; an editorial one may open full-bleed. */
+    scale: z.enum(["compact", "standard", "tall", "full"]).default("standard"),
+    alignment: z.enum(["left", "center", "right"]).default("center"),
   }),
   productPresentation: z.object({
     layout: productLayoutSchema,
@@ -152,6 +157,10 @@ export const creativeBriefSchema = z.object({
   structure: z.object({
     /** Ordered home sections, chosen freely from the renderer's registry. */
     home: z.array(z.string().min(1)).min(3),
+    /** The conversion philosophy behind this hierarchy (inspection only) —
+     * free text, e.g. "editorial: story before catalog", "conversion:
+     * catalog within one scroll", "community: visit-us before selling". */
+    philosophy: z.string().min(1).default("balanced"),
   }),
   /** Provenance for telemetry/inspection — never a rendering decision. */
   origin: z.enum(["ai", "procedural"]).optional(),

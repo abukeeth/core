@@ -78,6 +78,32 @@ describe("generateV2 — the full theme-free pipeline", () => {
     expect(new Set(orders).size).toBe(3);
   });
 
+  it("EXPERIENTIAL diversity: opening hierarchy, philosophy, hero rhythm and page length all differ", async () => {
+    const result = await generateV2({ ingest: DELI, seed: "s1" });
+    const openings = result.storefronts.map(
+      (s) => s.definition.pages[0].sections.map((x) => x.type).filter((t) => t !== "hero" && t !== "ageGate")[0],
+    );
+    expect(new Set(openings).size).toBe(3); // three different first scrolls
+    const philosophies = result.briefs.map((b) => b.structure.philosophy);
+    expect(new Set(philosophies).size).toBe(3);
+    const heights = result.storefronts.map((s) => s.definition.pages[0].sections.find((x) => x.type === "hero")?.props.height);
+    expect(new Set(heights).size).toBeGreaterThanOrEqual(2); // rhythm varies from the first viewport
+    const lengths = result.storefronts.map((s) => s.definition.pages[0].sections.length);
+    expect(new Set(lengths).size).toBeGreaterThanOrEqual(2); // not three equally-long pages
+  });
+
+  it("CTA cadence is brief-owned: a utility philosophy may ship WITHOUT a cta banner", async () => {
+    // Across seeds, at least one generated storefront omits ctaBanner entirely —
+    // proof the planner never injects a shared rhythm.
+    const seeds = ["s1", "s2", "s3", "s4", "s5"];
+    let sawOmitted = false;
+    for (const seed of seeds) {
+      const { storefronts } = await generateV2({ ingest: DELI, seed });
+      if (storefronts.some((s) => !s.definition.pages[0].sections.some((x) => x.type === "ctaBanner"))) sawOmitted = true;
+    }
+    expect(sawOmitted).toBe(true);
+  });
+
   it("copy is independent per storefront — no shared headline, subhead, or about text", async () => {
     const { storefronts } = await generateV2({ ingest: DELI, seed: "s1" });
     for (const field of ["heroHeadline", "heroSubhead", "aboutStory"] as const) {

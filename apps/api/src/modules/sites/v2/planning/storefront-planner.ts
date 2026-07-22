@@ -57,11 +57,25 @@ function sectionProps(
   ingest: IngestData,
 ): { variant?: string; props: Record<string, unknown> } {
   switch (type) {
-    case "hero":
+    case "hero": {
+      // The brief's philosophy owns the page rhythm: hero scale + alignment
+      // change how the first viewport behaves (compact conversion vs full editorial).
+      const HEIGHT: Record<string, string> = { compact: "small", standard: "medium", tall: "large", full: "full" };
       return {
         variant: brief.heroConcept.composition,
-        props: { headline: copy.heroHeadline, subhead: copy.heroSubhead, ctaLabel: brief.conversionStrategy.primaryCta },
+        props: {
+          headline: copy.heroHeadline,
+          subhead: copy.heroSubhead,
+          ctaLabel: brief.conversionStrategy.primaryCta,
+          height: HEIGHT[brief.heroConcept.scale] ?? "medium",
+          alignment: brief.heroConcept.alignment,
+        },
       };
+    }
+    case "customTextImage":
+      // The story chapter — the brief's central idea told in place, in this
+      // storefront's own voice (never a shared master paragraph).
+      return { props: { heading: copy.storyHeading, body: copy.storyBody, imagePosition: brief.heroConcept.alignment === "left" ? "right" : "left" } };
     case "featuredProducts":
       return { props: { title: copy.featuredTitle, eyebrow: copy.featuredEyebrow } };
     case "featuredCategories":
@@ -112,12 +126,10 @@ export function planStorefront(input: PlanStorefrontInput): StorefrontPlan {
   });
   if (!u.catalog.hasPhotos) home = home.filter((s) => s !== "gallery");
 
-  // 3. Conversion strategy places the CTA banner: a secondaryPath keeps it
-  //    late (a closing ask); without one it reinforces mid-page.
-  if (!home.includes("ctaBanner" as SectionType) && ingest.menu.length > 0) {
-    const at = brief.conversionStrategy.secondaryPath ? home.length - 1 : Math.min(3, home.length - 1);
-    home = [...home.slice(0, at), "ctaBanner" as SectionType, ...home.slice(at)];
-  }
+  // 3. CTA cadence belongs to the BRIEF: a philosophy may omit the banner
+  //    entirely (pure-utility pages) or place it twice — the planner never
+  //    injects one, because a hidden "always add a CTA band" rule is exactly
+  //    the kind of shared rhythm the three storefronts must not have.
 
   // 4. Compliance is non-negotiable per vertical, never per design.
   if (AGE_GATED_VERTICALS.has(u.identity.resolvedVertical) && !home.includes("ageGate" as SectionType)) {

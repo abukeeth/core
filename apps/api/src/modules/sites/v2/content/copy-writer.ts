@@ -23,6 +23,9 @@ export interface StorefrontCopy {
   signatureIntro: string;
   galleryIntro: string;
   ctaBannerLabel: string;
+  /** The in-page story chapter (customTextImage) — the brief's central idea told in place. */
+  storyHeading: string;
+  storyBody: string;
 }
 
 const copySchema = z.object({
@@ -35,6 +38,8 @@ const copySchema = z.object({
   signatureIntro: z.string().min(1).max(160),
   galleryIntro: z.string().min(1).max(160),
   ctaBannerLabel: z.string().min(1).max(40),
+  storyHeading: z.string().min(1).max(60),
+  storyBody: z.string().min(1).max(420),
 });
 
 export interface CopyWriterDeps {
@@ -70,6 +75,11 @@ export function proceduralCopy(u: BusinessUnderstanding, brief: CreativeBrief): 
     signatureIntro: clean(`${brief.valueProposition}`, 160),
     galleryIntro: clean(`A look at ${u.identity.name.toLowerCase().startsWith("the") ? u.identity.name : `${u.identity.name}`}, up close.`, 160),
     ctaBannerLabel: clean(brief.conversionStrategy.primaryCta, 40),
+    storyHeading: clean(toTitle(brief.centralIdea.split(":")[0] ?? brief.centralIdea), 60),
+    storyBody: clean(
+      `${brief.centralIdea.split(":").slice(-1)[0].trim().replace(/^./, (c) => c.toUpperCase()).replace(/\.$/, "")}. ${flagship} is where it shows${topCategory ? `, and ${topCategory.toLowerCase()} is where to start` : ""}.`,
+      420,
+    ),
   });
 }
 
@@ -86,7 +96,7 @@ function buildPrompt(u: BusinessUnderstanding, brief: CreativeBrief): string {
     JSON.stringify({ name: u.identity.name, positioning: u.identity.positioning, flagships: u.catalog.flagshipProducts, categories: u.catalog.categories.map((c) => c.name) }),
     `Sample headline for tone: "${brief.copyVoice.sampleHeadline}". Primary CTA: "${brief.conversionStrategy.primaryCta}".`,
     `NEVER use the words: theme, template, variation, identity, brief, archetype, AI.`,
-    `Reply ONLY with JSON: {"tagline","heroHeadline","heroSubhead","aboutStory","featuredTitle","featuredEyebrow","signatureIntro","galleryIntro","ctaBannerLabel"}.`,
+    `Reply ONLY with JSON: {"tagline","heroHeadline","heroSubhead","aboutStory","featuredTitle","featuredEyebrow","signatureIntro","galleryIntro","ctaBannerLabel","storyHeading","storyBody"}. storyHeading/storyBody are an in-page story chapter telling the direction's central idea with real product names.`,
   ].join("\n");
 }
 
