@@ -15,13 +15,18 @@ vi.mock("../website/variations/[id]/device-preview", () => ({
 }));
 
 import { DesignReviewScreen } from "./design-review-screen";
+import { storefrontConcept } from "@/lib/storefront-concepts";
 import type { DesignCandidate } from "./use-restaurant-builder";
 
-// VAPE_SHOP so concept names resolve to the curated trio (Flagship/Showcase/Corner Shop).
+const NAME = "Easy Tobacco Shop";
+const REC_NAME = storefrontConcept(NAME, 0).name; // "Easy Tobacco Prestige"
+const MID_NAME = storefrontConcept(NAME, 1).name; // "Easy Tobacco <middle tier>"
+const LAST_NAME = storefrontConcept(NAME, 2).name; // "Easy Tobacco Signature"
+
 const CANDIDATES: DesignCandidate[] = [
-  { id: "v-mod", styleFamily: "MODERN", businessType: "VAPE_SHOP", colorSeed: "#111", palette: null, tagline: "M", cuisine: "n/a", overall: 80 },
-  { id: "v-best", styleFamily: "LUXURY", businessType: "VAPE_SHOP", colorSeed: "#222", palette: { primary: "#1D3557" }, tagline: "Bold & premium", cuisine: "n/a", overall: 92 },
-  { id: "v-min", styleFamily: "MINIMAL", businessType: "VAPE_SHOP", colorSeed: "#333", palette: null, tagline: "Mi", cuisine: "n/a", overall: 75 },
+  { id: "v-mod", styleFamily: "MODERN", businessType: "VAPE_SHOP", restaurantName: NAME, colorSeed: "#111", palette: null, tagline: "M", cuisine: "n/a", overall: 80 },
+  { id: "v-best", styleFamily: "LUXURY", businessType: "VAPE_SHOP", restaurantName: NAME, colorSeed: "#222", palette: { primary: "#1D3557" }, tagline: "Bold & premium", cuisine: "n/a", overall: 92 },
+  { id: "v-min", styleFamily: "MINIMAL", businessType: "VAPE_SHOP", restaurantName: NAME, colorSeed: "#333", palette: null, tagline: "Mi", cuisine: "n/a", overall: 75 },
 ];
 
 function props(overrides: Record<string, unknown> = {}) {
@@ -41,8 +46,8 @@ function props(overrides: Record<string, unknown> = {}) {
   };
 }
 
-// Principle 2 (locked): these words must NEVER reach customer-facing UI.
-const BANNED = /\b(theme|themes|template|templates|variation|variations|modern|luxury|local|style\s*family)\b/i;
+// Principle 2 (locked): these words must NEVER reach customer-facing UI (theme vocabulary + "AI").
+const BANNED = /\b(ai|theme|themes|template|templates|variation|variations|modern|luxury|local|style\s*family)\b/i;
 
 describe("DesignReviewScreen (storefront concept experience)", () => {
   it("renders no banned theme/template vocabulary anywhere in the DOM", () => {
@@ -52,8 +57,8 @@ describe("DesignReviewScreen (storefront concept experience)", () => {
 
   it("makes the recommended storefront dominate: name, description, recommended marker, primary CTA", () => {
     render(<DesignReviewScreen {...props()} />);
-    expect(screen.getByRole("heading", { name: "The Flagship" })).toBeInTheDocument();
-    expect(screen.getByText(/puts your products front and center/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: REC_NAME })).toBeInTheDocument();
+    expect(screen.getByText(/puts your best offerings front and center/i)).toBeInTheDocument();
     expect(screen.getByText(/Recommended for you/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Use This Storefront" })).toBeInTheDocument();
   });
@@ -79,14 +84,14 @@ describe("DesignReviewScreen (storefront concept experience)", () => {
   it("lists the other storefronts below as alternatives with their own names", () => {
     render(<DesignReviewScreen {...props()} />);
     expect(screen.getByText(/Other storefronts we designed for you/i)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "The Showcase" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "The Corner Shop" })).toBeInTheDocument();
+    // v-min (lowest score) is the last-ranked storefront → "… Signature".
+    expect(screen.getByRole("heading", { name: LAST_NAME })).toBeInTheDocument();
   });
 
   it("selecting an alternative fires onSelectTheme with that storefront's id", () => {
     const onSelectTheme = vi.fn();
     render(<DesignReviewScreen {...props({ onSelectTheme })} />);
-    fireEvent.click(screen.getByRole("button", { name: "See The Corner Shop" }));
+    fireEvent.click(screen.getByRole("button", { name: `See ${LAST_NAME}` }));
     expect(onSelectTheme).toHaveBeenCalledWith("v-min");
   });
 
@@ -137,7 +142,7 @@ describe("DesignReviewScreen (storefront concept experience)", () => {
 
   it("disables alternative selection while a switch is applying", () => {
     render(<DesignReviewScreen {...props({ switchingTheme: true })} />);
-    expect(screen.getByRole("button", { name: "See The Showcase" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: `See ${MID_NAME}` })).toBeDisabled();
     expect(screen.getByText(/Applying…/)).toBeInTheDocument();
   });
 });

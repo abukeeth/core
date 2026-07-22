@@ -50,7 +50,7 @@ export function DesignReviewScreen({
     .sort((a, b) => b.overall - a.overall || a.id.localeCompare(b.id))
     .map((candidate, index) => ({
       candidate,
-      concept: storefrontConcept(candidate.businessType, candidate.styleFamily, index),
+      concept: storefrontConcept(candidate.restaurantName, index),
     }));
 
   const recommendedId = options[0]?.candidate.id ?? null;

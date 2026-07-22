@@ -10,11 +10,11 @@ const industries = [
 ] as const;
 
 const aiModules = [
-  ["AI Website Studio", "Storefront concepts, live preview, sections, publish"],
+  ["Storefront Studio", "Storefront concepts, live preview, sections, publish"],
   ["Brand Builder", "Name, logo direction, colors, fonts"],
-  ["Menu AI", "Import, structure, rewrite, optimize"],
+  ["Menu Import", "Import, structure, rewrite, optimize"],
   ["Image Studio", "Product imagery, banners, cleanup"],
-  ["Marketing AI", "Offers, campaigns, copy, SEO"],
+  ["Offers & SEO", "Offers, campaigns, copy, SEO"],
   ["Business Insights", "Forecasts, opportunities, next actions"],
 ] as const;
 
@@ -45,7 +45,7 @@ export default function Home() {
           <Link href="/" className="text-xl font-bold tracking-tight text-[#B97824]">OrderVora</Link>
           <nav className="hidden items-center gap-7 text-sm font-semibold text-[#756B5D] md:flex">
             <a href="#how">Product</a>
-            <a href="#studio">AI Studio</a>
+            <a href="#studio">Studio</a>
             <a href="#industries">Industries</a>
             <a href="#pricing">Pricing</a>
           </nav>
@@ -75,7 +75,7 @@ export default function Home() {
               className="h-[420px] w-full rounded-[32px] object-cover shadow-2xl shadow-black/10 sm:h-[520px]"
             />
             <div className="absolute -bottom-8 left-5 right-5 rounded-3xl border border-[#E7DDCF] bg-white p-5 shadow-2xl sm:left-[-40px] sm:right-auto sm:w-[360px]">
-              <div className="flex items-center justify-between"><strong>AI Business Studio</strong><span className="text-sm font-bold text-[#B97824]">80%</span></div>
+              <div className="flex items-center justify-between"><strong>Business Studio</strong><span className="text-sm font-bold text-[#B97824]">80%</span></div>
               <p className="mt-3 text-sm font-semibold text-emerald-700">Menu imported</p>
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#EEE5D9]"><div className="h-full w-4/5 rounded-full bg-[#B97824]" /></div>
               <p className="mt-3 text-sm font-semibold text-[#A9681F]">Website building…</p>
@@ -93,7 +93,7 @@ export default function Home() {
           <div className="mt-12 grid gap-4 lg:grid-cols-3">
             {[
               ["01", "Import", "Photo, PDF, spreadsheet, website, Google Maps, POS."],
-              ["02", "Build", "AI creates menu structure, website, copy, and brand direction."],
+              ["02", "Build", "OrderVora creates your menu, storefront, copy, and brand direction."],
               ["03", "Launch", "Publish your store, QR, ordering flow, and live operations."],
             ].map(([number, title, description]) => (
               <article key={title} className="rounded-3xl border border-[#E7DDCF] bg-white p-6 shadow-[0_12px_36px_rgba(48,39,27,0.04)]">
@@ -127,9 +127,9 @@ export default function Home() {
 
       <section id="studio" className="px-4 py-10 sm:px-6 lg:px-10">
         <div className="mx-auto max-w-7xl rounded-[36px] bg-[#171512] p-6 text-white sm:p-10 lg:p-12">
-          <SectionLabel light>AI Business Studio</SectionLabel>
+          <SectionLabel light>Business Studio</SectionLabel>
           <h2 className="mt-4 text-4xl font-bold tracking-[-0.03em] sm:text-5xl">Build more than a website.</h2>
-          <p className="mt-4 max-w-2xl text-lg leading-8 text-white/60">A single AI workspace for creating, launching, and improving your business.</p>
+          <p className="mt-4 max-w-2xl text-lg leading-8 text-white/60">A single workspace for creating, launching, and improving your business.</p>
           <div className="mt-10 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {aiModules.map(([name, description]) => (
               <article key={name} className="rounded-3xl border border-white/10 bg-white/[.04] p-5">
@@ -169,7 +169,7 @@ export default function Home() {
           <div className="mt-10 grid gap-4 lg:grid-cols-3">
             {[
               ["0%", "Marketplace commission on direct orders"],
-              ["1 place", "Orders, menu, website, customers, AI"],
+              ["1 place", "Orders, menu, storefront, customers"],
               ["Minutes", "From menu upload to structured business setup"],
             ].map(([value, label]) => (
               <div key={value} className="rounded-3xl border border-[#E7DDCF] bg-white p-6"><strong className="text-4xl text-[#B97824]">{value}</strong><p className="mt-4 font-semibold leading-7">{label}</p></div>

@@ -1,45 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { listAllConcepts, storefrontConcept } from "./storefront-concepts";
+import { conceptVocabulary, storefrontConcept } from "./storefront-concepts";
 
-/**
- * Principle 2 (locked): the words Theme, Template, Variation, Modern, Luxury,
- * Local, Style Family must NEVER appear in customer-facing UI. This is the
- * enforcement bar for the naming layer.
- */
-const BANNED = /\b(theme|template|variation|modern|luxury|local|style\s*family)\b/i;
+// Locked: these words must NEVER reach customer-facing UI (theme vocabulary + "AI").
+const BANNED = /\b(ai|theme|themes|template|templates|variation|variations|modern|luxury|local|style\s*family)\b/i;
 
 describe("storefront concept naming", () => {
-  it("never emits banned theme/template vocabulary in any name or description", () => {
-    for (const concept of listAllConcepts()) {
-      expect(concept.name, `name: ${concept.name}`).not.toMatch(BANNED);
-      expect(concept.description, `description: ${concept.description}`).not.toMatch(BANNED);
+  it("never emits banned vocabulary in tier words or descriptions", () => {
+    for (const phrase of conceptVocabulary()) {
+      expect(phrase, phrase).not.toMatch(BANNED);
     }
   });
 
-  it("uses the curated vape names", () => {
-    expect(storefrontConcept("VAPE_SHOP", "LUXURY").name).toBe("The Flagship");
-    expect(storefrontConcept("VAPE_SHOP", "MODERN").name).toBe("The Showcase");
-    expect(storefrontConcept("VAPE_SHOP", "MINIMAL").name).toBe("The Corner Shop");
+  it("builds premium, business-specific names ranked by display order", () => {
+    expect(storefrontConcept("Easy Tobacco Shop", 0).name).toBe("Easy Tobacco Prestige");
+    expect(storefrontConcept("Easy Tobacco Shop", 2).name).toBe("Easy Tobacco Signature");
+    // recommended (index 0) is always "Prestige"; last is always "Signature".
+    const middle = storefrontConcept("Easy Tobacco Shop", 1).name;
+    expect(middle.startsWith("Easy Tobacco ")).toBe(true);
+    expect(["Prime", "Reserve", "Elite", "Select"]).toContain(middle.replace("Easy Tobacco ", ""));
   });
 
-  it("uses the curated coffee and deli names", () => {
-    expect(storefrontConcept("COFFEE_SHOP", "MINIMAL").name).toBe("The Signature Cafe");
-    expect(storefrontConcept("DELI", "MODERN").name).toBe("The Counter");
+  it("trims generic suffixes (Shop / Cafe / Coffee / Restaurant)", () => {
+    expect(storefrontConcept("Qahwah Palace Coffee", 0).name).toBe("Qahwah Palace Prestige");
+    expect(storefrontConcept("Velnoma", 0).name).toBe("Velnoma Prestige");
   });
 
-  it("is case-insensitive on business type", () => {
-    expect(storefrontConcept("vape_shop", "LUXURY").name).toBe("The Flagship");
+  it("is deterministic (same business → same middle tier every time)", () => {
+    expect(storefrontConcept("Qahwah Palace", 1).name).toBe(storefrontConcept("Qahwah Palace", 1).name);
   });
 
-  it("falls back to default concepts for unknown business types", () => {
-    const concept = storefrontConcept("SOMETHING_NEW", "MODERN");
-    expect(concept.name).toBe("The Showcase");
-    expect(concept.description.length).toBeGreaterThan(0);
+  it("never exposes the internal theme/style family — name depends only on business + rank", () => {
+    // Two businesses of different verticals but same rank get the same tier word.
+    expect(storefrontConcept("A Vape Store", 0).name.endsWith("Prestige")).toBe(true);
+    expect(storefrontConcept("A Coffee Shop", 0).name.endsWith("Prestige")).toBe(true);
   });
 
-  it("resolves a name by index when style family is absent", () => {
-    expect(storefrontConcept("VAPE_SHOP", null, 0).name).toBe("The Flagship"); // index 0 -> LUXURY
-    expect(storefrontConcept("VAPE_SHOP", null, 1).name).toBe("The Showcase"); // index 1 -> MODERN
-    expect(storefrontConcept("VAPE_SHOP", null, 2).name).toBe("The Corner Shop"); // index 2 -> MINIMAL
+  it("falls back gracefully when no business name is present", () => {
+    expect(storefrontConcept(null, 0).name).toBe("Your Store Prestige");
   });
 });

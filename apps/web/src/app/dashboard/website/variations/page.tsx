@@ -51,7 +51,7 @@ export default async function VariationsPage() {
           <StorefrontConceptCard
             siteId={site.id}
             variationId={dominant.id}
-            concept={storefrontConcept(dominant.definition.businessType, dominant.styleFamily, 0)}
+            concept={storefrontConcept(dominant.definition.restaurantName, 0)}
             palette={paletteOf(dominant.definition)}
             tagline={dominant.definition.tagline}
             isRecommended={dominant.id === recommendedId}
@@ -79,7 +79,7 @@ export default async function VariationsPage() {
                 key={variation.id}
                 siteId={site.id}
                 variationId={variation.id}
-                concept={storefrontConcept(variation.definition.businessType, variation.styleFamily, i + 1)}
+                concept={storefrontConcept(variation.definition.restaurantName, i + 1)}
                 palette={paletteOf(variation.definition)}
                 tagline={variation.definition.tagline}
                 isRecommended={variation.id === recommendedId}

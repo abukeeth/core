@@ -25,7 +25,7 @@ export default async function EditorPage() {
         <p className="text-sm text-[#756B5D]">
           No active draft yet — select a brand concept from the{" "}
           <Link href="/dashboard/website" className="font-semibold text-[#A9681F] underline">
-            AI Website Studio
+            Storefront Studio
           </Link>{" "}
           first.
         </p>

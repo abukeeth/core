@@ -74,7 +74,7 @@ export function LiveBuildScreen({
       <div className="mx-auto w-full max-w-5xl">
         <header className="flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">AI BUILDER</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">CREATING YOUR STOREFRONT</p>
             <h1 className="mt-2 text-3xl font-bold tracking-tight">Building {restaurantName}</h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-[#756B5D]">
               {errorMessage ? "We hit a snag — nothing was lost." : <RotatingCaption key={activeStepId} captions={captions} />}
@@ -119,7 +119,7 @@ export function LiveBuildScreen({
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="font-bold">Your Website Preview</h2>
-                  <p className="mt-1 text-xs text-[#756B5D]">Updates as AI builds your storefront.</p>
+                  <p className="mt-1 text-xs text-[#756B5D]">Updates as OrderVora builds your storefront.</p>
                 </div>
                 <span className="text-xs font-bold text-[#A9681F]">Live</span>
               </div>

@@ -35,8 +35,8 @@ export default async function VariationPreviewPage({ params }: { params: Promise
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">FULL PREVIEW</p>
             <h1 className="mt-1 text-2xl font-bold">{definition.restaurantName}</h1>
             <p className="mt-1 text-sm text-[#756B5D]">
-              {storefrontConcept(definition.businessType, version.styleFamily).name} —{" "}
-              {storefrontConcept(definition.businessType, version.styleFamily).description}
+              {storefrontConcept(definition.restaurantName, 0).name} —{" "}
+              {storefrontConcept(definition.restaurantName, 0).description}
             </p>
             <p className="mt-2 text-sm italic text-[#756B5D]">&ldquo;{definition.tagline}&rdquo;</p>
           </div>

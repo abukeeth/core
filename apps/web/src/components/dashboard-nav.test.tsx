@@ -22,7 +22,7 @@ describe("DashboardNav — mobile More menu (Sprint 18 Part 7)", () => {
 
     const sheet = within(screen.getByRole("dialog", { name: "More navigation" }));
     expect(sheet.getByRole("link", { name: "Import" })).toHaveAttribute("href", "/dashboard/import");
-    expect(sheet.getByRole("link", { name: "AI Website Studio" })).toHaveAttribute("href", "/dashboard/website");
+    expect(sheet.getByRole("link", { name: "Storefront Studio" })).toHaveAttribute("href", "/dashboard/website");
     expect(sheet.getByRole("link", { name: "Launch" })).toHaveAttribute("href", "/dashboard/launch");
     expect(sheet.getByRole("link", { name: "Analytics" })).toHaveAttribute("href", "/dashboard/analytics");
     expect(sheet.getByRole("link", { name: "Profile" })).toHaveAttribute("href", "/dashboard/profile");

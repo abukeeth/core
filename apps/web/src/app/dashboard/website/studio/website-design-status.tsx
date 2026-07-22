@@ -28,7 +28,7 @@ export function WebsiteDesignStatus({
     return (
       <Card>
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">WEBSITE DESIGN</p>
-        <h2 className="mt-1 text-lg font-bold text-[#171512]">Generate your website with AI</h2>
+        <h2 className="mt-1 text-lg font-bold text-[#171512]">Create your storefront</h2>
         <p className="mt-2 text-sm leading-6 text-[#756B5D]">
           Builds real Home, Menu, About, Contact, and Gallery pages from your actual menu, branding, and photos —
           three design directions to compare and choose from.

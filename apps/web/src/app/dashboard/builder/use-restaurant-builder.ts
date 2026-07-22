@@ -59,6 +59,7 @@ export interface DesignCandidate {
   id: string;
   styleFamily: StyleFamily | null;
   businessType: string | null;
+  restaurantName: string | null;
   colorSeed: string | null;
   palette: ConceptPalette | null;
   tagline: string | null;
@@ -158,6 +159,7 @@ export function useRestaurantBuilder(): BuilderState {
           id: v.id,
           styleFamily: v.styleFamily,
           businessType: v.definition?.businessType ?? null,
+          restaurantName: v.definition?.restaurantName ?? null,
           colorSeed: v.definition?.colorSeed ?? null,
           palette: v.definition?.brandSettings
             ? {

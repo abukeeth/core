@@ -26,9 +26,11 @@ export function BusinessInfoStep({
       // together instead of sequentially so "Continue" costs one round-trip,
       // not two. The locally-entered values win over whatever the step-advance
       // read back, so there's no stale-name race.
+      // Location and Payment are deferred to after publish (they never block
+      // going live), so onboarding jumps straight to importing the menu.
       const [, stepResult] = await Promise.all([
         updateRestaurant({ name, phone: phone || undefined, description: description || undefined }),
-        setSetupStep("LOCATION"),
+        setSetupStep("MENU_IMPORT"),
       ]);
       onDone({ ...stepResult.restaurant, name, phone: phone || null, description: description || null });
     } catch (err) {

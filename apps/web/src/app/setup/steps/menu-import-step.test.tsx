@@ -52,7 +52,7 @@ describe("MenuImportStep — §5/§15: never advances before the image is upload
     const onDone = vi.fn();
     mockCreateImportJob.mockResolvedValue({ job: job({ status: "PENDING" }) });
     render(<MenuImportStep onDone={onDone} />);
-    await waitFor(() => expect(screen.getByText("Import your menu")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Import your business")).toBeInTheDocument());
 
     const file = new File(["img"], "menu.png", { type: "image/png" });
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -71,7 +71,7 @@ describe("MenuImportStep — §5/§15: never advances before the image is upload
     // createImportJob never resolves here, so we stay in the upload phase.
     mockCreateImportJob.mockReturnValue(new Promise(() => {}));
     render(<MenuImportStep onDone={vi.fn()} />);
-    await waitFor(() => expect(screen.getByText("Import your menu")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Import your business")).toBeInTheDocument());
 
     const file = new File(["img"], "menu.png", { type: "image/png" });
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
@@ -88,7 +88,7 @@ describe("MenuImportStep — §5/§15: never advances before the image is upload
   it("keeps showing real progress while PROCESSING, still without advancing", async () => {
     mockCreateImportJob.mockResolvedValue({ job: job({ status: "PROCESSING" }) });
     render(<MenuImportStep onDone={vi.fn()} />);
-    await waitFor(() => screen.getByText("Import your menu"));
+    await waitFor(() => screen.getByText("Import your business"));
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(fileInput, { target: { files: [new File(["img"], "menu.png", { type: "image/png" })] } });
@@ -102,7 +102,7 @@ describe("MenuImportStep — §5/§15: never advances before the image is upload
     const onDone = vi.fn();
     mockCreateImportJob.mockResolvedValue({ job: job({ status: "PENDING" }) });
     render(<MenuImportStep onDone={onDone} />);
-    await waitFor(() => screen.getByText("Import your menu"));
+    await waitFor(() => screen.getByText("Import your business"));
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(fileInput, { target: { files: [new File(["img"], "menu.png", { type: "image/png" })] } });
@@ -136,7 +136,7 @@ describe("MenuImportStep — §5/§15: never advances before the image is upload
     const onDone = vi.fn();
     mockCreateImportJob.mockResolvedValue({ job: job({ status: "PENDING" }) });
     render(<MenuImportStep onDone={onDone} />);
-    await waitFor(() => screen.getByText("Import your menu"));
+    await waitFor(() => screen.getByText("Import your business"));
 
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
     fireEvent.change(fileInput, { target: { files: [new File(["img"], "menu.png", { type: "image/png" })] } });
@@ -157,7 +157,7 @@ describe("MenuImportStep — §5/§15: never advances before the image is upload
     render(<MenuImportStep onDone={vi.fn()} />);
 
     await waitFor(() => expect(screen.getByText("Building your menu…")).toBeInTheDocument());
-    expect(screen.queryByText("Import your menu")).not.toBeInTheDocument();
+    expect(screen.queryByText("Import your business")).not.toBeInTheDocument();
   });
 
   it("§Job Durability: offers a non-destructive retry once an import has been running unusually long", async () => {
@@ -214,7 +214,7 @@ describe("MenuImportStep — §5/§15: never advances before the image is upload
   it("still allows an explicit Skip, which is a deliberate choice rather than an automatic advance", async () => {
     const onDone = vi.fn();
     render(<MenuImportStep onDone={onDone} />);
-    await waitFor(() => screen.getByText("Import your menu"));
+    await waitFor(() => screen.getByText("Import your business"));
 
     fireEvent.click(screen.getByText("Skip for now"));
 
