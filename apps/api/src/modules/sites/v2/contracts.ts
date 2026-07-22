@@ -147,6 +147,8 @@ export const creativeBriefSchema = z.object({
     /** Ordered home sections, chosen freely from the renderer's registry. */
     home: z.array(z.string().min(1)).min(3),
   }),
+  /** Provenance for telemetry/inspection — never a rendering decision. */
+  origin: z.enum(["ai", "procedural"]).optional(),
 });
 
 export type CreativeBrief = z.infer<typeof creativeBriefSchema>;

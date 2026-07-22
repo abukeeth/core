@@ -8,11 +8,11 @@ import { analyzeBrand } from "./brand-analysis";
 import { generateBrandAssets } from "./branding/asset-generator";
 import { generateBrandKit } from "./branding/brand-generator";
 import { createBrandAssetStore } from "./branding/persistent-asset-store";
-import { createLogger } from "../../lib/logger";
 import { adaptToneForVariation, generateContentCore } from "./content-generator";
 import { IDENTITY_PACKS, identityForFamily } from "./identity/identity-packs";
 import { ingestRestaurantData } from "./ingest";
 import { isGenerationV2Enabled } from "./v2/rollout";
+import { runV2Shadow, shadowSeedFrom } from "./v2/shadow";
 import { scoreSiteDefinition } from "./scoring/score-aggregator";
 import { THEME_CATALOG } from "./theme-catalog";
 import { derivePaletteSeed, selectThemesForAllFamilies } from "./theme-matching";
@@ -75,15 +75,15 @@ class InProcessGenerationJobRunner implements GenerationJobRunner {
     try {
       const site = await prisma.site.findUniqueOrThrow({ where: { id: siteId } });
 
-      // Generation V2 routing seam (P0 — plan §8). While V2's pipeline is
-      // being built this only records that the business is V2-scoped and
-      // falls through to V1, so an allowlisted business can never be broken
-      // by an unfinished stage. P2 replaces this log with the V2 orchestrator
-      // call; V1 below stays byte-identical for everyone else.
-      if (isGenerationV2Enabled(site.restaurantId)) {
-        createLogger("generation-v2").info({ siteId, restaurantId: site.restaurantId }, "V2-scoped business (P0 seam: V1 still serving)");
-      }
+      // Generation V2 seam — P1 SHADOW MODE (plan §8 phase 1). For a
+      // V2-scoped business the new pipeline runs understanding → briefs →
+      // diversity and logs the full result for inspection, while V1 below
+      // still serves the customer untouched. runV2Shadow never throws.
+      const v2Shadow = isGenerationV2Enabled(site.restaurantId);
       const ingest = await ingestRestaurantData(site.restaurantId);
+      if (v2Shadow) {
+        await runV2Shadow({ ingest, sourceType: "mixed", seed: shadowSeedFrom(ingest, batchId) });
+      }
 
       await this.setStage(jobId, "BRAND_ANALYSIS");
       const brandProfile = await analyzeBrand(ingest);

@@ -107,7 +107,7 @@ Planned:
 
 ## Current Development Direction
 
-**Generation V2 (approved architecture, P0 landed):** the next-generation
+**Generation V2 (approved architecture, P0+P1 landed — shadow mode live):** the next-generation
 pipeline is Business source → BusinessUnderstanding (evidence-backed) →
 three ORIGINAL CreativeBriefs invented per business → three independent
 StorefrontPlans → independent copy & imagery → render. It must NOT use
