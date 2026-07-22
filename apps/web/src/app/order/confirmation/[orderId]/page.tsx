@@ -31,21 +31,21 @@ export default function OrderConfirmationPage() {
   }, [orderId]);
 
   if (error) {
-    return <p className="p-8 text-sm text-red-600">{error}</p>;
+    return <p className="p-8 text-sm text-danger">{error}</p>;
   }
 
   if (!order) {
-    return <p className="p-8 text-sm text-zinc-600 dark:text-zinc-400">Loading…</p>;
+    return <p className="p-8 text-sm text-ink-secondary">Loading…</p>;
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-zinc-50 p-6 dark:bg-black">
-      <div className="flex w-full max-w-md flex-col gap-4 rounded-lg border border-black/[.08] bg-white p-8 text-center dark:border-white/[.145] dark:bg-zinc-950">
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Order placed!</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Order #{order.orderNumber}</p>
-        <p className="text-lg font-semibold text-black dark:text-zinc-50">${formatPrice(order.totalCents)}</p>
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">Status: {order.status}</p>
-        <Link href={`/order/track/${order.id}`} className="rounded-full bg-foreground px-5 py-2 text-sm text-background">
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 bg-canvas p-6">
+      <div className="flex w-full max-w-md flex-col gap-4 rounded-lg border border-line bg-surface p-8 text-center">
+        <h1 className="text-xl font-semibold text-ink font-display">Order placed!</h1>
+        <p className="text-sm text-ink-secondary">Order #{order.orderNumber}</p>
+        <p className="text-lg font-semibold text-ink">${formatPrice(order.totalCents)}</p>
+        <p className="text-sm text-ink-secondary">Status: {order.status}</p>
+        <Link href={`/order/track/${order.id}`} className="rounded-full bg-brand px-5 py-2 text-sm text-white">
           Track your order
         </Link>
       </div>
