@@ -41,7 +41,7 @@ function props(overrides: Record<string, unknown> = {}) {
 
 // Locked: these words must NEVER reach customer-facing UI — theme vocabulary,
 // "AI", and the retired concept-tier naming system.
-const BANNED = /\b(ai|theme|themes|template|templates|variation|variations|modern|luxury|local|style\s*family|prestige|reserve|signature|prime|elite|select)\b/i;
+const BANNED = /\b(ai|theme|themes|template|templates|variation|variations|modern|luxury|local|style\s*family|prestige|reserve|signature|prime|elite|select|briefs?|archetypes?|identity|identities)\b/i;
 
 describe("DesignReviewScreen — the Storefront Showcase is the ONLY selection experience", () => {
   it("renders the full-height showcase: one complete storefront section per candidate", async () => {

@@ -16,7 +16,7 @@ import { StorefrontShowcase, StorefrontShowcaseSection } from "./storefront-show
 
 // Locked: none of these words may appear in customer-facing UI — theme
 // vocabulary, "AI", and the retired concept-tier names.
-const BANNED = /\b(ai|theme|themes|template|templates|variation|variations|modern|luxury|local|style\s*family|prestige|reserve|signature)\b/i;
+const BANNED = /\b(ai|theme|themes|template|templates|variation|variations|modern|luxury|local|style\s*family|prestige|reserve|signature|briefs?|archetypes?|identity|identities)\b/i;
 
 function renderShowcase(onUse = vi.fn()) {
   const items = [

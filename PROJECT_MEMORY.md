@@ -107,6 +107,25 @@ Planned:
 
 ## Current Development Direction
 
+**Generation V2 (approved architecture, P0 landed):** the next-generation
+pipeline is Business source → BusinessUnderstanding (evidence-backed) →
+three ORIGINAL CreativeBriefs invented per business → three independent
+StorefrontPlans → independent copy & imagery → render. It must NOT use
+themes, style families, identity packs, or any fixed archetypes — enforced
+by `apps/api/src/modules/sites/v2/module-boundary.test.ts` (transitive
+import ban). Contracts live in `v2/contracts.ts`; rollout is gated by
+`GENERATION_V2_ENABLED` + `GENERATION_V2_RESTAURANT_IDS` (`v2/rollout.ts`),
+OFF by default with a shadow-safe seam in the V1 generator. Full plan:
+`GENERATION_V2_REBUILD_PLAN` (delivered 2026-07-22 session).
+
+**LOCKED PRODUCT RULE — internal-only vocabulary:** CreativeBriefs are an
+internal generation tool. The customer must NEVER see the words theme,
+identity, brief, archetype, or style family, and never any generation
+concept — only complete storefronts. Enforced by the BANNED-vocabulary
+guards in the web selection-experience tests and
+`INTERNAL_ONLY_TERMS` in `v2/contracts.ts`.
+
+
 **Identity Packs — the three-agency storefront model (latest completed
 work):** every generation now produces three genuinely independent brand
 identities (Artisan Craft / Modern Minimal / Local Market) from one menu
