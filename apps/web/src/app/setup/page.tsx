@@ -61,7 +61,7 @@ export default function BusinessSetupWizardPage() {
 
   if (loading) {
     return (
-      <main className="flex min-h-screen w-full items-center justify-center bg-[#F7F0E5] text-sm text-[#756B5D]">
+      <main className="flex min-h-screen w-full items-center justify-center bg-canvas text-sm text-ink-secondary">
         Loading…
       </main>
     );
@@ -69,17 +69,17 @@ export default function BusinessSetupWizardPage() {
 
   if (loadError) {
     return (
-      <main className="flex min-h-screen w-full items-center justify-center overflow-x-hidden bg-[#F7F0E5] px-4 py-8 text-[#171512]">
-        <div className="w-full max-w-md rounded-[28px] border border-[#E7DDCF] bg-white p-6 text-center shadow-[0_18px_50px_rgba(48,39,27,0.07)] sm:p-8">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">SOMETHING WENT WRONG</p>
-          <h1 className="mt-2 text-2xl font-bold tracking-tight">We couldn&apos;t load your setup</h1>
-          <p className="mt-3 text-sm leading-6 text-[#756B5D]">
+      <main className="flex min-h-screen w-full items-center justify-center overflow-x-hidden bg-canvas px-4 py-8 text-ink">
+        <div className="w-full max-w-md rounded-[24px] border border-line bg-surface p-6 text-center shadow-[var(--ov-elevation)] sm:p-8">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">SOMETHING WENT WRONG</p>
+          <h1 className="mt-2 text-2xl font-display font-semibold tracking-tight">We couldn&apos;t load your setup</h1>
+          <p className="mt-3 text-sm leading-6 text-ink-secondary">
             This is usually temporary. Check your connection and try again — your progress is saved.
           </p>
           <button
             type="button"
             onClick={handleRetry}
-            className="mt-6 flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#171512] px-5 text-base font-bold text-white shadow-lg shadow-black/10 transition active:scale-[0.99]"
+            className="mt-6 flex min-h-14 w-full items-center justify-center rounded-2xl bg-brand px-5 text-base font-bold text-white shadow-lg shadow-black/10 transition active:scale-[0.99]"
           >
             Try again
           </button>

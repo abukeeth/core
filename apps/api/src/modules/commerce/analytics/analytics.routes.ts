@@ -4,7 +4,7 @@ import { denyFinancialForKitchen } from "../../../middleware/deny-financial-for-
 import { requireAuth } from "../../../middleware/require-auth";
 import { requireRole } from "../../../middleware/require-role";
 import { staffActionRateLimiter } from "../../../middleware/rate-limit";
-import { getRevenueSummaryHandler, getRevenueByDayHandler, getTopItemsHandler } from "./analytics.controller";
+import { getRevenueSummaryHandler, getRevenueByDayHandler, getTopItemsHandler, getFinancialSummaryHandler } from "./analytics.controller";
 
 const staffOrOwner = requireRole(Role.RESTAURANT_OWNER, Role.RESTAURANT_STAFF);
 
@@ -33,4 +33,12 @@ analyticsRouter.get(
   denyFinancialForKitchen,
   staffActionRateLimiter,
   getTopItemsHandler,
+);
+analyticsRouter.get(
+  "/me/analytics/financial-summary",
+  requireAuth,
+  staffOrOwner,
+  denyFinancialForKitchen,
+  staffActionRateLimiter,
+  getFinancialSummaryHandler,
 );

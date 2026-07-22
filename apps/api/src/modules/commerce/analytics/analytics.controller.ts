@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { NoRestaurantError } from "../../restaurants/restaurant.errors";
 import { getOwnRestaurantId } from "../../restaurants/restaurant.service";
-import { getRevenueSummary, getRevenueByDay, getTopItems } from "./analytics.service";
+import { getRevenueSummary, getRevenueByDay, getTopItems, getFinancialSummary } from "./analytics.service";
 import { analyticsRangeSchema, topItemsSchema } from "./analytics.validation";
 
 export async function getRevenueSummaryHandler(req: Request, res: Response): Promise<void> {
@@ -44,4 +44,18 @@ export async function getTopItemsHandler(req: Request, res: Response): Promise<v
     return;
   }
   res.status(200).json({ items: await getTopItems(restaurantId, parsed.data.days, parsed.data.limit) });
+}
+
+export async function getFinancialSummaryHandler(req: Request, res: Response): Promise<void> {
+  const restaurantId = await getOwnRestaurantId(req.user!.id);
+  if (!restaurantId) {
+    res.status(404).json({ error: new NoRestaurantError().message });
+    return;
+  }
+  const parsed = analyticsRangeSchema.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+    return;
+  }
+  res.status(200).json(await getFinancialSummary(restaurantId, parsed.data.days));
 }

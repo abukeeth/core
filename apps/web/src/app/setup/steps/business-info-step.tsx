@@ -42,14 +42,14 @@ export function BusinessInfoStep({
 
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">TELL US ABOUT IT</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Business info</h1>
-      <p className="mt-3 text-sm leading-6 text-[#756B5D]">This is what customers will see on your website and receipts.</p>
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">TELL US ABOUT IT</p>
+      <h1 className="mt-2 text-3xl font-display font-semibold tracking-tight">Business info</h1>
+      <p className="mt-3 text-sm leading-6 text-ink-secondary">This is what customers will see on your website and receipts.</p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         {error && <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{error}</p>}
 
-        <label className="block text-sm font-semibold text-[#2A251F]">
+        <label className="block text-sm font-semibold text-ink">
           Business name
           <input
             type="text"
@@ -63,7 +63,7 @@ export function BusinessInfoStep({
           />
         </label>
 
-        <label className="block text-sm font-semibold text-[#2A251F]">
+        <label className="block text-sm font-semibold text-ink">
           Phone
           <input
             type="tel"
@@ -77,13 +77,13 @@ export function BusinessInfoStep({
           />
         </label>
 
-        <label className="block text-sm font-semibold text-[#2A251F]">
+        <label className="block text-sm font-semibold text-ink">
           Short description
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            className="mt-2 w-full rounded-2xl border border-[#E7DDCF] bg-[#FFFDF9] px-4 py-3 text-base outline-none transition focus:border-[#B97824] focus:ring-4 focus:ring-[#B97824]/10"
+            className="mt-2 w-full rounded-2xl border border-line bg-surface px-4 py-3 text-base outline-none transition focus:border-brand"
             placeholder="Optional — a sentence about your business"
           />
         </label>

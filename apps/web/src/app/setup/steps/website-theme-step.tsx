@@ -55,9 +55,9 @@ export function WebsiteThemeStep({ onDone }: { onDone: (restaurant: Restaurant) 
 
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">GO ONLINE</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Create your storefront</h1>
-      <p className="mt-3 text-sm leading-6 text-[#756B5D]">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">GO ONLINE</p>
+      <h1 className="mt-2 text-3xl font-display font-semibold tracking-tight">Create your storefront</h1>
+      <p className="mt-3 text-sm leading-6 text-ink-secondary">
         OrderVora will create a complete, customer-facing storefront for your business. You can regenerate or customize it anytime.
       </p>
 

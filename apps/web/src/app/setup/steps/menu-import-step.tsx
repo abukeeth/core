@@ -184,16 +184,16 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
   }
 
   if (resuming) {
-    return <p className="text-sm text-[#756B5D]">Checking for an in-progress import…</p>;
+    return <p className="text-sm text-ink-secondary">Checking for an in-progress import…</p>;
   }
 
   if (uploading || (job && ACTIVE_STATUSES.has(job.status))) {
     const slow = !uploading && job != null && now - new Date(job.createdAt).getTime() > SLOW_AFTER_MS;
     return (
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">BUILD YOUR MENU</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">Building your menu…</h1>
-        <p className="mt-3 text-sm leading-6 text-[#756B5D]">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">BUILD YOUR MENU</p>
+        <h1 className="mt-2 text-3xl font-display font-semibold tracking-tight">Building your menu…</h1>
+        <p className="mt-3 text-sm leading-6 text-ink-secondary">
           {uploading
             ? "Uploading your menu and preparing your storefront…"
             : "This can take a minute — we’ll keep you here until it’s ready to review."}
@@ -204,7 +204,7 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
         {slow && (
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
             <p className="text-sm text-amber-800">This is taking longer than usual. You can keep waiting, or try again.</p>
-            <button type="button" onClick={handleRetry} disabled={submitting} className="mt-3 min-h-11 rounded-xl border border-amber-300 bg-white px-4 text-sm font-bold text-[#171512] disabled:opacity-50">
+            <button type="button" onClick={handleRetry} disabled={submitting} className="mt-3 min-h-11 rounded-xl border border-amber-300 bg-surface px-4 text-sm font-bold text-ink disabled:opacity-50">
               {submitting ? "Retrying…" : "Try again"}
             </button>
           </div>
@@ -216,9 +216,9 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
   if (job && job.status === "AWAITING_REVIEW") {
     return (
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">BUILD YOUR MENU</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">Review your imported menu</h1>
-        <p className="mt-3 text-sm leading-6 text-[#756B5D]">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">BUILD YOUR MENU</p>
+        <h1 className="mt-2 text-3xl font-display font-semibold tracking-tight">Review your imported menu</h1>
+        <p className="mt-3 text-sm leading-6 text-ink-secondary">
           Check names and prices, make quick edits, then approve to continue.
         </p>
         {error && <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{error}</p>}
@@ -232,9 +232,9 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
   if (job && job.status === "FAILED") {
     return (
       <div>
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">BUILD YOUR MENU</p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight">Import failed</h1>
-        <p className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">BUILD YOUR MENU</p>
+        <h1 className="mt-2 text-3xl font-display font-semibold tracking-tight">Import failed</h1>
+        <p className="mt-3 rounded-2xl border border-danger/25 bg-danger/5 px-4 py-3 text-sm text-danger">
           {job.errorMessage ?? "Something went wrong while reading your menu."}
         </p>
         <div className="mt-6 space-y-3">
@@ -254,9 +254,9 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
 
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">IMPORT YOUR BUSINESS</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Import your business</h1>
-      <p className="mt-3 text-sm leading-6 text-[#756B5D]">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">IMPORT YOUR BUSINESS</p>
+      <h1 className="mt-2 text-3xl font-display font-semibold tracking-tight">Import your business</h1>
+      <p className="mt-3 text-sm leading-6 text-ink-secondary">
         Upload a menu photo or PDF and OrderVora builds your storefront for you. Business name and type are optional — we
         infer them from your menu. You can also skip and add items manually later.
       </p>
@@ -264,7 +264,7 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
       <div className="mt-6 space-y-4">
         {error && <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{error}</p>}
 
-        <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#E7DDCF] bg-[#FBF7F1] px-4 text-center text-sm font-semibold text-[#756B5D]">
+        <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line bg-subtle px-4 text-center text-sm font-semibold text-ink-secondary">
           <input
             type="file"
             accept="application/pdf,image/*"

@@ -24,9 +24,17 @@ import {
 } from "@/lib/commerce-api";
 import { getStoredCartId } from "@/lib/cart-storage";
 
+/* Cart — Figma "Customer Storefront V1 / Cart" (node 108:2), restyled to the
+ * warm palette. All logic (quantities, fulfillment, address picker, coupon,
+ * loyalty redemption, subtotal, checkout) is unchanged from the previous
+ * version; only presentation classes were swapped. */
+
 function formatPrice(cents: number): string {
   return (cents / 100).toFixed(2);
 }
+
+const FIELD = "rounded-[12px] border border-line bg-surface px-3 py-2 text-sm text-ink outline-none focus:border-brand";
+const CARD = "flex flex-col gap-2 rounded-[18px] border border-line bg-surface p-4";
 
 export default function CartPage() {
   const params = useParams<{ restaurantId: string }>();
@@ -179,47 +187,47 @@ export default function CartPage() {
   }
 
   if (!cart) {
-    return <p className="p-8 text-sm text-zinc-600 dark:text-zinc-400">{error ?? "Loading cart…"}</p>;
+    return <p className="p-8 text-sm text-ink-secondary">{error ?? "Loading cart…"}</p>;
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center gap-6 bg-zinc-50 p-6 dark:bg-black">
+    <div className="flex flex-1 flex-col items-center gap-6 bg-canvas p-6 text-ink">
       <div className="flex w-full max-w-2xl flex-col gap-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Your cart</h1>
-          <Link href={`/order/${restaurantId}`} className="text-sm text-zinc-600 dark:text-zinc-400">
+          <h1 className="font-display text-xl font-semibold text-ink">Your cart</h1>
+          <Link href={`/order/${restaurantId}`} className="text-sm text-ink-secondary">
             ← Back to menu
           </Link>
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
 
         {cart.items.length === 0 && (
-          <p className="text-sm text-zinc-600 dark:text-zinc-400">Your cart is empty.</p>
+          <p className="text-sm text-ink-secondary">Your cart is empty.</p>
         )}
 
-        <ul className="flex flex-col divide-y divide-black/[.08] rounded-lg border border-black/[.08] bg-white dark:divide-white/[.145] dark:border-white/[.145] dark:bg-zinc-950">
+        <ul className="flex flex-col divide-y divide-line rounded-[18px] border border-line bg-surface">
           {cart.items.map((item) => (
             <li key={item.id} className="flex items-center justify-between gap-4 p-4">
               <div className="flex flex-col gap-1">
-                <span className="font-medium text-black dark:text-zinc-50">
+                <span className="font-medium text-ink">
                   {item.modifiersSnapshot?.variantName ?? "Item"}
                 </span>
-                <span className="text-sm text-zinc-600 dark:text-zinc-400">${formatPrice(item.unitPriceCents)} each</span>
+                <span className="text-sm text-ink-secondary">${formatPrice(item.unitPriceCents)} each</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                  className="rounded-full border border-black/[.08] px-2 py-1 text-sm dark:border-white/[.145]"
+                  className="rounded-full border border-line px-2 py-1 text-sm text-ink"
                 >
                   −
                 </button>
-                <span className="w-6 text-center text-sm">{item.quantity}</span>
+                <span className="w-6 text-center text-sm text-ink">{item.quantity}</span>
                 <button
                   type="button"
                   onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                  className="rounded-full border border-black/[.08] px-2 py-1 text-sm dark:border-white/[.145]"
+                  className="rounded-full border border-line px-2 py-1 text-sm text-ink"
                 >
                   +
                 </button>
@@ -228,18 +236,18 @@ export default function CartPage() {
           ))}
         </ul>
 
-        <div className="flex flex-col gap-2 rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-950">
-          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Fulfillment</span>
+        <div className={CARD}>
+          <span className="text-sm font-semibold text-ink">Fulfillment</span>
           <div className="flex gap-2">
             {(["PICKUP", "DELIVERY", "DINE_IN"] as FulfillmentType[]).map((type) => (
               <button
                 key={type}
                 type="button"
                 onClick={() => handleFulfillmentChange(type)}
-                className={`rounded-full px-4 py-2 text-sm ${
+                className={`rounded-full px-4 py-2 text-sm font-semibold ${
                   cart.fulfillmentType === type
-                    ? "bg-foreground text-background"
-                    : "border border-black/[.08] text-zinc-700 dark:border-white/[.145] dark:text-zinc-300"
+                    ? "bg-brand text-white"
+                    : "border border-line text-ink-secondary"
                 }`}
               >
                 {type === "DINE_IN" ? "Dine in" : type.charAt(0) + type.slice(1).toLowerCase()}
@@ -248,12 +256,12 @@ export default function CartPage() {
           </div>
 
           {cart.fulfillmentType === "DELIVERY" && (
-            <div className="mt-2 flex flex-col gap-3 border-t border-black/[.08] pt-3 dark:border-white/[.145]">
-              {!authChecked && <p className="text-sm text-zinc-600 dark:text-zinc-400">Checking your account…</p>}
+            <div className="mt-2 flex flex-col gap-3 border-t border-line pt-3">
+              {!authChecked && <p className="text-sm text-ink-secondary">Checking your account…</p>}
 
               {authChecked && !customer && (
-                <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                  <Link href="/account/login" className="font-medium text-zinc-950 dark:text-zinc-50">
+                <p className="text-sm text-ink-secondary">
+                  <Link href="/account/login" className="font-semibold text-brand">
                     Log in
                   </Link>{" "}
                   to deliver to a saved address.
@@ -262,10 +270,10 @@ export default function CartPage() {
 
               {authChecked && customer && (
                 <>
-                  <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Deliver to</span>
+                  <span className="text-sm font-semibold text-ink">Deliver to</span>
 
                   {addresses.length === 0 && !showAddAddress && (
-                    <p className="text-sm text-zinc-600 dark:text-zinc-400">No saved addresses yet.</p>
+                    <p className="text-sm text-ink-secondary">No saved addresses yet.</p>
                   )}
 
                   {addresses.length > 0 && (
@@ -275,10 +283,10 @@ export default function CartPage() {
                           <button
                             type="button"
                             onClick={() => handleSelectAddress(address.id)}
-                            className={`w-full rounded-lg border px-3 py-2 text-left text-sm ${
+                            className={`w-full rounded-[12px] border px-3 py-2 text-left text-sm ${
                               cart.deliveryAddressId === address.id
-                                ? "border-transparent bg-foreground text-background"
-                                : "border-black/[.08] text-zinc-700 dark:border-white/[.145] dark:text-zinc-300"
+                                ? "border-transparent bg-brand text-white"
+                                : "border-line text-ink-secondary"
                             }`}
                           >
                             {address.line1}, {address.city}, {address.state} {address.postalCode}
@@ -288,7 +296,7 @@ export default function CartPage() {
                     </ul>
                   )}
 
-                  {addressError && <p className="text-sm text-red-600">{addressError}</p>}
+                  {addressError && <p className="text-sm text-danger">{addressError}</p>}
 
                   {showAddAddress ? (
                     <form onSubmit={handleAddAddress} className="flex flex-col gap-2">
@@ -298,7 +306,7 @@ export default function CartPage() {
                         placeholder="Street address"
                         value={newAddress.line1}
                         onChange={(e) => setNewAddress((prev) => ({ ...prev, line1: e.target.value }))}
-                        className="rounded border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-black"
+                        className={FIELD}
                       />
                       <div className="flex gap-2">
                         <input
@@ -307,7 +315,7 @@ export default function CartPage() {
                           placeholder="City"
                           value={newAddress.city}
                           onChange={(e) => setNewAddress((prev) => ({ ...prev, city: e.target.value }))}
-                          className="flex-1 rounded border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-black"
+                          className={`flex-1 ${FIELD}`}
                         />
                         <input
                           type="text"
@@ -315,7 +323,7 @@ export default function CartPage() {
                           placeholder="State"
                           value={newAddress.state}
                           onChange={(e) => setNewAddress((prev) => ({ ...prev, state: e.target.value }))}
-                          className="w-20 rounded border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-black"
+                          className={`w-20 ${FIELD}`}
                         />
                         <input
                           type="text"
@@ -323,17 +331,17 @@ export default function CartPage() {
                           placeholder="ZIP"
                           value={newAddress.postalCode}
                           onChange={(e) => setNewAddress((prev) => ({ ...prev, postalCode: e.target.value }))}
-                          className="w-24 rounded border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-black"
+                          className={`w-24 ${FIELD}`}
                         />
                       </div>
                       <div className="flex gap-2">
-                        <button type="submit" className="rounded-full bg-foreground px-4 py-2 text-sm text-background">
+                        <button type="submit" className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white">
                           Save address
                         </button>
                         <button
                           type="button"
                           onClick={() => setShowAddAddress(false)}
-                          className="rounded-full border border-black/[.08] px-4 py-2 text-sm text-zinc-700 dark:border-white/[.145] dark:text-zinc-300"
+                          className="rounded-full border border-line px-4 py-2 text-sm text-ink"
                         >
                           Cancel
                         </button>
@@ -343,7 +351,7 @@ export default function CartPage() {
                     <button
                       type="button"
                       onClick={() => setShowAddAddress(true)}
-                      className="self-start text-sm font-medium text-zinc-950 dark:text-zinc-50"
+                      className="self-start text-sm font-semibold text-brand"
                     >
                       + Add a new address
                     </button>
@@ -354,12 +362,12 @@ export default function CartPage() {
           )}
         </div>
 
-        <div className="flex flex-col gap-2 rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-950">
-          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Coupon</span>
+        <div className={CARD}>
+          <span className="text-sm font-semibold text-ink">Coupon</span>
           {cart.couponCode ? (
             <div className="flex items-center justify-between">
-              <span className="text-sm">{cart.couponCode}</span>
-              <button type="button" onClick={handleRemoveCoupon} className="text-sm text-red-600">
+              <span className="text-sm text-ink">{cart.couponCode}</span>
+              <button type="button" onClick={handleRemoveCoupon} className="text-sm text-danger">
                 Remove
               </button>
             </div>
@@ -370,12 +378,12 @@ export default function CartPage() {
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value)}
                 placeholder="Promo code"
-                className="flex-1 rounded border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-black"
+                className={`flex-1 ${FIELD}`}
               />
               <button
                 type="button"
                 onClick={handleApplyCoupon}
-                className="rounded-full bg-foreground px-4 py-2 text-sm text-background"
+                className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white"
               >
                 Apply
               </button>
@@ -384,14 +392,14 @@ export default function CartPage() {
         </div>
 
         {authChecked && customer && loyalty?.program?.isActive && (
-          <div className="flex flex-col gap-2 rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-950">
-            <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <div className={CARD}>
+            <span className="text-sm font-semibold text-ink">
               Loyalty points — you have {loyalty.pointsBalance}
             </span>
             {cart.loyaltyPointsToRedeem ? (
               <div className="flex items-center justify-between">
-                <span className="text-sm">Redeeming {cart.loyaltyPointsToRedeem} points</span>
-                <button type="button" onClick={handleRemoveLoyaltyRedemption} className="text-sm text-red-600">
+                <span className="text-sm text-ink">Redeeming {cart.loyaltyPointsToRedeem} points</span>
+                <button type="button" onClick={handleRemoveLoyaltyRedemption} className="text-sm text-danger">
                   Remove
                 </button>
               </div>
@@ -405,12 +413,12 @@ export default function CartPage() {
                     value={redeemPoints}
                     onChange={(e) => setRedeemPoints(e.target.value)}
                     placeholder="Points to redeem"
-                    className="flex-1 rounded border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-black"
+                    className={`flex-1 ${FIELD}`}
                   />
                   <button
                     type="button"
                     onClick={handleApplyLoyaltyRedemption}
-                    className="rounded-full bg-foreground px-4 py-2 text-sm text-background"
+                    className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white"
                   >
                     Redeem
                   </button>
@@ -420,14 +428,14 @@ export default function CartPage() {
           </div>
         )}
 
-        <div className="flex items-center justify-between rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-950">
-          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Subtotal</span>
-          <span className="text-lg font-semibold text-black dark:text-zinc-50">${formatPrice(subtotalCents)}</span>
+        <div className="flex items-center justify-between rounded-[18px] border border-line bg-surface p-4">
+          <span className="text-sm font-semibold text-ink">Subtotal</span>
+          <span className="font-display text-lg font-semibold text-ink">${formatPrice(subtotalCents)}</span>
         </div>
 
         <Link
           href={`/order/${restaurantId}/checkout`}
-          className={`rounded-full bg-foreground px-5 py-3 text-center text-sm text-background ${
+          className={`rounded-full bg-brand px-5 py-3 text-center text-sm font-semibold text-white ${
             cart.items.length === 0 ? "pointer-events-none opacity-40" : ""
           }`}
         >

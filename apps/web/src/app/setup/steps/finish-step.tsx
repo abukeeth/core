@@ -16,9 +16,9 @@ export function FinishStep() {
 
   return (
     <div className="flex flex-col items-center gap-3 py-6 text-center">
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">ALL SET</p>
-      <h1 className="text-2xl font-bold tracking-tight">Your business is ready!</h1>
-      <p className="text-sm text-[#756B5D]">Taking you to your dashboard…</p>
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">ALL SET</p>
+      <h1 className="text-2xl font-display font-semibold tracking-tight">Your business is ready!</h1>
+      <p className="text-sm text-ink-secondary">Taking you to your dashboard…</p>
     </div>
   );
 }
