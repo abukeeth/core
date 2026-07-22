@@ -390,3 +390,61 @@ export function getRevenueByDay(days = 30) {
 export function getTopItems(days = 30, limit = 10) {
   return apiFetch<{ items: TopItem[] }>(`/api/restaurants/me/analytics/top-items?days=${days}&limit=${limit}`);
 }
+
+// --- Customers (owner) -----------------------------------------------------------
+// Derived on the server from this restaurant's order history (registered
+// Customers + guest checkouts). No separate customer directory is maintained.
+
+export interface OwnerCustomer {
+  id: string;
+  kind: "registered" | "guest";
+  name: string;
+  email: string;
+  phone: string | null;
+  orderCount: number;
+  totalSpentCents: number;
+  lastOrderAt: string | null;
+}
+
+export interface OwnerCustomerMetrics {
+  totalCustomers: number;
+  returningCount: number;
+  returningRate: number; // 0..1
+  avgSpentCents: number;
+  avgOrders: number;
+  vipCount: number;
+}
+
+export interface OwnerCustomerOrderSummary {
+  id: string;
+  orderNumber: number;
+  status: string;
+  fulfillmentType: string;
+  totalCents: number;
+  placedAt: string;
+}
+
+export interface OwnerCustomerDetail {
+  id: string;
+  kind: "registered" | "guest";
+  name: string;
+  email: string;
+  phone: string | null;
+  createdAt: string;
+  metrics: {
+    orderCount: number;
+    totalSpentCents: number;
+    avgOrderCents: number;
+    lastOrderAt: string | null;
+    firstOrderAt: string | null;
+  };
+  orders: OwnerCustomerOrderSummary[];
+}
+
+export function listOwnCustomers() {
+  return apiFetch<{ customers: OwnerCustomer[]; metrics: OwnerCustomerMetrics }>("/api/restaurants/me/customers");
+}
+
+export function getOwnCustomer(id: string) {
+  return apiFetch<{ customer: OwnerCustomerDetail }>(`/api/restaurants/me/customers/${id}`);
+}

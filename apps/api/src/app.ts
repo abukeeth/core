@@ -21,6 +21,7 @@ import { customerRouter } from "./modules/commerce/customers/index.routes";
 import { deliveryRulesRouter } from "./modules/commerce/delivery-rules/delivery-rules.routes";
 import { loyaltyOwnerRouter, loyaltyCustomerRouter } from "./modules/commerce/loyalty/loyalty.routes";
 import { analyticsRouter } from "./modules/commerce/analytics/analytics.routes";
+import { customersOwnerRouter } from "./modules/commerce/customers-owner/customers-owner.routes";
 import { reviewsCustomerRouter, reviewsPublicRouter } from "./modules/commerce/reviews/reviews.routes";
 import { fulfillmentRouter } from "./modules/commerce/fulfillment/fulfillment.routes";
 import { menuCommerceRouter } from "./modules/commerce/menu-commerce/menu-commerce.routes";
@@ -303,6 +304,7 @@ export function createApp() {
   app.use("/api/restaurants", tablesRouter);
   app.use("/api/restaurants", loyaltyOwnerRouter);
   app.use("/api/restaurants", analyticsRouter);
+  app.use("/api/restaurants", customersOwnerRouter);
   app.use("/api/admin/restaurants", adminRestaurantRouter);
   app.use("/api/admin", adminAuditLogRouter);
   app.use("/api/menu", menuRouter);
