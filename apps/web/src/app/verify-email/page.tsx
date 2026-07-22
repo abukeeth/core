@@ -27,23 +27,23 @@ export default function VerifyEmailPage() {
   }, []);
 
   return (
-    <main className="min-h-screen w-full overflow-x-hidden bg-[#F7F0E5] px-4 py-8 text-[#171512] sm:px-6">
+    <main className="min-h-screen w-full overflow-x-hidden bg-canvas px-4 py-8 text-ink sm:px-6">
       <div className="mx-auto w-full max-w-md">
         <div className="mb-10 flex items-center justify-between">
-          <div className="text-xl font-bold tracking-tight text-[#B97824]">OrderVora</div>
-          <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#756B5D] shadow-sm">Business OS</span>
+          <div className="text-xl font-bold tracking-tight text-brand">OrderVora</div>
+          <span className="rounded-full bg-surface px-3 py-1.5 text-xs font-semibold text-ink-secondary shadow-sm">Business OS</span>
         </div>
 
-        <section className="rounded-[28px] border border-[#E7DDCF] bg-white p-5 shadow-[0_18px_50px_rgba(48,39,27,0.07)] sm:p-7">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">ACCOUNT</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">Email verification</h1>
+        <section className="rounded-[24px] border border-line bg-surface p-5 shadow-[var(--ov-elevation)] sm:p-7">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">ACCOUNT</p>
+          <h1 className="mt-2 text-3xl font-display font-semibold tracking-tight">Email verification</h1>
 
-          {status === "pending" && <p className="mt-3 text-sm leading-6 text-[#756B5D]">Verifying…</p>}
-          {status === "success" && <p className="mt-3 text-sm leading-6 text-[#756B5D]">Your email has been verified.</p>}
-          {status === "error" && <p className="mt-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+          {status === "pending" && <p className="mt-3 text-sm leading-6 text-ink-secondary">Verifying…</p>}
+          {status === "success" && <p className="mt-3 text-sm leading-6 text-ink-secondary">Your email has been verified.</p>}
+          {status === "error" && <p className="mt-3 rounded-2xl border border-danger/25 bg-danger/5 px-4 py-3 text-sm text-danger">{error}</p>}
 
-          <p className="mt-6 text-center text-sm text-[#756B5D]">
-            <Link href="/dashboard" className="font-bold text-[#A9681F]">Go to dashboard</Link>
+          <p className="mt-6 text-center text-sm text-ink-secondary">
+            <Link href="/dashboard" className="font-bold text-brand">Go to dashboard</Link>
           </p>
         </section>
       </div>
