@@ -9,13 +9,13 @@ const MOBILE_ITEMS = [
   ["Overview", "/dashboard", "⌂"],
   ["Orders", "/dashboard/orders", "▤"],
   ["Menu", "/dashboard/menu", "▦"],
-  ["AI", "/dashboard/builder", "✦"],
+  ["Storefront", "/dashboard/builder", "✦"],
 ] as const;
 
 const MORE_ITEMS = [
   ["Launch", "/dashboard/launch"],
   ["Import", "/dashboard/import"],
-  ["AI Website Studio", "/dashboard/website"],
+  ["Storefront Studio", "/dashboard/website"],
   ["Analytics", "/dashboard/analytics"],
   ["Restaurant", "/dashboard/restaurant"],
   ["Profile", "/dashboard/profile"],
@@ -27,7 +27,7 @@ const DESKTOP_ITEMS = [
   ["Orders", "/dashboard/orders"],
   ["Menu", "/dashboard/menu"],
   ["Import", "/dashboard/import"],
-  ["AI Website Studio", "/dashboard/website"],
+  ["Storefront Studio", "/dashboard/website"],
   ["Analytics", "/dashboard/analytics"],
   ["Restaurant", "/dashboard/restaurant"],
   ["Profile", "/dashboard/profile"],

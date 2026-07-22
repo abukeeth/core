@@ -28,9 +28,9 @@ describe("isImageGenerationEnabled", () => {
 });
 
 describe("getImageProvider — config-driven vertical routing", () => {
-  it("defaults to the stability backend", () => {
-    expect(getImageProvider().name).toBe("stability");
-    expect(getImageProvider("DELI").name).toBe("stability");
+  it("defaults to the openai backend (uses the existing OPENAI_API_KEY)", () => {
+    expect(getImageProvider().name).toBe("openai");
+    expect(getImageProvider("DELI").name).toBe("openai");
   });
 
   it("honors AI_IMAGE_BACKEND as the default backend", () => {
@@ -39,11 +39,13 @@ describe("getImageProvider — config-driven vertical routing", () => {
   });
 
   it("routes a specific vertical via AI_IMAGE_ROUTES over the default", () => {
-    process.env.AI_IMAGE_BACKEND = "stability";
-    process.env.AI_IMAGE_ROUTES = "VAPE_SHOP=stability, COFFEE_SHOP=stability";
+    process.env.AI_IMAGE_BACKEND = "openai";
+    process.env.AI_IMAGE_ROUTES = "VAPE_SHOP=stability, COFFEE_SHOP=openai";
     expect(getImageProvider("VAPE_SHOP").name).toBe("stability");
-    // A vertical with no route falls through to the default backend.
-    expect(getImageProvider("RETAIL").name).toBe("stability");
+    // A vertical with an explicit route uses it...
+    expect(getImageProvider("COFFEE_SHOP").name).toBe("openai");
+    // ...and one with no route falls through to the default backend.
+    expect(getImageProvider("RETAIL").name).toBe("openai");
   });
 
   it("throws not_configured for an unknown backend name", () => {

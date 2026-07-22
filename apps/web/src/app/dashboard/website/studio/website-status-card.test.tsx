@@ -9,7 +9,7 @@ describe("WebsiteStatusCard — §7: must not contradict WebsiteDesignStatus's '
     render(<WebsiteStatusCard restaurantName="Joe's Diner" status={null} />);
 
     expect(screen.queryByText(/foundation is ready/)).not.toBeInTheDocument();
-    expect(screen.getByText(/doesn't have a website yet/)).toBeInTheDocument();
+    expect(screen.getByText(/doesn't have a storefront yet/)).toBeInTheDocument();
   });
 
   it("shows Live once the site is actually PUBLISHED", () => {

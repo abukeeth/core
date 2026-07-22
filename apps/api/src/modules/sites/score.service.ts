@@ -34,8 +34,9 @@ export async function runScore(restaurantId: string, siteId: string, versionId: 
   }
   const brandProfile = site.brandProfile ? brandProfileSchema.parse(site.brandProfile) : NEUTRAL_BRAND_PROFILE_FOR_SCORING;
   const assets = await getAssetSummary(site.id);
+  const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { businessType: true } });
 
-  const result = await scoreSiteDefinition(definition, { brandProfile, theme, assets });
+  const result = await scoreSiteDefinition(definition, { brandProfile, theme, assets, businessType: restaurant?.businessType });
 
   return prisma.siteScore.create({
     data: {

@@ -62,7 +62,7 @@ const MAX_IMAGE_FILES = 20;
 // still running (the backend reaper recovers/fails a genuinely stuck job).
 const SLOW_AFTER_MS = 90_000;
 
-const STAGES = ["Uploading", "OCR Reading", "AI Understanding", "Building Categories", "Building Products", "Generating Descriptions", "Saving Database", "Completed"] as const;
+const STAGES = ["Uploading", "OCR Reading", "Menu Understanding", "Building Categories", "Building Products", "Generating Descriptions", "Saving Database", "Completed"] as const;
 
 /**
  * Ceiling this phase animates toward — never claims 100% until the job is
@@ -82,7 +82,7 @@ export function ceilingFor(status: ImportJob["status"] | "UPLOADING"): number {
 function stageForPercent(percent: number): (typeof STAGES)[number] {
   if (percent < 12) return "Uploading";
   if (percent < 28) return "OCR Reading";
-  if (percent < 44) return "AI Understanding";
+  if (percent < 44) return "Menu Understanding";
   if (percent < 58) return "Building Categories";
   if (percent < 72) return "Building Products";
   if (percent < 85) return "Generating Descriptions";

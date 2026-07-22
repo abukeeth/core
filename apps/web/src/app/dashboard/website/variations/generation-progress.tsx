@@ -19,7 +19,7 @@ const SLOW_AFTER_MS = 90_000;
 const STAGES: { id: string; label: string; weight: number }[] = [
   { id: "INGEST", label: "Reading your menu and profile", weight: 6 },
   { id: "BRAND_ANALYSIS", label: "Analyzing your brand", weight: 10 },
-  { id: "THEME_SELECTION", label: "Selecting themes for each style", weight: 4 },
+  { id: "THEME_SELECTION", label: "Designing your storefront concepts", weight: 4 },
   { id: "CONTENT_GENERATION", label: "Writing your content", weight: 14 },
   { id: "ASSEMBLY", label: "Assembling three designs", weight: 12 },
   { id: "ASSETS", label: "Preparing images", weight: 8 },

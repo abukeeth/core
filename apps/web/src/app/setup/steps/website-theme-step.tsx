@@ -56,16 +56,16 @@ export function WebsiteThemeStep({ onDone }: { onDone: (restaurant: Restaurant) 
   return (
     <div>
       <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">GO ONLINE</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Build your website</h1>
+      <h1 className="mt-2 text-3xl font-bold tracking-tight">Create your storefront</h1>
       <p className="mt-3 text-sm leading-6 text-[#756B5D]">
-        AI will design a customer-facing ordering website for your business. You can regenerate or customize it anytime.
+        OrderVora will create a complete, customer-facing storefront for your business. You can regenerate or customize it anytime.
       </p>
 
       <div className="mt-6 space-y-4">
         {error && <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{error}</p>}
 
         <button type="button" onClick={handleBuild} disabled={submitting} className={primaryButtonClass}>
-          {submitting ? "Starting…" : "Build my website now"}
+          {submitting ? "Starting…" : "Create my storefront"}
         </button>
         <button type="button" onClick={handleSkip} disabled={submitting} className={secondaryButtonClass}>
           Skip for now

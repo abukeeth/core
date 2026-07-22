@@ -1,5 +1,6 @@
 import { getBooleanEnv, getNumberEnv, getStringEnv } from "../../../config/env";
 import { LocalImageProvider } from "./providers/local";
+import { OpenAIImageProvider } from "./providers/openai";
 import { StabilityImageProvider } from "./providers/stability";
 import { ImageGenerationError, type GeneratedImage, type ImageGenerationRequest, type ImageProvider } from "./types";
 
@@ -7,7 +8,7 @@ export type { GeneratedImage, ImageAspect, ImageErrorReason, ImageGenerationRequ
 export { ImageGenerationError } from "./types";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
-const DEFAULT_BACKEND = "stability";
+const DEFAULT_BACKEND = "openai";
 
 /**
  * Feature flag — AI image generation is OFF unless explicitly enabled, so it can
@@ -24,6 +25,10 @@ export function isImageGenerationEnabled(): boolean {
  */
 type ImageProviderFactory = () => ImageProvider;
 const BACKENDS: Record<string, ImageProviderFactory> = {
+  // Uses the OPENAI_API_KEY already configured for text (gpt-image-1 by default,
+  // OPENAI_IMAGE_MODEL to override). The default backend so a deployment with an
+  // OpenAI key set gets real photography with no extra provider config.
+  openai: () => new OpenAIImageProvider(),
   stability: () => new StabilityImageProvider(),
   // Real, self-contained, keyless backend for dev / offline / demo. Selected via
   // AI_IMAGE_BACKEND=local (or per-vertical routes); swappable for a hosted

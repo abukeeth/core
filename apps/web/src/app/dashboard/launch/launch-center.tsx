@@ -149,7 +149,7 @@ export function LaunchCenter({ restaurant, siteStatus }: { restaurant: Restauran
           </div>
           <p className="mt-3 text-sm leading-6 text-[#756B5D]">
             {websiteLive
-              ? "Your AI-designed marketing website is live. Keep customizing it anytime from the Website Studio."
+              ? "Your storefront is live. Keep customizing it anytime from the Storefront Studio."
               : "You can take orders without one, but a branded marketing website helps customers find and trust you. Build and publish it whenever you're ready."}
           </p>
           <Link

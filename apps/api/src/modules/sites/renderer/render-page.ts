@@ -1,6 +1,7 @@
 import type { SitePage, ThemeCatalogEntry } from "../types";
 import { renderHeaderNav, renderInternalLinkBaseScript, renderMobileActionBar } from "./components/chrome";
 import { renderThemeCss } from "./theme-css";
+import { renderWebFonts } from "./web-fonts";
 import { renderSeoHead } from "./seo-head";
 import { renderSections } from "./layout-engine";
 import type { RenderContext } from "./render-context";
@@ -40,6 +41,11 @@ export function renderPage(input: RenderPageInput): string {
   });
 
   const css = renderThemeCss(theme, ctx.definition.colorSeed, ctx.definition.brandSettings);
+  // Actually deliver the theme's typefaces (resolved the same way theme-css
+  // does) — without this the storefront falls back to system fonts.
+  const headingFont = ctx.definition.brandSettings?.headingFont ?? theme.tokens.typography.display;
+  const bodyFont = ctx.definition.brandSettings?.bodyFont ?? theme.tokens.typography.body;
+  const webFonts = renderWebFonts(headingFont, bodyFont);
   const headerNav = renderHeaderNav(ctx, theme);
   const sections = renderSections(page.sections, ctx);
   const mobileActionBar = renderMobileActionBar(ctx);
@@ -48,6 +54,7 @@ export function renderPage(input: RenderPageInput): string {
 <html lang="en">
 <head>
 ${head}
+${webFonts}
 ${css}
 </head>
 <body>

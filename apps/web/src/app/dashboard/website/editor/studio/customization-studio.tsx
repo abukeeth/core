@@ -228,12 +228,12 @@ export function CustomizationStudio({
               <button
                 type="button"
                 onClick={() => {
-                  if (!confirm("Restore all brand settings to your selected AI Brand Concept's defaults?")) return;
+                  if (!confirm("Restore all brand settings to your selected storefront's brand defaults?")) return;
                   commit({ ...definition, brandSettings: undefined });
                 }}
                 className="self-start text-xs font-bold text-[#9A6A2F] underline"
               >
-                Restore AI Brand Concept defaults
+                Restore brand defaults
               </button>
             </div>
           )}
