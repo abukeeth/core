@@ -18,11 +18,13 @@ import { generatedAssetPlanSchema, type BusinessUnderstanding, type CreativeBrie
  * a compliance rail, not an art decision.
  */
 
-export const V2_PROMPT_VERSION = "v2p2";
+export const V2_PROMPT_VERSION = "v2p3";
 
 /** Per-storefront category images (top categories only — below-the-fold cost control). */
 const CATEGORY_IMAGES_PER_STOREFRONT = 3;
-const DEFAULT_MAX_IMAGES = 15; // 3 × (1 hero + 3 categories) on a full miss, plus headroom
+/** Product photos per business (flagships first) — shared across storefronts. */
+const MAX_PRODUCT_IMAGES = 10;
+const DEFAULT_MAX_IMAGES = 24; // 3×(1 hero + 3 categories) + 10 products on a full miss, plus headroom
 
 function briefHash(brief: CreativeBrief): string {
   return createHash("sha1").update(JSON.stringify(brief)).digest("hex").slice(0, 12);
@@ -73,8 +75,45 @@ function cacheKeyFor(brief: CreativeBrief, surface: string, categoryName?: strin
     .slice(0, 20);
 }
 
+/** Product photos are business truth — keyed by the item itself (name +
+ * description + vertical), NOT by any brief, so all three storefronts show
+ * the same true photo of the same real item. */
+function productCacheKey(u: BusinessUnderstanding, name: string, description?: string): string {
+  return createHash("sha1")
+    .update([V2_PROMPT_VERSION, "product", u.identity.resolvedVertical, name, description ?? ""].join("::"))
+    .digest("hex")
+    .slice(0, 20);
+}
+
+export interface ProductForImaging {
+  name: string;
+  description?: string;
+  categoryName?: string;
+}
+
+function productPrompt(u: BusinessUnderstanding, item: ProductForImaging): { prompt: string; negativePrompt: string } {
+  const safety = getVerticalProfile(u.identity.resolvedVertical).artDirection.category.negativePrompt;
+  return {
+    prompt: [
+      `${item.name}${item.description ? ` — ${item.description}` : ""}`,
+      item.categoryName ? `(${item.categoryName})` : undefined,
+      "appetizing single-product photography, true to the item, centered, clean neutral surface, soft natural light",
+      "professional menu photography, no text",
+    ]
+      .filter(Boolean)
+      .join(". "),
+    negativePrompt: `${safety}, no product packaging, no brand logos, no labels, no hands`,
+  };
+}
+
 /** Pure planning — the full imagery program, before any generation happens. */
-export function planAssets(u: BusinessUnderstanding, briefs: CreativeBrief[]): GeneratedAssetPlan {
+export function planAssets(u: BusinessUnderstanding, briefs: CreativeBrief[], products: ProductForImaging[] = []): GeneratedAssetPlan {
+  // Flagships first, then menu order; one photo per real item.
+  const ranked = [...products].sort((a, b) => {
+    const ai = u.catalog.flagshipProducts.indexOf(a.name);
+    const bi = u.catalog.flagshipProducts.indexOf(b.name);
+    return (ai < 0 ? 99 : ai) - (bi < 0 ? 99 : bi);
+  });
   return generatedAssetPlanSchema.parse({
     schemaVersion: 1,
     perStorefront: briefs.map((brief) => {
@@ -91,6 +130,13 @@ export function planAssets(u: BusinessUnderstanding, briefs: CreativeBrief[]): G
         })),
       };
     }),
+    productImages: ranked.slice(0, MAX_PRODUCT_IMAGES).map((item) => ({
+      surface: "product",
+      productName: item.name,
+      ...productPrompt(u, item),
+      aspect: "square",
+      cacheKey: productCacheKey(u, item.name, item.description),
+    })),
     budget: getNumberEnv("AI_IMAGE_MAX_PER_BUSINESS", DEFAULT_MAX_IMAGES),
   });
 }
@@ -99,6 +145,8 @@ export interface StorefrontAssets {
   briefId: string;
   heroUrl?: string;
   categoryImages: Record<string, string>;
+  /** Shared, business-truth product photos (item name → url). */
+  productImages: Record<string, string>;
 }
 
 export interface GenerateAssetsDeps {
@@ -118,7 +166,7 @@ export async function generatePlannedAssets(
   const generate = deps.generate ?? generateImage;
   const isEnabled = deps.isEnabled ?? isImageGenerationEnabled;
 
-  const results: StorefrontAssets[] = plan.perStorefront.map((s) => ({ briefId: s.briefId, categoryImages: {} }));
+  const results: StorefrontAssets[] = plan.perStorefront.map((s) => ({ briefId: s.briefId, categoryImages: {}, productImages: {} }));
   if (!isEnabled()) return results; // renderer fallbacks take over
 
   let used = 0;
@@ -148,5 +196,14 @@ export async function generatePlannedAssets(
       if (url && c.categoryName) results[i].categoryImages[c.categoryName] = url;
     }
   }
+
+  // Product photos: generated ONCE, then shared into every storefront's assets.
+  const sharedProducts: Record<string, string> = {};
+  for (const p of plan.productImages) {
+    const url = await resolve(p.cacheKey, { prompt: p.prompt, negativePrompt: p.negativePrompt, aspect: p.aspect }, "product", p.productName);
+    if (url && p.productName) sharedProducts[p.productName] = url;
+  }
+  for (const r of results) r.productImages = sharedProducts;
+
   return results;
 }

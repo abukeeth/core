@@ -220,8 +220,9 @@ export type StorefrontPlan = z.infer<typeof storefrontPlanSchema>;
 // ---------------------------------------------------------------------------
 
 export const imagePromptSchema = z.object({
-  surface: z.enum(["hero", "category", "marketing"]),
+  surface: z.enum(["hero", "category", "marketing", "product"]),
   categoryName: z.string().optional(),
+  productName: z.string().optional(),
   prompt: z.string().min(1),
   negativePrompt: z.string().min(1),
   aspect: z.enum(["square", "landscape", "portrait"]),
@@ -240,6 +241,9 @@ export const generatedAssetPlanSchema = z.object({
       }),
     )
     .min(1),
+  /** Product photos are BUSINESS TRUTH (what the item looks like), shared by
+   * all three storefronts — one grounded photo per real menu item. */
+  productImages: z.array(imagePromptSchema).max(16).default([]),
   budget: z.number().int().min(1),
 });
 

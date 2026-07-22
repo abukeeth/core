@@ -24,7 +24,22 @@ export interface RenderPageInput {
  * logic, so they can never diverge.
  */
 export function renderPage(input: RenderPageInput): string {
-  const { ctx, page, theme, siteUrl, noindex } = input;
+  const { page, theme, siteUrl, noindex } = input;
+  // Product photos: an item's REAL uploaded photo always wins; the generated
+  // business-truth photo (aiAssets.productImages) fills in when there is
+  // none. Resolved ONCE here so every menu/product component — and every
+  // menu layout variant — gets it with no per-component wiring.
+  const productImages = input.ctx.assets.aiProductImages;
+  const ctx =
+    productImages && Object.keys(productImages).length > 0
+      ? {
+          ...input.ctx,
+          liveMenu: input.ctx.liveMenu.map((category) => ({
+            ...category,
+            items: category.items.map((item) => ({ ...item, imageUrl: item.imageUrl ?? productImages[item.name] })),
+          })),
+        }
+      : input.ctx;
 
   const head = renderSeoHead({
     restaurantName: ctx.definition.restaurantName,

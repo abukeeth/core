@@ -54,7 +54,7 @@ export function compileDefinition(input: CompileDefinitionInput): SiteDefinition
     // Vertical-correct language everywhere; the brief's conversion strategy
     // owns the primary CTA (chrome + hero + banners read this).
     vocabulary: { ...vocabulary, primaryCta: plan.vocabulary.primaryCta },
-    aiAssets: assets ? { heroUrl: assets.heroUrl, categoryImages: assets.categoryImages } : undefined,
+    aiAssets: assets ? { heroUrl: assets.heroUrl, categoryImages: assets.categoryImages, productImages: assets.productImages } : undefined,
     generation: { engine: "v2", briefId: plan.briefId },
     pages: plan.pages.map((page) => ({
       slug: page.slug,

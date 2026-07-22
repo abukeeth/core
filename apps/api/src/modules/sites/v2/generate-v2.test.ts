@@ -125,6 +125,23 @@ describe("generateV2 — the full theme-free pipeline", () => {
     for (const p of prompts) expect(p).toContain("Pastrami on Rye");
   });
 
+  it("PRODUCT photos: one grounded photo per real item, shared as business truth across all three storefronts", async () => {
+    const generate = async (req: { prompt: string }) => ({ ...PNG, data: Buffer.from(req.prompt) });
+    const result = await generateV2({ ingest: DELI, seed: "s1" }, { assets: { isEnabled: () => true, generate } });
+    // Planned per item, grounded in the item's own name/description:
+    const names = result.assetPlan.productImages.map((p) => p.productName);
+    expect(names).toContain("Pastrami on Rye");
+    const pastrami = result.assetPlan.productImages.find((p) => p.productName === "Pastrami on Rye")!;
+    expect(pastrami.prompt).toContain("Hand-carved, cured in-house");
+    // Shared identically into every storefront and persisted on the definition:
+    for (const s of result.storefronts) {
+      expect(s.assets.productImages["Pastrami on Rye"]).toBeTruthy();
+      expect(s.definition.aiAssets?.productImages?.["Pastrami on Rye"]).toBe(s.assets.productImages["Pastrami on Rye"]);
+    }
+    const maps = result.storefronts.map((s) => JSON.stringify(s.assets.productImages));
+    expect(new Set(maps).size).toBe(1); // business truth — same item, same photo everywhere
+  });
+
   it("light-first balance: at most one dark ground per trio (procedural floor guarantees it)", async () => {
     for (const seed of ["s1", "s2", "s3", "s4"]) {
       const { storefronts } = await generateV2({ ingest: BAKERY, seed });

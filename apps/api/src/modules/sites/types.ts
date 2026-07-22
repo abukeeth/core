@@ -246,6 +246,8 @@ export const siteDefinitionObjectSchema = z.object({
       heroUrl: z.string().optional(),
       categoryImages: z.record(z.string(), z.string()).optional(),
       marketingUrl: z.string().optional(),
+      /** Business-truth product photos, keyed by menu item name. */
+      productImages: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
   // Generation V2 provenance — INTERNAL ONLY (never rendered, never shown to

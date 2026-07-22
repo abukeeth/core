@@ -11,12 +11,13 @@ import { createBrandAssetStore } from "./branding/persistent-asset-store";
 import { adaptToneForVariation, generateContentCore } from "./content-generator";
 import { IDENTITY_PACKS, identityForFamily } from "./identity/identity-packs";
 import { ingestRestaurantData } from "./ingest";
+import { buildCarrierTheme } from "./renderer/theme-carrier";
+import { generateV2 } from "./v2/generate-v2";
 import { isGenerationV2Enabled } from "./v2/rollout";
-import { runV2Shadow, shadowSeedFrom } from "./v2/shadow";
 import { scoreSiteDefinition } from "./scoring/score-aggregator";
 import { THEME_CATALOG } from "./theme-catalog";
 import { derivePaletteSeed, selectThemesForAllFamilies } from "./theme-matching";
-import type { SiteDefinition, StyleFamilyValue, WebsiteScore } from "./types";
+import type { IngestData, SiteDefinition, StyleFamilyValue, WebsiteScore } from "./types";
 
 function toJson<T>(value: T): Prisma.InputJsonValue {
   return value as unknown as Prisma.InputJsonValue;
@@ -75,14 +76,16 @@ class InProcessGenerationJobRunner implements GenerationJobRunner {
     try {
       const site = await prisma.site.findUniqueOrThrow({ where: { id: siteId } });
 
-      // Generation V2 seam — P1 SHADOW MODE (plan §8 phase 1). For a
-      // V2-scoped business the new pipeline runs understanding → briefs →
-      // diversity and logs the full result for inspection, while V1 below
-      // still serves the customer untouched. runV2Shadow never throws.
-      const v2Shadow = isGenerationV2Enabled(site.restaurantId);
       const ingest = await ingestRestaurantData(site.restaurantId);
-      if (v2Shadow) {
-        await runV2Shadow({ ingest, sourceType: "mixed", seed: shadowSeedFrom(ingest, batchId) });
+
+      // Generation V2 (plan §8 phase 2): an allowlisted business generates
+      // ENTIRELY through the V2 pipeline — understanding → original briefs →
+      // independent plans/copy/imagery → three theme-free definitions —
+      // and returns before any V1 theme logic runs. Everyone else gets V1
+      // byte-identically.
+      if (isGenerationV2Enabled(site.restaurantId)) {
+        await this.runV2(jobId, siteId, batchId, createdById, ingest);
+        return;
       }
 
       await this.setStage(jobId, "BRAND_ANALYSIS");
@@ -225,6 +228,46 @@ class InProcessGenerationJobRunner implements GenerationJobRunner {
 
   private async setStage(jobId: string, stage: GenerationStage): Promise<void> {
     await prisma.generationJob.update({ where: { id: jobId }, data: { stage } });
+  }
+
+  /**
+   * Generation V2 — the theme-free pipeline for allowlisted businesses.
+   * Persists three schemaVersion-2 SiteVersions (one per generated
+   * storefront); imagery runs through the persistent asset store with the
+   * same flag/budget/failure guardrails as V1. Reuses the existing job
+   * stages so the build-progress UI needs no changes (THEME_SELECTION and
+   * SCORING are simply never emitted — no theme is ever selected).
+   */
+  private async runV2(jobId: string, siteId: string, batchId: string, createdById: string, ingest: IngestData): Promise<void> {
+    await this.setStage(jobId, "BRAND_ANALYSIS");
+    const result = await generateV2(
+      { ingest, sourceType: "mixed", seed: `${siteId}::${batchId}` },
+      { assets: { store: createBrandAssetStore() } },
+    );
+
+    await this.setStage(jobId, "ASSEMBLY");
+    await prisma.$transaction(async (tx) => {
+      await tx.siteVersion.updateMany({ where: { siteId, status: "VARIATION" }, data: { status: "ARCHIVED" } });
+      const last = await tx.siteVersion.findFirst({ where: { siteId }, orderBy: { versionNo: "desc" } });
+      let versionNo = last?.versionNo ?? 0;
+      for (const storefront of result.storefronts) {
+        versionNo += 1;
+        await tx.siteVersion.create({
+          data: {
+            siteId,
+            versionNo,
+            definition: toJson(storefront.definition),
+            status: "VARIATION",
+            // Internal DB column only (never customer-facing): the carrier's
+            // legibility persona stands in for the retired theme family.
+            styleFamily: buildCarrierTheme(storefront.definition).styleFamily,
+            generationBatchId: batchId,
+            createdById,
+          },
+        });
+      }
+      await tx.generationJob.update({ where: { id: jobId }, data: { status: "COMPLETED", stage: "FINALIZE", heartbeatAt: null } });
+    });
   }
 }
 

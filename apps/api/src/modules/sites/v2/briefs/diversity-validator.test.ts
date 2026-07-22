@@ -14,10 +14,10 @@ function brief(over: Partial<CreativeBrief> & { id: string }): CreativeBrief {
     photography: { treatment: "t", lighting: "soft daylight", backdrop: "pale surfaces", subjects: ["s"] },
     typography: { display: "Fraunces", body: "Inter" },
     colorLogic: { rationale: "r", ground: { hex: "#15110C", luminanceClass: "dark" }, ink: "#F4EADB", brand: "#E07A2F", accent: "#E07A2F" },
-    heroConcept: { composition: "cinematic", headline: "h", subhead: "s", imageSubject: "i" },
+    heroConcept: { composition: "cinematic", headline: "h", subhead: "s", imageSubject: "i", scale: "standard", alignment: "center" },
     productPresentation: { layout: "editorial-rows", emphasis: "e" },
     conversionStrategy: { primaryCta: "Order now", trustSignals: [] },
-    structure: { home: ["hero", "signatureDishes", "aboutTeaser", "footer"] },
+    structure: { home: ["hero", "signatureDishes", "aboutTeaser", "footer"], philosophy: "balanced" },
     ...over,
   } as CreativeBrief;
 }
@@ -39,24 +39,24 @@ describe("validateDiversity", () => {
       brief({
         id: "b",
         typography: { display: "Space Grotesk", body: "DM Sans" },
-        heroConcept: { composition: "minimal-typographic", headline: "h2", subhead: "s2", imageSubject: "i2" },
+        heroConcept: { composition: "minimal-typographic", headline: "h2", subhead: "s2", imageSubject: "i2", scale: "compact", alignment: "left" },
         colorLogic: { rationale: "r", ground: { hex: "#FFFFFF", luminanceClass: "light" }, ink: "#141417", brand: "#0E7A3C", accent: "#0E7A3C" },
         productPresentation: { layout: "card-grid", emphasis: "grid" },
         brandPersonality: ["precise", "modern"],
         photography: { treatment: "clean", lighting: "bright airy studio", backdrop: "seamless white", subjects: ["product"] },
         conversionStrategy: { primaryCta: "Order pickup", trustSignals: [] },
-        structure: { home: ["hero", "featuredCategories", "features", "hoursLocation", "footer"] },
+        structure: { home: ["hero", "featuredCategories", "features", "hoursLocation", "footer"], philosophy: "discovery" },
       }),
       brief({
         id: "c",
         typography: { display: "Nunito Sans", body: "Nunito Sans" },
-        heroConcept: { composition: "warm-frame", headline: "h3", subhead: "s3", imageSubject: "i3" },
+        heroConcept: { composition: "warm-frame", headline: "h3", subhead: "s3", imageSubject: "i3", scale: "tall", alignment: "right" },
         colorLogic: { rationale: "r", ground: { hex: "#FBF4E2", luminanceClass: "tinted" }, ink: "#26251F", brand: "#2E6B3A", accent: "#D8502E" },
         productPresentation: { layout: "warm-cards", emphasis: "warm" },
         brandPersonality: ["neighborly", "fresh"],
         photography: { treatment: "rustic", lighting: "golden morning glow", backdrop: "wooden market crates", subjects: ["counter"] },
         conversionStrategy: { primaryCta: "Stop by today", trustSignals: [] },
-        structure: { home: ["hero", "gallery", "signatureDishes", "reviews", "ctaBanner", "footer"] },
+        structure: { home: ["hero", "gallery", "signatureDishes", "reviews", "ctaBanner", "footer"], philosophy: "community" },
       }),
     ]);
     expect(report.pass).toBe(true);
@@ -69,13 +69,13 @@ describe("validateDiversity", () => {
       brief({
         id: "c",
         typography: { display: "Sora", body: "Work Sans" },
-        heroConcept: { composition: "bold-block", headline: "x", subhead: "y", imageSubject: "z" },
+        heroConcept: { composition: "bold-block", headline: "x", subhead: "y", imageSubject: "z", scale: "full", alignment: "center" },
         colorLogic: { rationale: "r", ground: { hex: "#FFFFFF", luminanceClass: "light" }, ink: "#111111", brand: "#222222", accent: "#333333" },
         productPresentation: { layout: "bold-grid", emphasis: "bold" },
         brandPersonality: ["loud", "direct"],
         photography: { treatment: "punchy", lighting: "hard flash contrast", backdrop: "concrete studio", subjects: ["p"] },
         conversionStrategy: { primaryCta: "Shop now", trustSignals: [] },
-        structure: { home: ["hero", "featuredProducts", "ctaBanner", "footer"] },
+        structure: { home: ["hero", "featuredProducts", "ctaBanner", "footer"], philosophy: "bold" },
       }),
     ]);
     expect(report.pass).toBe(false);

@@ -51,8 +51,13 @@ export async function generateV2(input: GenerateV2Input, deps: GenerateV2Deps = 
     briefs.map((brief) => (deps.complete ? writeStorefrontCopy(understanding, brief, { complete: deps.complete }) : Promise.resolve(proceduralCopy(understanding, brief)))),
   );
 
-  // Independent imagery per storefront (brief hash in every cache key).
-  const assetPlan = planAssets(understanding, briefs);
+  // Independent impression imagery per storefront (brief hash in every cache
+  // key) + shared business-truth product photos (one per real menu item).
+  const assetPlan = planAssets(
+    understanding,
+    briefs,
+    input.ingest.menu.map((item) => ({ name: item.name, description: item.description, categoryName: item.categoryName })),
+  );
   const assetResults = await generatePlannedAssets(understanding, assetPlan, input.ingest.restaurantId, deps.assets);
 
   const storefronts = briefs.map((brief, i) => {
