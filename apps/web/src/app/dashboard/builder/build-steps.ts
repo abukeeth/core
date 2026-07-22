@@ -21,13 +21,13 @@ export interface BuildStep {
 export const BUILD_STEPS: BuildStep[] = [
   {
     id: "INGEST",
-    group: "Understanding your restaurant",
+    group: "Understanding your business",
     title: "Menu Organization",
     captions: (ctx) => [`Reading ${ctx.restaurantName}'s menu and profile…`, "Organizing your categories and items…"],
   },
   {
     id: "BRAND_ANALYSIS",
-    group: "Understanding your restaurant",
+    group: "Understanding your business",
     title: "Business Analysis & Brand Discovery",
     captions: (ctx) => [
       `Analyzing ${ctx.restaurantName}'s personality…`,

@@ -107,8 +107,22 @@ Planned:
 
 ## Current Development Direction
 
-**Sprint 20A, Task 5 ("Website Customization Studio") is the latest
-completed work** — Sprint 20A stopped there per instruction; Task 6 was
+**Identity Packs — the three-agency storefront model (latest completed
+work):** every generation now produces three genuinely independent brand
+identities (Artisan Craft / Modern Minimal / Local Market) from one menu
+upload — each with its own palette mood, typography pair, hero
+composition, copy voice, and photography direction, for EVERY business
+type (`apps/api/src/modules/sites/identity/identity-packs.ts`). Imagery
+is grounded in the real business (name + resolved vertical + menu
+categories + product names) with one hero generated per identity;
+`resolveVertical` now lets strong name/menu evidence override a
+default-ish stored RESTAURANT/OTHER. The customer-facing card selection
+flow (concept cards, Prestige/Reserve/Signature naming, palette dots,
+device pills, `NEXT_PUBLIC_STOREFRONT_SHOWCASE` flag) was DELETED — the
+full-bleed Storefront Showcase is the only selection experience. Do not
+reintroduce concept cards or tier names.
+
+Before that, **Sprint 20A, Task 5 ("Website Customization Studio")** — Sprint 20A stopped there per instruction; Task 6 was
 not started. Full detail per sprint/task is in `RELEASE_NOTES.md`, which
 is the authoritative, current history — this file and `ROADMAP.md`
 summarize it but can drift out of date, so when in doubt trust

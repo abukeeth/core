@@ -90,22 +90,69 @@ export const VERTICAL_PROFILES: Record<string, VerticalProfile> = {
 const KEYWORD_TO_VERTICAL: [RegExp, string][] = [
   [/vape|smoke|tobacco|hookah|nicotine/i, "VAPE_SHOP"],
   [/coffee|cafe|café|espresso|roaster/i, "COFFEE_SHOP"],
-  [/deli|sandwich|bodega/i, "DELI"],
+  [/deli\b|delicatessen|sandwich|sub\b|hoagie|pastrami|bodega/i, "DELI"],
   [/retail|store|shop|boutique/i, "RETAIL"],
   [/restaurant|bistro|grill|kitchen|eatery|diner|taqueria|pizzeria/i, "RESTAURANT"],
 ];
 
 /**
- * Resolve the vertical key: an explicit enum vertical wins; otherwise infer from
- * the brand profile's free-text business type; otherwise DEFAULT.
+ * The two "default-ish" enum values. RESTAURANT is the wizard's first tile and
+ * the historical default; OTHER is the schema default. Either can be overridden
+ * by strong contrary evidence. A SPECIFIC choice (DELI, VAPE_SHOP, …) never is.
  */
-export function resolveVertical(vertical: string | undefined, brandProfile: BrandProfile): string {
-  if (vertical && VERTICAL_PROFILES[vertical.toUpperCase()]) return vertical.toUpperCase();
-  const hint = `${brandProfile.businessType ?? ""}`;
+const OVERRIDABLE_VERTICALS = new Set(["RESTAURANT", "OTHER"]);
+
+export interface VerticalEvidence {
+  /** The business's display name — a "Deli" in the name beats a default enum. */
+  businessName?: string;
+  /** Imported menu category names — e.g. "Signature Sandwiches", "Deli Classics". */
+  menuCategories?: string[];
+}
+
+function inferFromText(text: string): string | undefined {
   for (const [pattern, key] of KEYWORD_TO_VERTICAL) {
-    if (pattern.test(hint)) return key;
+    if (pattern.test(text)) return key;
   }
-  return DEFAULT_VERTICAL;
+  return undefined;
+}
+
+/**
+ * Evidence-based override for a default-ish vertical: the business NAME naming
+ * a vertical wins outright; otherwise two or more distinct menu categories
+ * pointing at the same non-restaurant vertical win. One stray "Sandwiches"
+ * category on a real restaurant menu is NOT enough to reclassify it.
+ */
+function inferFromEvidence(evidence: VerticalEvidence): string | undefined {
+  const fromName = evidence.businessName ? inferFromText(evidence.businessName) : undefined;
+  if (fromName && fromName !== "RESTAURANT") return fromName;
+
+  const hits = new Map<string, number>();
+  for (const category of evidence.menuCategories ?? []) {
+    const hit = inferFromText(category);
+    if (hit && hit !== "RESTAURANT") hits.set(hit, (hits.get(hit) ?? 0) + 1);
+  }
+  const strongest = [...hits.entries()].sort((a, b) => b[1] - a[1])[0];
+  return strongest && strongest[1] >= 2 ? strongest[0] : undefined;
+}
+
+/**
+ * Resolve the vertical key. A SPECIFIC explicit enum vertical always wins; a
+ * default-ish one (RESTAURANT/OTHER — the tap-the-first-tile / schema-default
+ * values) is overridden when the business name or the imported menu carries
+ * strong evidence of the real vertical (e.g. "DELI Fresh & Local" with
+ * "Signature Sandwiches" + "Deli Classics" is a DELI even if the wizard stored
+ * RESTAURANT). Falls back to free-text inference, then the DEFAULT profile.
+ */
+export function resolveVertical(vertical: string | undefined, brandProfile: BrandProfile, evidence: VerticalEvidence = {}): string {
+  const explicit = vertical && VERTICAL_PROFILES[vertical.toUpperCase()] ? vertical.toUpperCase() : undefined;
+  if (explicit && !OVERRIDABLE_VERTICALS.has(explicit)) return explicit;
+
+  const evidenced = inferFromEvidence(evidence);
+  if (evidenced) return evidenced;
+  if (explicit) return explicit;
+
+  const hint = `${brandProfile.businessType ?? ""}`;
+  return inferFromText(hint) ?? DEFAULT_VERTICAL;
 }
 
 /** The deterministic profile for a vertical (falls back to the DEFAULT/OTHER profile). */

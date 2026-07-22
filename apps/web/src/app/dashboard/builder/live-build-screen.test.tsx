@@ -13,7 +13,7 @@ describe("LiveBuildScreen", () => {
     render(<LiveBuildScreen restaurantName="Joe's Diner" activeStepId="ASSEMBLY" />);
 
     expect(screen.getByRole("heading", { name: "Building Joe's Diner" })).toBeInTheDocument();
-    expect(screen.getByText("Understanding your restaurant")).toBeInTheDocument();
+    expect(screen.getByText("Understanding your business")).toBeInTheDocument();
     expect(screen.getByText("Designing your website")).toBeInTheDocument();
     expect(screen.getByText("Publishing your business")).toBeInTheDocument();
   });
@@ -41,7 +41,7 @@ describe("LiveBuildScreen", () => {
   it("shows grouped build stages with completion state", () => {
     render(<LiveBuildScreen restaurantName="Joe's Diner" activeStepId="PUBLISHING" />);
 
-    expect(screen.getByText("Understanding your restaurant")).toBeInTheDocument();
+    expect(screen.getByText("Understanding your business")).toBeInTheDocument();
     expect(screen.getByText("Designing your website")).toBeInTheDocument();
     expect(screen.getByText("Publishing your business")).toBeInTheDocument();
     expect(screen.getAllByText("Completed").length).toBeGreaterThan(0);

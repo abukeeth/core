@@ -9,6 +9,7 @@ import { generateBrandAssets } from "./branding/asset-generator";
 import { generateBrandKit } from "./branding/brand-generator";
 import { createBrandAssetStore } from "./branding/persistent-asset-store";
 import { adaptToneForVariation, generateContentCore } from "./content-generator";
+import { IDENTITY_PACKS, identityForFamily } from "./identity/identity-packs";
 import { ingestRestaurantData } from "./ingest";
 import { scoreSiteDefinition } from "./scoring/score-aggregator";
 import { THEME_CATALOG } from "./theme-catalog";
@@ -89,18 +90,30 @@ class InProcessGenerationJobRunner implements GenerationJobRunner {
       // a safe no-op that falls back to stock/SVG when the AI image layer is off
       // or a provider refuses. Never product tiles or branded products.
       const brandKit = await generateBrandKit({ ingest, brandProfile, vertical: ingest.businessType });
+      const menuCategories = [...new Set((ingest.menu ?? []).map((item) => item.categoryName))];
+      // Real-menu grounding: representative product names (one per category, in
+      // menu order) so every generated photograph depicts things this business
+      // actually sells — never generic vertical stock scenes.
+      const seenCategories = new Set<string>();
+      const representativeProducts = (ingest.menu ?? [])
+        .filter((item) => (seenCategories.has(item.categoryName) ? false : (seenCategories.add(item.categoryName), true)))
+        .slice(0, 4)
+        .map((item) => item.name);
       const brandAssets = await generateBrandAssets(
         {
           brandKit,
           businessId: site.restaurantId,
-          categories: [...new Set((ingest.menu ?? []).map((item) => item.categoryName))],
+          categories: menuCategories,
+          grounding: { businessName: ingest.restaurantName, products: representativeProducts, categories: menuCategories },
+          // Three-agency model: one hero per identity pack, each shot to its
+          // own photography direction (cinematic / clean-minimal / rustic).
+          identities: FAMILIES.map((family) => IDENTITY_PACKS[family]),
         },
         // Persistent, object-storage-backed store so generated assets survive
         // restarts and are reused across variations/renders (no-op while the AI
         // image flag is off).
         { store: createBrandAssetStore() },
       );
-      const aiAssets = { heroUrl: brandAssets.heroUrl, categoryImages: brandAssets.categoryImages, marketingUrl: brandAssets.marketingUrl };
 
       await this.setStage(jobId, "ASSEMBLY");
       const assembled: { family: StyleFamilyValue; definition: SiteDefinition }[] = [];
@@ -108,6 +121,7 @@ class InProcessGenerationJobRunner implements GenerationJobRunner {
         const toneAdapted = await adaptToneForVariation(contentCore, family, ingest);
         const fit = themeSelection[family];
         const colorSeed = derivePaletteSeed(brandProfile, ingest.logoColorSeed, fit.theme.tokens.colorSeed);
+        const identity = identityForFamily(family);
         const definition = buildSiteDefinition({
           ingest,
           brandProfile,
@@ -117,7 +131,14 @@ class InProcessGenerationJobRunner implements GenerationJobRunner {
           colorSeed,
           designRationale: fit.reasons,
           brandKit,
-          aiAssets,
+          identity,
+          // Each variation opens on ITS OWN hero photograph (per-identity shot);
+          // category/marketing banners are shared below the fold.
+          aiAssets: {
+            heroUrl: brandAssets.heroUrls[identity.key] ?? brandAssets.heroUrl,
+            categoryImages: brandAssets.categoryImages,
+            marketingUrl: brandAssets.marketingUrl,
+          },
         });
         assembled.push({ family, definition });
       }

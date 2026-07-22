@@ -14,14 +14,15 @@ vi.mock("../website/variations/[id]/device-preview", () => ({
 
 import { StorefrontShowcase, StorefrontShowcaseSection } from "./storefront-showcase";
 
-// Locked: none of these words may appear in customer-facing UI.
-const BANNED = /\b(ai|theme|themes|template|templates|variation|variations|modern|luxury|local|style\s*family)\b/i;
+// Locked: none of these words may appear in customer-facing UI — theme
+// vocabulary, "AI", and the retired concept-tier names.
+const BANNED = /\b(ai|theme|themes|template|templates|variation|variations|modern|luxury|local|style\s*family|prestige|reserve|signature)\b/i;
 
 function renderShowcase(onUse = vi.fn()) {
   const items = [
-    { id: "v1", name: "Bil Prestige", rec: true },
-    { id: "v2", name: "Bil Reserve", rec: false },
-    { id: "v3", name: "Bil Signature", rec: false },
+    { id: "v1", name: "Bil Deli — storefront 1" },
+    { id: "v2", name: "Bil Deli — storefront 2" },
+    { id: "v3", name: "Bil Deli — storefront 3" },
   ];
   const result = render(
     <StorefrontShowcase>
@@ -31,7 +32,6 @@ function renderShowcase(onUse = vi.fn()) {
           siteId="site-1"
           variationId={it.id}
           name={it.name}
-          isRecommended={it.rec}
           action={
             <button type="button" onClick={() => onUse(it.id)}>
               Use This Storefront
@@ -57,22 +57,20 @@ describe("Storefront Showcase", () => {
     expect(screen.getByText("site-1:v1")).toBeInTheDocument();
   });
 
-  it("marks only the first (recommended) storefront, and does not diminish the others", () => {
+  it("treats all storefronts identically — same full height, no badges or markers on any of them", () => {
     renderShowcase();
-    expect(screen.getAllByText("Recommended")).toHaveLength(1);
-    // All sections share the same height class — none is shrunk/dominant.
     const heights = screen.getAllByTestId("storefront-section").map((s) => s.className.includes("h-[100svh]"));
     expect(heights).toEqual([true, true, true]);
+    expect(screen.queryByText(/Recommended/i)).not.toBeInTheDocument();
   });
 
   it("shows NO visible name, headline, description, or palette chips — the storefront is the only presentation", () => {
     renderShowcase();
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Brand colors")).not.toBeInTheDocument();
-    expect(screen.queryByText(/front and center|tells your brand|everyday visits/i)).not.toBeInTheDocument();
-    // The premium name is not painted as chrome — it only labels the section for assistive tech.
-    expect(screen.queryByText("Bil Prestige")).not.toBeInTheDocument();
-    expect(screen.getAllByTestId("storefront-section")[0]).toHaveAttribute("aria-label", "Bil Prestige");
+    // The label is not painted as chrome — it only names the section for assistive tech.
+    expect(screen.queryByText("Bil Deli — storefront 1")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("storefront-section")[0]).toHaveAttribute("aria-label", "Bil Deli — storefront 1");
   });
 
   it("keeps a 'Use This Storefront' CTA in every section and wires it to the handler", () => {
@@ -83,7 +81,7 @@ describe("Storefront Showcase", () => {
     expect(onUse).toHaveBeenCalledWith("v3");
   });
 
-  it("never renders banned theme/template/AI vocabulary", () => {
+  it("never renders banned theme/template/AI/concept-tier vocabulary", () => {
     const { container } = renderShowcase();
     expect(container.textContent ?? "").not.toMatch(BANNED);
   });
@@ -99,7 +97,7 @@ describe("Storefront Showcase", () => {
   it("labels each section for assistive tech and pairs it with a single action", () => {
     renderShowcase();
     const first = screen.getAllByTestId("storefront-section")[0];
-    expect(first).toHaveAttribute("aria-label", "Bil Prestige");
+    expect(first).toHaveAttribute("aria-label", "Bil Deli — storefront 1");
     expect(within(first).getByRole("button", { name: "Use This Storefront" })).toBeInTheDocument();
   });
 });

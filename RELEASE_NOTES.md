@@ -1,3 +1,29 @@
+# Release Notes
+
+## Identity Packs — three independent storefront identities (latest)
+
+One menu upload now generates three complete, genuinely different brand
+identities system-wide (all business types): Artisan Craft (dark serif
+editorial, cinematic hero), Modern Minimal (bright grotesk precision,
+text-first hero), Local Market (warm rounded community, framed hero).
+Each identity owns palette mood, typography, hero composition, structure
+(radius/shadows/spacing), section copy voice, and photography direction.
+Impression imagery is grounded in the real business — name, resolved
+vertical, menu categories, and actual product names — with ONE HERO PER
+IDENTITY (distinct cache keys), so the three storefronts open on
+different photographs. `resolveVertical` accepts evidence: a default-ish
+stored RESTAURANT/OTHER is overridden by the business name or ≥2
+matching menu categories (a mis-tapped wizard tile no longer produces
+fine-dining imagery for a deli). The renderer gained dark-ground
+support: a dark identity background re-derives the surface + text
+scales so cards stay readable. The card-based selection flow was
+deleted end-to-end (concept cards, tier names, palette dots, device
+pills, the showcase feature flag) — the full-bleed Storefront Showcase
+is the only path in production. Tests: API 1578 passed, web 282 passed;
+`next build` clean.
+
+---
+
 # Release Notes — v0.1.0-foundation
 
 ## Sprint 01 Summary

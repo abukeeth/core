@@ -1,5 +1,6 @@
 import type { BrandKit } from "./branding/brand-kit";
 import { computeCtaLabel } from "./cta";
+import type { IdentityPack } from "./identity/identity-packs";
 import { filterSectionsByAvailability } from "./section-rules";
 import { buildMetaDescription, buildPageTitle, guessCityFromAddress } from "./seo";
 import type {
@@ -30,6 +31,11 @@ export interface AssembleInput {
   brandKit?: BrandKit;
   /** Sprint 5.5 — once-generated impression image URLs (hero/category/marketing). */
   aiAssets?: { heroUrl?: string; categoryImages?: Record<string, string>; marketingUrl?: string };
+  /** Identity Packs — the variation's complete brand identity (palette mood,
+   * typography, layout persona, copy voice). When present it is applied ON TOP
+   * of theme + Brand Kit, turning the three variations into three genuinely
+   * different agencies. Omitted → byte-identical legacy output. */
+  identity?: IdentityPack;
 }
 
 /**
@@ -38,16 +44,27 @@ export interface AssembleInput {
  * settings (button style, radius, spacing, fonts). Returns the theme's own
  * brandSettings untouched when there is no Brand Kit (byte-identical).
  */
-function resolveBrandSettings(theme: ThemeCatalogEntry, brandKit?: BrandKit) {
+function resolveBrandSettings(theme: ThemeCatalogEntry, brandKit?: BrandKit, identity?: IdentityPack) {
   const themeBrand = theme.presentation?.brandSettings;
   if (!brandKit) return themeBrand;
-  return {
-    ...themeBrand,
+  const kitColors = {
     primaryColor: brandKit.palette.primary,
     secondaryColor: brandKit.palette.secondary ?? themeBrand?.secondaryColor,
     accentColor: brandKit.palette.accent,
     backgroundColor: brandKit.palette.background,
     textColor: brandKit.palette.text,
+  };
+  if (!identity) return { ...themeBrand, ...kitColors };
+  // Identity Pack: re-stages the Brand Kit's hues into the identity's mood and
+  // owns typography + structure, so each variation is a different agency —
+  // not the same page re-colored.
+  return {
+    ...themeBrand,
+    ...kitColors,
+    ...identity.palette(brandKit.palette),
+    ...identity.structure,
+    headingFont: identity.typography.display,
+    bodyFont: identity.typography.body,
   };
 }
 
@@ -86,13 +103,20 @@ function buildHomeSection(type: SectionType, input: AssembleInput, facts: SiteFa
     case "hero":
       return {
         type,
-        variant: input.theme.variants.hero[0],
+        // The identity's layout persona owns the hero composition (cinematic /
+        // text-forward / framed) so the three variations differ structurally.
+        variant: input.identity?.heroVariant ?? input.theme.variants.hero[0],
         props: { headline: input.content.heroHeadline, subhead: input.content.heroSubhead, ctaLabel: computeCtaLabel(facts, input.family) },
       };
-    case "featuredProducts":
+    case "featuredProducts": {
+      if (input.identity) {
+        const { eyebrow, title } = input.identity.copy.featured(input.brandKit?.vocabulary);
+        return { type, props: { title, eyebrow } };
+      }
       return input.brandKit
         ? { type, props: { title: `Featured ${input.brandKit.vocabulary.itemPlural}`, eyebrow: "Featured" } }
         : { type, props: { title: "Signature Dishes", eyebrow: "Favourites" } };
+    }
     case "signatureDishes":
       return { type, props: { intro: input.content.signatureDishesIntro, items: pickSignatureDishes(input.ingest.menu) } };
     case "aboutTeaser":
@@ -203,7 +227,7 @@ export function buildSiteDefinition(input: AssembleInput): SiteDefinition {
     themeKey: input.theme.key,
     themeVersion: input.theme.version,
     colorSeed: input.colorSeed,
-    typography: input.theme.tokens.typography,
+    typography: input.identity?.typography ?? input.theme.tokens.typography,
     designRationale: input.designRationale,
     facts,
     // Theme Engine V3 — a theme may declare its own presentation defaults
@@ -217,7 +241,7 @@ export function buildSiteDefinition(input: AssembleInput): SiteDefinition {
     // Sprint 5.5 — Brand Kit owns color (palette → brandSettings) and vocabulary;
     // both are omitted (undefined) when there is no Brand Kit, keeping existing
     // output byte-identical.
-    brandSettings: resolveBrandSettings(input.theme, input.brandKit),
+    brandSettings: resolveBrandSettings(input.theme, input.brandKit, input.identity),
     vocabulary: input.brandKit?.vocabulary,
     aiAssets: input.aiAssets,
     pages: [

@@ -137,7 +137,13 @@ function assembleFromAi(ai: AiBrand, fallback: BrandKit, profile: VerticalProfil
  * AI-enriched (with palette validation) when it succeeds.
  */
 export async function generateBrandKit(input: GenerateBrandKitInput, deps: GenerateBrandKitDeps = {}): Promise<BrandKit> {
-  const vertical = resolveVertical(input.vertical, input.brandProfile);
+  // Evidence from the business itself (name + imported menu categories) can
+  // override a default-ish stored vertical — see resolveVertical. This is what
+  // stops a deli that tapped "Restaurant" from getting fine-dining branding.
+  const vertical = resolveVertical(input.vertical, input.brandProfile, {
+    businessName: input.ingest.restaurantName,
+    menuCategories: [...new Set((input.ingest.menu ?? []).map((item) => item.categoryName))],
+  });
   const profile = getVerticalProfile(vertical);
   const fallback = buildFallbackKit(input.ingest, profile, vertical);
 

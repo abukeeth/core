@@ -12,7 +12,7 @@
 
 /** Whitelist of families used by the theme catalog (plus common display/body
  * faces future themes may pick), each with the weight axis we style with. */
-const GOOGLE_FONTS: Record<string, string> = {
+export const GOOGLE_FONTS: Record<string, string> = {
   // In the current theme catalog:
   "Playfair Display": "wght@400;500;600;700;800",
   "Space Grotesk": "wght@400;500;600;700",
