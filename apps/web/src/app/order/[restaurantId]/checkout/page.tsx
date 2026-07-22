@@ -152,49 +152,49 @@ export default function CheckoutPage() {
   }
 
   if (!cart || !quote) {
-    return <p className="p-8 text-sm text-zinc-600 dark:text-zinc-400">{error ?? "Loading checkout…"}</p>;
+    return <p className="p-8 text-sm text-ink-secondary">{error ?? "Loading checkout…"}</p>;
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center gap-6 bg-zinc-50 p-6 dark:bg-black">
+    <div className="flex flex-1 flex-col items-center gap-6 bg-canvas p-6">
       <form onSubmit={handlePlaceOrder} className="flex w-full max-w-2xl flex-col gap-6">
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Checkout</h1>
+        <h1 className="text-xl font-display font-semibold text-ink">Checkout</h1>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
 
         {!quote.eligible && (
-          <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+          <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-danger">
             {quote.reason ?? "This order is not currently eligible for checkout."}
           </p>
         )}
 
-        <div className="flex flex-col gap-2 rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-950">
-          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Guest details</span>
+        <div className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4">
+          <span className="text-sm font-medium text-ink-secondary">Guest details</span>
           <input
             type="text"
             placeholder="Full name"
             value={guestName}
             onChange={(e) => setGuestName(e.target.value)}
-            className="rounded border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-black"
+            className="rounded border border-line px-3 py-2 text-sm"
           />
           <input
             type="email"
             placeholder="Email"
             value={guestEmail}
             onChange={(e) => setGuestEmail(e.target.value)}
-            className="rounded border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-black"
+            className="rounded border border-line px-3 py-2 text-sm"
           />
           <input
             type="tel"
             placeholder="Phone"
             value={guestPhone}
             onChange={(e) => setGuestPhone(e.target.value)}
-            className="rounded border border-black/[.08] px-3 py-2 text-sm dark:border-white/[.145] dark:bg-black"
+            className="rounded border border-line px-3 py-2 text-sm"
           />
         </div>
 
-        <div className="flex flex-col gap-2 rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-950">
-          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Payment method</span>
+        <div className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4">
+          <span className="text-sm font-medium text-ink-secondary">Payment method</span>
           {PAYMENT_METHODS.map((method) => (
             <label key={method.value} className="flex items-center gap-2 text-sm">
               <input
@@ -206,25 +206,25 @@ export default function CheckoutPage() {
               />
               {method.label}
               {method.value === CARD_METHOD_TYPE && !paymentConfig && (
-                <span className="text-xs text-zinc-500">(not available)</span>
+                <span className="text-xs text-ink-muted">(not available)</span>
               )}
             </label>
           ))}
           {methodType === CARD_METHOD_TYPE && paymentConfig && (
-            <div className="mt-2 rounded border border-black/[.08] p-3 dark:border-white/[.145]">
+            <div className="mt-2 rounded border border-line p-3">
               <CardPaymentForm
                 ref={cardFormRef}
                 publicKey={paymentConfig.publicKey}
                 amountCents={quote.totalCents}
                 onError={setCardError}
               />
-              {cardError && <p className="mt-2 text-sm text-red-600">{cardError}</p>}
+              {cardError && <p className="mt-2 text-sm text-danger">{cardError}</p>}
             </div>
           )}
         </div>
 
-        <div className="flex flex-col gap-2 rounded-lg border border-black/[.08] bg-white p-4 dark:border-white/[.145] dark:bg-zinc-950">
-          <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Tip</span>
+        <div className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4">
+          <span className="text-sm font-medium text-ink-secondary">Tip</span>
           <div className="flex gap-2">
             {[0, 200, 400, 600].map((amount) => (
               <button
@@ -233,8 +233,8 @@ export default function CheckoutPage() {
                 onClick={() => setTipCents(amount)}
                 className={`rounded-full px-4 py-2 text-sm ${
                   tipCents === amount
-                    ? "bg-foreground text-background"
-                    : "border border-black/[.08] text-zinc-700 dark:border-white/[.145] dark:text-zinc-300"
+                    ? "bg-brand text-white"
+                    : "border border-line text-ink-secondary"
                 }`}
               >
                 {amount === 0 ? "No tip" : `$${formatPrice(amount)}`}
@@ -243,7 +243,7 @@ export default function CheckoutPage() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-1 rounded-lg border border-black/[.08] bg-white p-4 text-sm dark:border-white/[.145] dark:bg-zinc-950">
+        <div className="flex flex-col gap-1 rounded-lg border border-line bg-surface p-4 text-sm">
           <div className="flex justify-between">
             <span>Subtotal</span>
             <span>${formatPrice(quote.subtotalCents)}</span>
@@ -265,7 +265,7 @@ export default function CheckoutPage() {
             </div>
           )}
           {quote.discountCents > 0 && (
-            <div className="flex justify-between text-green-700 dark:text-green-400">
+            <div className="flex justify-between text-success">
               <span>Discount</span>
               <span>-${formatPrice(quote.discountCents)}</span>
             </div>
@@ -274,7 +274,7 @@ export default function CheckoutPage() {
             <span>Tip</span>
             <span>${formatPrice(quote.tipCents)}</span>
           </div>
-          <div className="mt-2 flex justify-between border-t border-black/[.08] pt-2 text-base font-semibold dark:border-white/[.145]">
+          <div className="mt-2 flex justify-between border-t border-line pt-2 text-base font-semibold">
             <span>Total</span>
             <span>${formatPrice(quote.totalCents)}</span>
           </div>
@@ -283,7 +283,7 @@ export default function CheckoutPage() {
         <button
           type="submit"
           disabled={submitting || !quote.eligible}
-          className="rounded-full bg-foreground px-5 py-3 text-sm text-background disabled:opacity-40"
+          className="rounded-full bg-brand px-5 py-3 text-sm text-white disabled:opacity-40"
         >
           {submitting ? "Placing order…" : `Place order — $${formatPrice(quote.totalCents)}`}
         </button>

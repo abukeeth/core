@@ -29,38 +29,38 @@ export default function CustomerRegisterPage() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
+    <div className="flex flex-1 items-center justify-center bg-canvas">
       <form
         onSubmit={handleSubmit}
-        className="flex w-full max-w-sm flex-col gap-4 rounded-lg border border-black/[.08] bg-white p-8 dark:border-white/[.145] dark:bg-zinc-950"
+        className="flex w-full max-w-sm flex-col gap-4 rounded-lg border border-line bg-surface p-8"
       >
-        <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Create an account</h1>
+        <h1 className="text-xl font-semibold text-ink font-display">Create an account</h1>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-danger">{error}</p>}
 
-        <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+        <label className="flex flex-col gap-1 text-sm text-ink-secondary">
           Name
           <input
             type="text"
             required
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="rounded border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-black"
+            className="rounded border border-line px-3 py-2"
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+        <label className="flex flex-col gap-1 text-sm text-ink-secondary">
           Email
           <input
             type="email"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="rounded border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-black"
+            className="rounded border border-line px-3 py-2"
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm text-zinc-700 dark:text-zinc-300">
+        <label className="flex flex-col gap-1 text-sm text-ink-secondary">
           Password
           <input
             type="password"
@@ -68,21 +68,21 @@ export default function CustomerRegisterPage() {
             minLength={8}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="rounded border border-black/[.08] px-3 py-2 dark:border-white/[.145] dark:bg-black"
+            className="rounded border border-line px-3 py-2"
           />
         </label>
 
         <button
           type="submit"
           disabled={submitting}
-          className="mt-2 rounded-full bg-foreground px-5 py-2 text-background disabled:opacity-50"
+          className="mt-2 rounded-full bg-brand px-5 py-2 text-white disabled:opacity-50"
         >
           {submitting ? "Creating..." : "Create account"}
         </button>
 
-        <p className="text-sm text-zinc-600 dark:text-zinc-400">
+        <p className="text-sm text-ink-secondary">
           Already have an account?{" "}
-          <Link href="/account/login" className="font-medium text-zinc-950 dark:text-zinc-50">
+          <Link href="/account/login" className="font-semibold text-brand">
             Log in
           </Link>
         </p>
