@@ -42,6 +42,7 @@ const brief = {
   },
   heroConcept: { composition: "editorial-split", headline: "Baked before the city wakes.", subhead: "First loaves at 7.", imageSubject: "oven mouth, flour dust" },
   productPresentation: { layout: "editorial-rows", emphasis: "timeline" },
+  shape: { buttonStyle: "square", borderRadius: 2, shadowIntensity: "none" },
   conversionStrategy: { primaryCta: "Reserve today's loaf", trustSignals: ["Sells out daily"] },
   structure: { home: ["hero", "signatureDishes", "aboutTeaser", "footer"] },
 };

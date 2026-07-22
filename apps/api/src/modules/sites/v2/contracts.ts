@@ -138,6 +138,12 @@ export const creativeBriefSchema = z.object({
     layout: productLayoutSchema,
     emphasis: z.string().min(1),
   }),
+  /** Structural feel — owned by the brief, never inferred from its colors. */
+  shape: z.object({
+    buttonStyle: z.enum(["rounded", "pill", "square"]),
+    borderRadius: z.number().int().min(0).max(32),
+    shadowIntensity: z.enum(["none", "soft", "medium", "strong"]),
+  }),
   conversionStrategy: z.object({
     primaryCta: z.string().min(1),
     trustSignals: z.array(z.string().min(1)).max(5),

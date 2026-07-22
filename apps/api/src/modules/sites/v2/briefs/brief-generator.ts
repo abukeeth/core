@@ -313,6 +313,11 @@ function proceduralBriefs(u: BusinessUnderstanding, seedText: string): CreativeB
       },
       heroConcept: { composition: heroes[i], headline: angle.headline, subhead: angle.subhead, imageSubject: angle.photoSubjects[0] },
       productPresentation: { layout: layouts[i], emphasis: angle.emphasis },
+      shape: {
+        buttonStyle: (["rounded", "pill", "square"] as const)[Math.floor(random() * 3)],
+        borderRadius: [0, 2, 8, 12, 16, 20, 24][Math.floor(random() * 7)],
+        shadowIntensity: (["none", "soft", "medium"] as const)[Math.floor(random() * 3)],
+      },
       conversionStrategy: { primaryCta: angle.cta, trustSignals: angle.trust },
       structure: { home },
       origin: "procedural",
@@ -345,8 +350,10 @@ function buildPrompt(u: BusinessUnderstanding): string {
     `copyVoice{voice,sampleHeadline,sampleCta}, photography{treatment,lighting,backdrop,subjects[]},`,
     `typography{display,body}, colorLogic{rationale,ground{hex,luminanceClass:dark|light|tinted},ink,brand,accent},`,
     `heroConcept{composition,headline,subhead,imageSubject}, productPresentation{layout,emphasis},`,
+    `shape{buttonStyle:rounded|pill|square,borderRadius:0-32,shadowIntensity:none|soft|medium|strong},`,
     `conversionStrategy{primaryCta,trustSignals[],secondaryPath?}, structure{home[]}.`,
     `All hex values as #RRGGBB. Headlines must be specific to this business (name real products).`,
+    `VISUAL BALANCE RULE: at most ONE of the three briefs may use a dark ground, and only when the business evidence truly supports it; never use black-and-gold as a shortcut for premium. Favor light, bright, cream, or color-led grounds.`,
   ].join("\n");
 }
 
@@ -377,20 +384,24 @@ export async function generateCreativeBriefs(u: BusinessUnderstanding, deps: Gen
     attempts += 1;
     let briefs = parseAiBriefs(await complete({ text: buildPrompt(u), maxTokens: 4000 }));
     if (briefs) {
+      // Light-first balance (bias prevention, not an archetype): more than one
+      // dark ground in a trio is treated as a failure to repair.
+      const darkCount = (list: CreativeBrief[]) => list.filter((b) => b.colorLogic.ground.luminanceClass === "dark").length;
       let report = validateDiversity(briefs);
-      if (!report.pass && report.weakestBriefId) {
+      const problems = () => [
+        ...report.pairs.filter((p) => !p.pass).map((p) => `${p.pair.join(" vs ")}: ${[...p.hardFailures, ...p.scoredFailed].join("; ")}`),
+        ...(darkCount(briefs!) > 1 ? [`${darkCount(briefs!)} of 3 grounds are dark — at most one may be, and only with supporting evidence`] : []),
+      ];
+      if (problems().length > 0) {
         attempts += 1;
-        const repairPrompt = `${buildPrompt(u)}\n\nYOUR PREVIOUS ATTEMPT FAILED THE DIVERSITY GATE: ${report.pairs
-          .filter((p) => !p.pass)
-          .map((p) => `${p.pair.join(" vs ")}: ${[...p.hardFailures, ...p.scoredFailed].join("; ")}`)
-          .join(" | ")}. Rewrite ALL THREE briefs to differ far more sharply.`;
+        const repairPrompt = `${buildPrompt(u)}\n\nYOUR PREVIOUS ATTEMPT FAILED: ${problems().join(" | ")}. Rewrite ALL THREE briefs to fix every failure.`;
         const repaired = parseAiBriefs(await complete({ text: repairPrompt, maxTokens: 4000 }));
         if (repaired) {
           briefs = repaired;
           report = validateDiversity(briefs);
         }
       }
-      if (report.pass) return { briefs, origin: "ai", attempts };
+      if (report.pass && darkCount(briefs) <= 1) return { briefs, origin: "ai", attempts };
     }
   } catch {
     // fall through to the procedural floor

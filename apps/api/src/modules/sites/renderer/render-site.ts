@@ -7,6 +7,7 @@ import { getProgram } from "../../commerce/loyalty/loyalty.service";
 import { listRestaurantReviews } from "../../commerce/reviews/reviews.service";
 import { listCategories } from "../../menu/menu.service";
 import { THEME_CATALOG } from "../theme-catalog";
+import { buildCarrierTheme, isThemeFreeDefinition } from "./theme-carrier";
 import type { SiteDefinition, SiteFacts } from "../types";
 import { assetUrl } from "./asset-url";
 import type {
@@ -130,6 +131,9 @@ async function resolveReviews(restaurantId: string): Promise<RenderReview[]> {
 }
 
 function resolveTheme(definition: SiteDefinition) {
+  // Generation V2 definitions are theme-free — they carry their own tokens
+  // and render through a synthesized carrier, never the catalog.
+  if (isThemeFreeDefinition(definition)) return buildCarrierTheme(definition);
   const theme = THEME_CATALOG.find((t) => t.key === definition.themeKey && t.version === definition.themeVersion);
   if (!theme) {
     throw new Error(`Unknown theme "${definition.themeKey}" v${definition.themeVersion}`);

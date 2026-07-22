@@ -75,6 +75,45 @@ export const VERTICAL_PROFILES: Record<string, VerticalProfile> = {
     brandStoryDefault: "{name} offers a curated selection of quality products with fast, friendly service.",
     artDirection: artDirection("a clean product arrangement on a neutral surface", "a curated product category", "a modern retail lifestyle banner"),
   },
+  BAKERY: {
+    vertical: "BAKERY",
+    vocabulary: { catalogNoun: "Menu", itemNoun: "Bake", itemPlural: "Bakes", categoryUnitSingular: "item", categoryUnitPlural: "items", primaryCta: "Order Now", exploreLabel: "See today's bakes" },
+    tone: { voice: "warm and process-proud", adjectives: ["fresh-baked", "handmade", "golden", "honest"] },
+    palette: { primary: "#8A4B24", accent: "#B07B1E", background: "#FDF8EF", text: "#2E241B" },
+    taglineSuffix: "baked fresh every morning",
+    brandStoryDefault: "{name} bakes breads, pastries, and cakes from scratch every morning.",
+    artDirection: artDirection(
+      "golden loaves and laminated pastries fresh from a stone oven",
+      "a category of fresh-baked goods",
+      "a warm bakery-counter morning scene",
+    ),
+  },
+  PIZZA: {
+    vertical: "PIZZA",
+    vocabulary: { catalogNoun: "Menu", itemNoun: "Pizza", itemPlural: "Pizzas", categoryUnitSingular: "item", categoryUnitPlural: "items", primaryCta: "Order Now", exploreLabel: "Explore the menu" },
+    tone: { voice: "lively and generous", adjectives: ["wood-fired", "bubbling", "fresh", "shareable"] },
+    palette: { primary: "#A93226", accent: "#B07B1E", background: "#FCF7EF", text: "#2B211C" },
+    taglineSuffix: "hot from the oven",
+    brandStoryDefault: "{name} makes fresh-stretched pizza with quality toppings, hot from the oven.",
+    artDirection: artDirection(
+      "a bubbling wood-fired pizza with fresh basil, pulled from the oven",
+      "a category of pizzas and sides",
+      "a lively pizzeria counter scene",
+    ),
+  },
+  CONVENIENCE_STORE: {
+    vertical: "CONVENIENCE_STORE",
+    vocabulary: { catalogNoun: "Shop", itemNoun: "Item", itemPlural: "Items", categoryUnitSingular: "item", categoryUnitPlural: "items", primaryCta: "Shop Now", exploreLabel: "Shop the aisles" },
+    tone: { voice: "quick and dependable", adjectives: ["open-late", "stocked", "handy", "local"] },
+    palette: { primary: "#1F6E8C", accent: "#C97A1A", background: "#FBFBF7", text: "#1E2226" },
+    taglineSuffix: "everything you need, right now",
+    brandStoryDefault: "{name} keeps the essentials stocked — snacks, drinks, and everyday items, always close by.",
+    artDirection: artDirection(
+      "tidy convenience-store shelves and a bright grab-and-go counter",
+      "a category of everyday essentials",
+      "a bright corner-store storefront scene",
+    ),
+  },
   OTHER: {
     vertical: "OTHER",
     vocabulary: { catalogNoun: "Menu", itemNoun: "Item", itemPlural: "Items", categoryUnitSingular: "item", categoryUnitPlural: "items", primaryCta: "Order Now", exploreLabel: "Explore" },
@@ -91,8 +130,11 @@ const KEYWORD_TO_VERTICAL: [RegExp, string][] = [
   [/vape|smoke|tobacco|hookah|nicotine/i, "VAPE_SHOP"],
   [/coffee|cafe|café|espresso|roaster/i, "COFFEE_SHOP"],
   [/deli\b|delicatessen|sandwich|sub\b|hoagie|pastrami|bodega/i, "DELI"],
+  [/bakery|bakehouse|patisserie|boulangerie|pastr(y|ies)|breads?\b|croissant/i, "BAKERY"],
+  [/pizz(a|eria)|calzone|slice shop/i, "PIZZA"],
+  [/convenience|corner (market|store|shop)|mini[- ]?mart|quick[- ]?stop|kiosk/i, "CONVENIENCE_STORE"],
   [/retail|store|shop|boutique/i, "RETAIL"],
-  [/restaurant|bistro|grill|kitchen|eatery|diner|taqueria|pizzeria/i, "RESTAURANT"],
+  [/restaurant|bistro|grill|kitchen|eatery|diner|taqueria/i, "RESTAURANT"],
 ];
 
 /**

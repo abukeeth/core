@@ -8,6 +8,7 @@ import { scoreSiteDefinition } from "./scoring/score-aggregator";
 import { SiteVersionNotFoundError, SuggestionNotFoundError } from "./site.errors";
 import { getOwnSiteById } from "./site.service";
 import { THEME_CATALOG } from "./theme-catalog";
+import { buildCarrierTheme, isThemeFreeDefinition } from "./renderer/theme-carrier";
 import { brandProfileSchema, siteDefinitionSchema, type Suggestion } from "./types";
 
 function toJson<T>(value: T): Prisma.InputJsonValue {
@@ -28,7 +29,9 @@ export async function runScore(restaurantId: string, siteId: string, versionId: 
   const version = await findOwnVersion(site.id, versionId);
   const definition = siteDefinitionSchema.parse(version.definition);
 
-  const theme = THEME_CATALOG.find((t) => t.key === definition.themeKey && t.version === definition.themeVersion);
+  const theme = isThemeFreeDefinition(definition)
+    ? buildCarrierTheme(definition)
+    : THEME_CATALOG.find((t) => t.key === definition.themeKey && t.version === definition.themeVersion);
   if (!theme) {
     throw new Error(`Unknown theme "${definition.themeKey}" v${definition.themeVersion}`);
   }
