@@ -498,6 +498,10 @@ export function setRestaurantHours(hours: HoursRowInput[]) {
   });
 }
 
+export function listMenuCategories() {
+  return apiFetch<{ categories: MenuCategory[] }>("/api/menu/categories");
+}
+
 export function createCategory(name: string) {
   return apiFetch<{ category: MenuCategory }>("/api/menu/categories", {
     method: "POST",
