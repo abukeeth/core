@@ -45,11 +45,13 @@ function renderShowcase(onUse = vi.fn()) {
 }
 
 describe("Storefront Showcase", () => {
-  it("renders one full-height section per storefront, each a REAL full-bleed chromeless storefront (no cards/previews)", () => {
+  it("renders one full-height section per storefront, each a REAL full-bleed chromeless storefront (no cards/previews)", async () => {
     renderShowcase();
     const sections = screen.getAllByTestId("storefront-section");
     expect(sections).toHaveLength(3);
-    const previews = screen.getAllByTestId("device-preview");
+    // LazyMount's no-IntersectionObserver fallback (jsdom) mounts on the next
+    // tick, so the real previews appear asynchronously.
+    const previews = await screen.findAllByTestId("device-preview");
     expect(previews).toHaveLength(3);
     previews.forEach((p) => expect(p).toHaveAttribute("data-chromeless", "true"));
     expect(screen.getByText("site-1:v1")).toBeInTheDocument();

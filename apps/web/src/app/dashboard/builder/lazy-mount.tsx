@@ -33,8 +33,11 @@ export function LazyMount({
     const el = ref.current;
     if (!el) return;
     if (typeof IntersectionObserver === "undefined") {
-      setMounted(true);
-      return;
+      // No observer available (jsdom, very old browsers): mount on the next
+      // tick. Scheduled rather than called synchronously so the effect body
+      // never sets state directly (react-hooks/set-state-in-effect).
+      const timer = window.setTimeout(() => setMounted(true), 0);
+      return () => window.clearTimeout(timer);
     }
     const observer = new IntersectionObserver(
       (entries) => {

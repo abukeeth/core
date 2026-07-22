@@ -151,13 +151,14 @@ describe("DesignReviewScreen (storefront concept experience)", () => {
 describe("DesignReviewScreen — Storefront Showcase mode (NEXT_PUBLIC_STOREFRONT_SHOWCASE=true)", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("renders the vertical full-height showcase instead of cards", () => {
+  it("renders the vertical full-height showcase instead of cards", async () => {
     vi.stubEnv("NEXT_PUBLIC_STOREFRONT_SHOWCASE", "true");
     render(<DesignReviewScreen {...props()} />);
     expect(screen.getByTestId("storefront-showcase")).toBeInTheDocument();
     expect(screen.getAllByTestId("storefront-section")).toHaveLength(3);
-    // Every option is a REAL preview; recommended is marked once; per-section CTA.
-    expect(screen.getAllByTestId("real-preview")).toHaveLength(3);
+    // Every option is a REAL preview (LazyMount's jsdom fallback mounts on the
+    // next tick, hence async); recommended is marked once; per-section CTA.
+    expect(await screen.findAllByTestId("real-preview")).toHaveLength(3);
     expect(screen.getAllByText("Recommended")).toHaveLength(1);
     expect(screen.getAllByRole("button", { name: "Use This Storefront" })).toHaveLength(3);
     // No "alternatives" framing, no descriptions.
