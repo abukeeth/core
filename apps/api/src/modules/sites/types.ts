@@ -253,6 +253,11 @@ export const siteDefinitionObjectSchema = z.object({
   // Generation V2 provenance — INTERNAL ONLY (never rendered, never shown to
   // the customer; see v2/contracts.ts INTERNAL_ONLY_TERMS).
   generation: z.object({ engine: z.literal("v2"), briefId: z.string().min(1) }).optional(),
+  // Customer-facing personality words for the storefront picker (e.g.
+  // "Bold. Elegant. Timeless.") — derived from the generated direction's own
+  // adjectives, never from a catalog, and screened against the banned
+  // theme-vocabulary list.
+  displayPersonality: z.string().max(80).optional(),
   pages: z.array(sitePageSchema).min(1),
 });
 

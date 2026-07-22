@@ -18,9 +18,9 @@ import type { DesignCandidate } from "./use-restaurant-builder";
 const NAME = "Easy Tobacco Shop";
 
 const CANDIDATES: DesignCandidate[] = [
-  { id: "v-mod", styleFamily: "MODERN", businessType: "VAPE_SHOP", restaurantName: NAME, colorSeed: "#111", palette: null, tagline: "M", cuisine: "n/a", overall: 80 },
-  { id: "v-best", styleFamily: "LUXURY", businessType: "VAPE_SHOP", restaurantName: NAME, colorSeed: "#222", palette: { primary: "#1D3557" }, tagline: "Bold & premium", cuisine: "n/a", overall: 92 },
-  { id: "v-min", styleFamily: "MINIMAL", businessType: "VAPE_SHOP", restaurantName: NAME, colorSeed: "#333", palette: null, tagline: "Mi", cuisine: "n/a", overall: 75 },
+  { id: "v-mod", styleFamily: "MODERN", businessType: "VAPE_SHOP", restaurantName: NAME, colorSeed: "#111", palette: null, tagline: "M", cuisine: "n/a", overall: 80, displayPersonality: "Calm. Focused. Clean." },
+  { id: "v-best", styleFamily: "LUXURY", businessType: "VAPE_SHOP", restaurantName: NAME, colorSeed: "#222", palette: { primary: "#1D3557" }, tagline: "Bold & premium", cuisine: "n/a", overall: 92, displayPersonality: "Bold. Refined. Timeless." },
+  { id: "v-min", styleFamily: "MINIMAL", businessType: "VAPE_SHOP", restaurantName: NAME, colorSeed: "#333", palette: null, tagline: "Mi", cuisine: "n/a", overall: 75, displayPersonality: null },
 ];
 
 function props(overrides: Record<string, unknown> = {}) {
@@ -43,11 +43,11 @@ function props(overrides: Record<string, unknown> = {}) {
 // "AI", and the retired concept-tier naming system.
 const BANNED = /\b(ai|theme|themes|template|templates|variation|variations|modern|luxury|local|style\s*family|prestige|reserve|signature|prime|elite|select|briefs?|archetypes?|identity|identities)\b/i;
 
-describe("DesignReviewScreen — the Storefront Showcase is the ONLY selection experience", () => {
-  it("renders the full-height showcase: one complete storefront section per candidate", async () => {
+describe("DesignReviewScreen — the phone-framed storefront picker is the ONLY selection experience", () => {
+  it("renders the picker: one complete phone-framed storefront per candidate", async () => {
     render(<DesignReviewScreen {...props()} />);
-    expect(screen.getByTestId("storefront-showcase")).toBeInTheDocument();
-    expect(screen.getAllByTestId("storefront-section")).toHaveLength(3);
+    expect(screen.getByTestId("storefront-picker")).toBeInTheDocument();
+    expect(screen.getAllByTestId("storefront-option")).toHaveLength(3);
     // LazyMount's jsdom fallback mounts on the next tick, hence async.
     const previews = await screen.findAllByTestId("real-preview");
     expect(previews).toHaveLength(3);
@@ -68,20 +68,29 @@ describe("DesignReviewScreen — the Storefront Showcase is the ONLY selection e
     expect(previews[0]).toBe("site-1:v-best");
   });
 
-  it("every storefront carries exactly one Use This Storefront action, wired to that storefront", () => {
+  it("every storefront carries exactly one Choose this design action, wired to that storefront", () => {
     const onUse = vi.fn();
     render(<DesignReviewScreen {...props({ onUse })} />);
-    const buttons = screen.getAllByRole("button", { name: "Use This Storefront" });
+    const buttons = screen.getAllByRole("button", { name: "Choose this design →" });
     expect(buttons).toHaveLength(3);
     fireEvent.click(buttons[0]);
     expect(onUse).toHaveBeenCalledWith("v-best");
+  });
+
+  it("labels each option A/B/C with its own personality words — never design metadata", () => {
+    render(<DesignReviewScreen {...props()} />);
+    expect(screen.getByText("A")).toBeInTheDocument();
+    expect(screen.getByText("B")).toBeInTheDocument();
+    expect(screen.getByText("C")).toBeInTheDocument();
+    expect(screen.getByText("Bold. Refined. Timeless.")).toBeInTheDocument();
+    expect(screen.getByText("Calm. Focused. Clean.")).toBeInTheDocument();
   });
 
   it("the active storefront's CTA reflects progress while approving", () => {
     render(<DesignReviewScreen {...props({ phase: "approving" })} />);
     expect(screen.getByText("Setting up…")).toBeInTheDocument();
     // The other two storefronts keep their normal CTA.
-    expect(screen.getAllByRole("button", { name: "Use This Storefront" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Choose this design →" })).toHaveLength(2);
   });
 
   it("a failed approve surfaces the error and a retry on the active storefront", () => {

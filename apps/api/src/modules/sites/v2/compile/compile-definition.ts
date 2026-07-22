@@ -18,6 +18,21 @@ export interface CompileDefinitionInput {
   plan: StorefrontPlan;
   copy: StorefrontCopy;
   assets?: StorefrontAssets;
+  /** The direction's own adjectives — surfaced (screened) as the picker's personality line. */
+  personality?: string[];
+}
+
+/** Words that must never surface as customer-facing personality descriptors. */
+const BANNED_DESCRIPTOR = /\b(theme|template|variation|identity|brief|archetype|style|premium|modern|luxury|local|minimal)\b/i;
+
+/** "bold, elegant, timeless" → "Bold. Elegant. Timeless." (banned words dropped). */
+function displayPersonality(adjectives: string[]): string | undefined {
+  const words = adjectives
+    .map((a) => a.trim().split(/\s+/)[0])
+    .filter((a) => a.length > 2 && !BANNED_DESCRIPTOR.test(a))
+    .slice(0, 3)
+    .map((a) => a.charAt(0).toUpperCase() + a.slice(1).toLowerCase());
+  return words.length > 0 ? `${words.join(". ")}.` : undefined;
 }
 
 export function compileDefinition(input: CompileDefinitionInput): SiteDefinition {
@@ -51,6 +66,10 @@ export function compileDefinition(input: CompileDefinitionInput): SiteDefinition
       shadowIntensity: plan.tokens.shadowIntensity,
       contentSpacing: plan.tokens.contentSpacing,
     },
+    // The reference experience: storefronts carry NO page-link header
+    // (no Home/Menu/About words) — just the brand and the order action.
+    header: { headerLayout: "minimal", showSearch: false, showCart: false, showAccount: false, showOrderButton: true },
+    displayPersonality: displayPersonality(input.personality ?? []),
     // Vertical-correct language everywhere; the brief's conversion strategy
     // owns the primary CTA (chrome + hero + banners read this).
     vocabulary: { ...vocabulary, primaryCta: plan.vocabulary.primaryCta },

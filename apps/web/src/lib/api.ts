@@ -91,6 +91,7 @@ export type BusinessType =
   | "CONVENIENCE_STORE"
   | "BAKERY"
   | "PIZZA"
+  | "FOOD_TRUCK"
   | "RETAIL"
   | "OTHER";
 
@@ -896,10 +897,12 @@ export interface WebsiteSiteDefinition {
   tagline: string;
   cuisine: string;
   businessType: string;
-  styleFamily: StyleFamily;
-  themeKey: string;
-  themeVersion: number;
+  styleFamily?: StyleFamily;
+  themeKey?: string;
+  themeVersion?: number;
   colorSeed: string;
+  /** Customer-facing personality words for the storefront picker (e.g. "Bold. Elegant. Timeless."). */
+  displayPersonality?: string;
   typography: { display: string; body: string };
   designRationale?: string[];
   facts: {

@@ -65,6 +65,7 @@ export interface DesignCandidate {
   tagline: string | null;
   cuisine: string | null;
   overall: number;
+  displayPersonality: string | null;
 }
 
 export interface WinningDesign {
@@ -172,6 +173,7 @@ export function useRestaurantBuilder(): BuilderState {
               }
             : null,
           tagline: v.definition?.tagline ?? null,
+          displayPersonality: v.definition?.displayPersonality ?? null,
           cuisine: v.definition?.cuisine ?? null,
           overall: v.scores?.[0]?.overall ?? 0,
         })),

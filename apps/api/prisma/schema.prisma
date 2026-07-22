@@ -339,6 +339,7 @@ enum BusinessType {
   CONVENIENCE_STORE
   BAKERY
   PIZZA
+  FOOD_TRUCK
   RETAIL
   OTHER
 }

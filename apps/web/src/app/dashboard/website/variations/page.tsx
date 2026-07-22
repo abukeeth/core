@@ -1,16 +1,16 @@
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui";
-import { StorefrontShowcase, StorefrontShowcaseSection } from "@/app/dashboard/builder/storefront-showcase";
+import { StorefrontPicker, StorefrontPickerOption } from "@/app/dashboard/builder/storefront-picker";
 import type { GenerationJob, SiteVersion, WebsiteSite } from "@/lib/api";
 import { serverFetch } from "@/lib/server-api";
 import { GenerationProgress } from "./generation-progress";
 import { SelectButton } from "./select-button";
 
 /**
- * The storefront hub — the same full-height scroll-through Storefront Showcase
- * as onboarding: each generated storefront opens as a complete website (real
- * render, hero-first) with one "Use This Storefront" action. No cards, names,
- * descriptions, or design metadata; the best-scoring storefront is simply first.
+ * The storefront hub — the same "Choose your favorite storefront" picker as
+ * onboarding: three phone-framed complete storefronts (real renders), each
+ * with its generated personality words and one action. No cards, no theme
+ * vocabulary, no design metadata.
  */
 export default async function VariationsPage() {
   const siteResult = await serverFetch<{ site: WebsiteSite }>("/api/sites/me");
@@ -25,25 +25,27 @@ export default async function VariationsPage() {
   const variationsResult = await serverFetch<{ variations: SiteVersion[] }>(`/api/sites/${site.id}/variations`);
   const variations = variationsResult.ok ? variationsResult.data.variations : [];
 
-  // Best storefront leads; the rest follow. Stable order so the hub matches
-  // the onboarding review — one storefront selection experience.
   const ordered = [...variations].sort(
     (a, b) => (b.scores?.[0]?.overall ?? 0) - (a.scores?.[0]?.overall ?? 0) || a.id.localeCompare(b.id),
   );
 
   if (ordered.length > 0) {
     return (
-      <StorefrontShowcase>
-        {ordered.map((variation, i) => (
-          <StorefrontShowcaseSection
-            key={variation.id}
-            siteId={site.id}
-            variationId={variation.id}
-            name={`${variation.definition.restaurantName} — storefront ${i + 1}`}
-            action={<SelectButton siteId={site.id} versionId={variation.id} label="Use This Storefront" />}
-          />
-        ))}
-      </StorefrontShowcase>
+      <main className="min-h-[100svh] w-full bg-[#161310] text-[#F5EFE3]">
+        <StorefrontPicker>
+          {ordered.map((variation, index) => (
+            <StorefrontPickerOption
+              key={variation.id}
+              index={index}
+              siteId={site.id}
+              variationId={variation.id}
+              businessName={variation.definition.restaurantName}
+              personality={variation.definition.displayPersonality ?? null}
+              action={<SelectButton siteId={site.id} versionId={variation.id} label="Choose this design →" />}
+            />
+          ))}
+        </StorefrontPicker>
+      </main>
     );
   }
 

@@ -62,7 +62,13 @@ export async function generateV2(input: GenerateV2Input, deps: GenerateV2Deps = 
 
   const storefronts = briefs.map((brief, i) => {
     const plan = planStorefront({ understanding, brief, copy: copies[i], ingest: input.ingest });
-    const definition = compileDefinition({ understanding, plan, copy: copies[i], assets: assetResults[i] });
+    const definition = compileDefinition({
+      understanding,
+      plan,
+      copy: copies[i],
+      assets: assetResults[i],
+      personality: brief.brandPersonality,
+    });
     return { briefId: brief.id, copy: copies[i], assets: assetResults[i], definition };
   });
 

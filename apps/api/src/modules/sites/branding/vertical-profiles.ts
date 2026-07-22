@@ -101,6 +101,19 @@ export const VERTICAL_PROFILES: Record<string, VerticalProfile> = {
       "a lively pizzeria counter scene",
     ),
   },
+  FOOD_TRUCK: {
+    vertical: "FOOD_TRUCK",
+    vocabulary: { catalogNoun: "Menu", itemNoun: "Item", itemPlural: "Items", categoryUnitSingular: "item", categoryUnitPlural: "items", primaryCta: "Order Now", exploreLabel: "See the menu" },
+    tone: { voice: "energetic and street-smart", adjectives: ["fresh-off-the-grill", "bold", "fast", "friendly"] },
+    palette: { primary: "#C2410C", accent: "#B07B1E", background: "#FDF7EE", text: "#291F17" },
+    taglineSuffix: "street food, done right",
+    brandStoryDefault: "{name} serves bold, made-to-order street food from the truck — find us and eat well.",
+    artDirection: artDirection(
+      "street food served fresh from a food-truck window",
+      "a category of street-food favorites",
+      "a lively food-truck curbside scene",
+    ),
+  },
   CONVENIENCE_STORE: {
     vertical: "CONVENIENCE_STORE",
     vocabulary: { catalogNoun: "Shop", itemNoun: "Item", itemPlural: "Items", categoryUnitSingular: "item", categoryUnitPlural: "items", primaryCta: "Shop Now", exploreLabel: "Shop the aisles" },
@@ -132,6 +145,7 @@ const KEYWORD_TO_VERTICAL: [RegExp, string][] = [
   [/deli\b|delicatessen|sandwich|sub\b|hoagie|pastrami|bodega/i, "DELI"],
   [/bakery|bakehouse|patisserie|boulangerie|pastr(y|ies)|breads?\b|croissant/i, "BAKERY"],
   [/pizz(a|eria)|calzone|slice shop/i, "PIZZA"],
+  [/food ?truck|street ?food|taco ?truck/i, "FOOD_TRUCK"],
   [/convenience|corner (market|store|shop)|mini[- ]?mart|quick[- ]?stop|kiosk/i, "CONVENIENCE_STORE"],
   [/retail|store|shop|boutique/i, "RETAIL"],
   [/restaurant|bistro|grill|kitchen|eatery|diner|taqueria/i, "RESTAURANT"],

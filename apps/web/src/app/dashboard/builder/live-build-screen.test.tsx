@@ -54,8 +54,8 @@ describe("LiveBuildScreen", () => {
         restaurantName="Joe's Diner"
         activeStepId="SELECTING"
         candidates={[
-          { id: "v-1", styleFamily: "MODERN", businessType: "RESTAURANT", restaurantName: "Joe's Diner", colorSeed: "#111111", palette: null, tagline: null, cuisine: null, overall: 60 },
-          { id: "v-2", styleFamily: "LUXURY", businessType: "RESTAURANT", restaurantName: "Joe's Diner", colorSeed: "#e8590c", palette: null, tagline: null, cuisine: null, overall: 92 },
+          { id: "v-1", styleFamily: "MODERN", businessType: "RESTAURANT", restaurantName: "Joe's Diner", colorSeed: "#111111", palette: null, tagline: null, cuisine: null, overall: 60, displayPersonality: null },
+          { id: "v-2", styleFamily: "LUXURY", businessType: "RESTAURANT", restaurantName: "Joe's Diner", colorSeed: "#e8590c", palette: null, tagline: null, cuisine: null, overall: 92, displayPersonality: null },
         ]}
         winnerId="v-2"
       />,
