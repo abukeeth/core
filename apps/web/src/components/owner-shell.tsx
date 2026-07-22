@@ -38,12 +38,14 @@ export function DetailShell({
   title,
   subtitle,
   backHref,
+  headerRight,
   footer,
   children,
 }: {
   title: string;
   subtitle?: string;
   backHref: string;
+  headerRight?: React.ReactNode;
   footer?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -58,7 +60,7 @@ export function DetailShell({
             <p className="truncate font-display text-[19px] font-semibold leading-[25px] text-ink">{title}</p>
             {subtitle && <p className="truncate text-xs text-ink-muted">{subtitle}</p>}
           </div>
-          <div className="size-10 shrink-0" aria-hidden="true" />
+          <div className="flex min-w-10 shrink-0 items-center justify-end">{headerRight ?? <span className="size-10" aria-hidden="true" />}</div>
         </div>
       </header>
       <main className="mx-auto w-full max-w-2xl px-4 pb-32 pt-4">{children}</main>

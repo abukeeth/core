@@ -1,4 +1,3 @@
-import { PageShell } from "@/components/ui";
 import type { HoursRowInput, Restaurant } from "@/lib/api";
 import { serverFetch } from "@/lib/server-api";
 import { HoursEditor } from "./hours-editor";
@@ -12,9 +11,9 @@ export default async function RestaurantPage() {
   const initialHours = hoursResult?.ok ? hoursResult.data.hours : [];
 
   return (
-    <PageShell maxWidth="lg">
-        <RestaurantForm restaurant={restaurant} />
-        {restaurant && <HoursEditor initialHours={initialHours} />}
-    </PageShell>
+    <RestaurantForm
+      restaurant={restaurant}
+      hoursSlot={restaurant ? <HoursEditor initialHours={initialHours} /> : null}
+    />
   );
 }
