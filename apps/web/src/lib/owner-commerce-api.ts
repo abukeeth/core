@@ -391,6 +391,19 @@ export function getTopItems(days = 30, limit = 10) {
   return apiFetch<{ items: TopItem[] }>(`/api/restaurants/me/analytics/top-items?days=${days}&limit=${limit}`);
 }
 
+export interface FinancialSummary {
+  grossCents: number;
+  subtotalCents: number;
+  taxCents: number;
+  tipCents: number;
+  discountCents: number;
+  orderCount: number;
+}
+
+export function getFinancialSummary(days = 7) {
+  return apiFetch<FinancialSummary>(`/api/restaurants/me/analytics/financial-summary?days=${days}`);
+}
+
 // --- Customers (owner) -----------------------------------------------------------
 // Derived on the server from this restaurant's order history (registered
 // Customers + guest checkouts). No separate customer directory is maintained.

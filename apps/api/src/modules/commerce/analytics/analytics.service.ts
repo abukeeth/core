@@ -85,3 +85,34 @@ export async function getTopItems(restaurantId: string, days: number, limit: num
     LIMIT ${limit}
   `;
 }
+
+export interface FinancialSummary {
+  grossCents: number; // total charged (incl. tax/tip/fees)
+  subtotalCents: number;
+  taxCents: number;
+  tipCents: number;
+  discountCents: number;
+  orderCount: number;
+}
+
+/**
+ * Financial breakdown for reporting — real column sums over this restaurant's
+ * charged orders (same "real order" definition as getRevenueSummary). Net
+ * sales (subtotal − discount) is derived by the caller from these figures.
+ */
+export async function getFinancialSummary(restaurantId: string, days: number): Promise<FinancialSummary> {
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const agg = await prisma.order.aggregate({
+    where: { restaurantId, status: { notIn: [...NOT_REAL_ORDER_STATUSES] }, createdAt: { gte: since } },
+    _sum: { totalCents: true, subtotalCents: true, taxCents: true, tipCents: true, discountCents: true },
+    _count: true,
+  });
+  return {
+    grossCents: agg._sum.totalCents ?? 0,
+    subtotalCents: agg._sum.subtotalCents ?? 0,
+    taxCents: agg._sum.taxCents ?? 0,
+    tipCents: agg._sum.tipCents ?? 0,
+    discountCents: agg._sum.discountCents ?? 0,
+    orderCount: agg._count,
+  };
+}
