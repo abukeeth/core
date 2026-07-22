@@ -1268,3 +1268,119 @@ export function unsuspendRestaurant(id: string) {
 export function listAuditLog(limit = 50) {
   return apiFetch<{ entries: AuditLogEntry[] }>(`/api/admin/audit-log?limit=${limit}`);
 }
+
+// --- Platform billing (Launch sprint) -----------------------------------------
+
+export interface BillingSummary {
+  plan: "STARTER";
+  status: "TRIALING" | "ACTIVE" | "PAST_DUE" | "CANCELED";
+  state: "TRIALING" | "TRIAL_EXPIRED" | "ACTIVE" | "PAST_DUE" | "CANCELED";
+  entitled: boolean;
+  enforcementEnabled: boolean;
+  configured: boolean;
+  trialEndsAt: string;
+  trialDaysLeft: number | null;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  hasStripeSubscription: boolean;
+}
+
+export function getBillingSummary() {
+  return apiFetch<{ billing: BillingSummary }>("/api/billing/me");
+}
+
+/** Returns the Stripe Checkout URL to redirect the owner to. */
+export function startBillingCheckout() {
+  return apiFetch<{ url: string }>("/api/billing/checkout", { method: "POST" });
+}
+
+/** Returns the Stripe customer-portal URL (manage card, cancel, invoices). */
+export function openBillingPortal() {
+  return apiFetch<{ url: string }>("/api/billing/portal", { method: "POST" });
+}
+
+// --- Super Admin MVP (Launch sprint) ------------------------------------------
+
+export interface AdminUserRow {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  isActive: boolean;
+  emailVerified: boolean;
+  restaurantId: string | null;
+  restaurantName: string | null;
+  createdAt: string;
+}
+
+export interface AdminRestaurantRow {
+  id: string;
+  name: string;
+  businessType: string;
+  ownerEmail: string | null;
+  isPublished: boolean;
+  isSuspended: boolean;
+  suspendedReason: string | null;
+  subscriptionState: string;
+  trialEndsAt: string | null;
+  orderCount: number;
+  menuItemCount: number;
+  createdAt: string;
+}
+
+export interface AdminOrderRow {
+  id: string;
+  restaurantName: string;
+  status: string;
+  paymentStatus: string;
+  fulfillmentType: string;
+  source: string;
+  totalCents: number;
+  createdAt: string;
+}
+
+export interface AdminPaymentRow {
+  id: string;
+  orderId: string;
+  restaurantName: string;
+  providerType: string | null;
+  status: string;
+  authorizedAmountCents: number;
+  capturedAmountCents: number;
+  refundedAmountCents: number;
+  createdAt: string;
+}
+
+export function adminListUsers(query?: string) {
+  const qs = query ? `?query=${encodeURIComponent(query)}` : "";
+  return apiFetch<{ users: AdminUserRow[] }>(`/api/admin/users${qs}`);
+}
+
+export function adminSetUserActive(userId: string, isActive: boolean) {
+  return apiFetch<{ user: AdminUserRow }>(`/api/admin/users/${userId}/active`, {
+    method: "PATCH",
+    body: JSON.stringify({ isActive }),
+  });
+}
+
+export function adminListRestaurants(query?: string) {
+  const qs = query ? `?query=${encodeURIComponent(query)}` : "";
+  return apiFetch<{ restaurants: AdminRestaurantRow[] }>(`/api/admin/restaurants-detailed${qs}`);
+}
+
+/** Permanent, irreversible — requires echoing the business's exact name. */
+export function adminDeleteRestaurant(restaurantId: string, confirmName: string) {
+  return apiFetch<{ deleted: boolean }>(`/api/admin/restaurants/${restaurantId}`, {
+    method: "DELETE",
+    body: JSON.stringify({ confirmName }),
+  });
+}
+
+export function adminListOrders(restaurantId?: string) {
+  const qs = restaurantId ? `?restaurantId=${encodeURIComponent(restaurantId)}` : "";
+  return apiFetch<{ orders: AdminOrderRow[] }>(`/api/admin/orders${qs}`);
+}
+
+export function adminListPayments() {
+  return apiFetch<{ payments: AdminPaymentRow[] }>("/api/admin/payments");
+}

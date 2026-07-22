@@ -1,23 +1,12 @@
 import { PageShell } from "@/components/ui";
-import type { AuditLogEntry, PublicUser, Restaurant } from "@/lib/api";
+import type { AuditLogEntry, PublicUser } from "@/lib/api";
 import { serverFetch } from "@/lib/server-api";
 import { DashboardOverview } from "./dashboard-overview";
 import { AdminPanel } from "./admin-panel";
 import { VerifyEmailBanner } from "./verify-email-banner";
 
 async function AdminOverview() {
-  const [restaurantsResult, auditLogResult] = await Promise.all([
-    serverFetch<{ restaurants: Restaurant[] }>("/api/admin/restaurants"),
-    serverFetch<{ entries: AuditLogEntry[] }>("/api/admin/audit-log"),
-  ]);
-
-  if (!restaurantsResult.ok) {
-    return (
-      <div className="min-h-screen bg-[#F7F0E5] p-6 text-sm text-red-700">
-        Could not load restaurants.
-      </div>
-    );
-  }
+  const auditLogResult = await serverFetch<{ entries: AuditLogEntry[] }>("/api/admin/audit-log");
 
   return (
     <div className="min-h-screen bg-[#F7F0E5] p-4 sm:p-6 lg:p-10">
@@ -25,12 +14,9 @@ async function AdminOverview() {
         <div className="mb-6">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#9A6A2F]">Platform administration</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight text-[#171512]">OrderVora Admin</h1>
-          <p className="mt-2 text-sm text-[#756B5D]">Manage restaurants, suspension status, and audit activity.</p>
+          <p className="mt-2 text-sm text-[#756B5D]">Businesses, users, orders, payments, and audit activity.</p>
         </div>
-        <AdminPanel
-          initialRestaurants={restaurantsResult.data.restaurants}
-          initialAuditLog={auditLogResult.ok ? auditLogResult.data.entries : []}
-        />
+        <AdminPanel initialAuditLog={auditLogResult.ok ? auditLogResult.data.entries : []} />
       </div>
     </div>
   );

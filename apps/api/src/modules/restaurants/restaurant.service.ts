@@ -3,6 +3,7 @@ import { prisma } from "../../lib/prisma";
 import { bestEffort } from "../../lib/best-effort";
 import { ensureOnboardingStatus, recordOnboardingActivity } from "../onboarding/onboarding.service";
 import { NoRestaurantError, RestaurantAlreadyExistsError, RestaurantNotFoundError } from "./restaurant.errors";
+import { trialLengthDays } from "../billing/entitlements";
 import { generateReferralCode } from "./referral-code";
 import type { CreateRestaurantInput, UpdateRestaurantInput } from "./restaurant.validation";
 
@@ -103,6 +104,13 @@ export async function createRestaurant(ownerId: string, input: CreateRestaurantI
     });
     await tx.membership.create({
       data: { userId: ownerId, role: MembershipRole.OWNER, scopeType: MembershipScope.BUSINESS, scopeId: created.id },
+    });
+
+    // Launch sprint — every Business starts its free trial the moment it
+    // exists, atomically with the Restaurant itself, so entitlement checks
+    // never race a missing subscription row.
+    await tx.platformSubscription.create({
+      data: { restaurantId: created.id, trialEndsAt: new Date(Date.now() + trialLengthDays() * 24 * 60 * 60 * 1000) },
     });
 
     return created;

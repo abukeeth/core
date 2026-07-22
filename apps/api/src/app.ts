@@ -29,12 +29,14 @@ import { menuCommerceRouter } from "./modules/commerce/menu-commerce/menu-commer
 import { publicMenuRouter } from "./modules/commerce/menu-commerce/public-menu.routes";
 import { ordersRouter, publicOrdersRouter } from "./modules/commerce/orders/orders.routes";
 import { paymentsRouter, paymentWebhookRouter, publicPaymentConfigRouter } from "./modules/commerce/payments/payments.routes";
+import { billingRouter, billingWebhookRouter } from "./modules/billing/billing.routes";
 import { posRouter } from "./modules/commerce/pos/pos.routes";
 import { publicTablesRouter, tablesRouter } from "./modules/commerce/qr-ordering/tables.routes";
 import { importRouter } from "./modules/imports/import.routes";
 import { menuRouter } from "./modules/menu/menu.routes";
 import { onboardingRouter } from "./modules/onboarding/onboarding.routes";
 import { adminAuditLogRouter } from "./modules/admin/audit-log.routes";
+import { adminRouter } from "./modules/admin/admin.routes";
 import { adminRestaurantRouter, restaurantRouter } from "./modules/restaurants/restaurant.routes";
 import { previewRouter, siteEdgeMiddleware, storeRouter } from "./modules/sites/public-render.routes";
 import { publicSiteRouter, siteRouter } from "./modules/sites/site.routes";
@@ -309,6 +311,9 @@ export function createApp() {
   app.use("/api/restaurants", notificationsOwnerRouter);
   app.use("/api/admin/restaurants", adminRestaurantRouter);
   app.use("/api/admin", adminAuditLogRouter);
+  app.use("/api/admin", adminRouter);
+  // Launch sprint — platform billing (owner-facing; the webhook mounts below).
+  app.use("/api/billing", billingRouter);
   app.use("/api/menu", menuRouter);
   app.use("/api/onboarding", onboardingRouter);
   app.use("/api/imports", importRouter);
@@ -332,6 +337,8 @@ export function createApp() {
 
   // BYOP webhooks — no requireAuth, signature-verified per-provider instead.
   app.use("/api/webhooks/payments", paymentWebhookRouter);
+  // Platform billing webhook — no requireAuth, Stripe-signature-verified.
+  app.use("/api/webhooks/billing", billingWebhookRouter);
 
   app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof multer.MulterError) {

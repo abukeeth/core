@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { PublicUser, Restaurant } from "@/lib/api";
 import { serverFetch, type ServerFetchResult } from "@/lib/server-api";
 import { DashboardLoadError } from "./dashboard-load-error";
+import { BillingBanner } from "./billing-banner";
 
 type FetchFailure = Extract<ServerFetchResult<unknown>, { ok: false }>;
 
@@ -62,6 +63,14 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     } else {
       return <DashboardLoadError />;
     }
+    // Launch sprint — trial/subscription strip, owners only (admins and
+    // staff have no platform subscription of their own).
+    return (
+      <>
+        <BillingBanner />
+        {children}
+      </>
+    );
   }
 
   return <>{children}</>;

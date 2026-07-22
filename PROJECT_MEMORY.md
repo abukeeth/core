@@ -199,9 +199,34 @@ it — don't assume `DashboardNav` covers every case.
 3. Avoid random feature expansion before launch.
 4. Production stability is priority.
 
+## Platform Billing (Launch-Critical Sprint, 2026-07-22)
+
+- `modules/billing` — SaaS subscriptions (OrderVora charging owners),
+  fully separate from BYOP `commerce/payments` (owners charging diners).
+- One `PlatformSubscription` per Business: STARTER plan, 14-day trial at
+  creation (backfilled for pre-billing rows), Stripe Billing via
+  Checkout + customer portal + `/api/webhooks/billing`.
+- Entitlement is DERIVED (`entitlements.ts`): TRIAL_EXPIRED = TRIALING +
+  trialEndsAt past — no cron. PAST_DUE stays entitled (dunning grace).
+- Gating (only when `BILLING_ENFORCEMENT_ENABLED=true`): site publish
+  (402 SUBSCRIPTION_INACTIVE) and new-order quotes (neutral customer
+  wording — billing language never reaches diners). Default OFF.
+
+## Super Admin (Launch-Critical Sprint, 2026-07-22)
+
+- `/api/admin/*` (ADMIN role): users search/deactivate, businesses with
+  subscription state, cross-tenant orders/payments, permanent business
+  delete (exact-name confirmation, ordered raw-SQL cascade in one
+  transaction — schema FKs are RESTRICT on purpose; login accounts are
+  preserved with restaurantId nulled). All actions audit-logged.
+- Web: /dashboard admin panel with Businesses/Users/Orders/Payments/
+  Audit-log tabs.
+
 ## Known Future Work
 
-- Complete billing/subscriptions
+- First real production payment run (docs/runbooks/first-live-payment.md
+  — needs owner's live Stripe account)
+- Flip BILLING_ENFORCEMENT_ENABLED once platform Stripe is verified live
 - More integrations
 - Real-time improvements
 - POS providers

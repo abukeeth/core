@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import {
   ClipboardList,
+  CreditCard,
   Globe,
   HelpCircle,
   LayoutDashboard,
@@ -31,6 +32,7 @@ const DRAWER_ITEMS: DrawerItem[] = [
   { label: "Storefront", href: "/dashboard/builder", icon: Sparkles },
   { label: "Storefront Studio", href: "/dashboard/website", icon: Globe },
   { label: "Marketing", href: null, icon: Megaphone },
+  { label: "Billing", href: "/dashboard/billing", icon: CreditCard },
   { label: "Settings", href: "/dashboard/restaurant", icon: Settings },
   { label: "Help", href: null, icon: HelpCircle },
 ];

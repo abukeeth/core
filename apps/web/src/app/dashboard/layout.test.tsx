@@ -16,6 +16,8 @@ vi.mock("next/navigation", () => ({
   redirect: (url: string) => {
     throw new RedirectSignal(url);
   },
+  // BillingBanner (rendered inside the owner branch) reads the current path.
+  usePathname: () => "/dashboard",
 }));
 
 vi.mock("./dashboard-load-error", () => ({

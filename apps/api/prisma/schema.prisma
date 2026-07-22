@@ -160,6 +160,12 @@ model Restaurant {
   referredBy   Restaurant?  @relation("RestaurantReferrals", fields: [referredById], references: [id])
   referrals    Restaurant[] @relation("RestaurantReferrals")
 
+  // Launch sprint — SaaS billing. One platform subscription per Business;
+  // created with a free trial the moment the Business is created (and
+  // backfilled for pre-billing rows), so entitlement checks can always
+  // assume a row exists.
+  platformSubscription PlatformSubscription?
+
   members    User[]         @relation("RestaurantMembers")
   categories MenuCategory[]
   items      MenuItem[]
@@ -2227,4 +2233,49 @@ model OnboardingStatus {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// --- Launch sprint — SaaS Billing MVP ---
+// The platform charging Business owners (entirely separate from BYOP
+// PaymentProvider, which is the owner's own Stripe account charging their
+// diners). One paid plan + a free trial; Stripe Billing (Checkout +
+// customer portal + webhooks) is the source of truth once a subscription
+// exists, and `status` mirrors it.
+
+enum PlatformPlan {
+  STARTER
+}
+
+enum PlatformSubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+model PlatformSubscription {
+  id           String     @id @default(uuid())
+  restaurantId String     @unique
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  plan   PlatformPlan               @default(STARTER)
+  status PlatformSubscriptionStatus @default(TRIALING)
+
+  // Trial entitlement window. TRIALING + trialEndsAt in the past means the
+  // trial has lapsed — entitlements.ts derives "expired" from this pair
+  // rather than storing a separate EXPIRED status that a cron would have
+  // to flip (no scheduler dependency for correctness).
+  trialEndsAt DateTime
+
+  // Stripe Billing linkage — set the first time the owner completes
+  // Checkout. Unique so a webhook can resolve its subscription row.
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String? @unique
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
 }

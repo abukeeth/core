@@ -3837,3 +3837,54 @@ for viewing collected subscribers beyond the raw `GET
 :id/newsletter-subscribers` API.
 
 Sprint 20A stops here per instruction — Task 6 not started.
+
+---
+
+## Launch-Critical Sprint — Billing MVP + Super Admin MVP (2026-07-22)
+
+Feature development paused by owner directive; this sprint ships only the
+three launch blockers surfaced by the product reality audit (0 payments
+ever processed, no way to charge owners, ~10% admin tooling).
+
+**Priority 1 — SaaS Billing MVP (shipped):**
+- `PlatformSubscription` model — one per Business, STARTER plan,
+  TRIALING/ACTIVE/PAST_DUE/CANCELED, `trialEndsAt`; migration backfills a
+  fresh 14-day trial for every existing business; new businesses start
+  their trial atomically at creation.
+- Stripe Billing: `POST /api/billing/checkout` (Checkout subscription
+  session), `POST /api/billing/portal` (customer portal),
+  `GET /api/billing/me`, signature-verified `POST /api/webhooks/billing`
+  mirroring Stripe state (checkout completed, subscription
+  created/updated/deleted, invoice payment failed).
+- Feature gating behind `BILLING_ENFORCEMENT_ENABLED` (default OFF —
+  deploy-safe): when on, a lapsed trial/canceled subscription blocks site
+  publishing (402 SUBSCRIPTION_INACTIVE) and new-order placement (same
+  neutral customer wording as suspension; billing language never reaches
+  diners). PAST_DUE keeps entitlement (Stripe dunning grace).
+- Web: `/dashboard/billing` page (status, trial countdown, Subscribe →
+  Checkout, Manage billing → portal), dashboard-wide billing banner
+  (nags only ≤5 trial days left or action needed), Billing in the nav.
+- Runbook: `docs/runbooks/platform-billing.md` (Stripe setup, env vars,
+  safe rollout order).
+
+**Priority 2 — Super Admin MVP (shipped):**
+- API (`/api/admin/*`, ADMIN-only): users list/search + deactivate/
+  reactivate (self-protected), businesses list/search with subscription
+  state + order/item counts, cross-tenant orders and payments listings,
+  and permanent business deletion (exact-name confirmation; ordered raw
+  cascade in one transaction; owner/staff login accounts preserved with
+  restaurantId nulled). Every action audit-logged.
+- Web: admin panel rebuilt as five tabs — Businesses (suspend/unsuspend/
+  delete), Users, Orders, Payments, Audit log.
+
+**Priority 3 — First real production payment (runbook ready, execution
+pending owner):** `docs/runbooks/first-live-payment.md` — connect the
+owner's real Stripe account, live charge, capture verification, refund,
+webhook 200s; verified through the new admin Payments tab. Blocked only
+on the owner's live Stripe credentials.
+
+**Verification:** 1,637 API tests + 286 web tests green; typecheck clean
+both workspaces; `next build` passes. New env vars (all optional at
+boot): `PLATFORM_STRIPE_SECRET_KEY`, `PLATFORM_STRIPE_WEBHOOK_SECRET`,
+`PLATFORM_STRIPE_PRICE_ID`, `BILLING_TRIAL_DAYS`,
+`BILLING_ENFORCEMENT_ENABLED`.

@@ -319,6 +319,17 @@ const KNOWN_ENV_KEYS = [
   // Sentry is a reduced-observability default, never a boot requirement.
   "LOG_LEVEL",
   "SENTRY_DSN",
+  // Launch sprint — SaaS Billing MVP (modules/billing). All optional at
+  // boot: with PLATFORM_STRIPE_SECRET_KEY unset, billing endpoints return
+  // a clear "billing not configured" error and enforcement stays off, so
+  // a deploy without Stripe configured behaves exactly as before billing
+  // existed. BILLING_ENFORCEMENT_ENABLED defaults to false — flip it on
+  // only after the platform Stripe account + webhook are verified live.
+  "PLATFORM_STRIPE_SECRET_KEY",
+  "PLATFORM_STRIPE_WEBHOOK_SECRET",
+  "PLATFORM_STRIPE_PRICE_ID",
+  "BILLING_TRIAL_DAYS",
+  "BILLING_ENFORCEMENT_ENABLED",
   // Production Hardening Phase 11 — deliberately outside the core schema:
   // every rate limiter already has a sensible hardcoded default
   // (middleware/rate-limit.ts); these only matter if an operator wants to

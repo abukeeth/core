@@ -19,6 +19,7 @@ import {
 } from "./site.errors";
 import { THEME_CATALOG } from "./theme-catalog";
 import { buildCarrierTheme, isThemeFreeDefinition } from "./renderer/theme-carrier";
+import { assertEntitled } from "../billing/entitlements";
 import { brandProfileSchema, siteDefinitionSchema, type AssetSummary, type SiteDefinition } from "./types";
 
 const PLATFORM_DOMAIN = getStringEnv("SITE_PLATFORM_DOMAIN", "sites.ordervora.example");
@@ -377,6 +378,9 @@ async function pruneOldReleases(siteId: string): Promise<void> {
  * same `GET /api/sites/me` it already fetches.
  */
 export async function publishSite(restaurantId: string, siteId: string, publishedById: string): Promise<PublishResult> {
+  // Launch sprint — platform billing gate: publishing is a paid-plan (or
+  // live-trial) action once enforcement is on. Throws SubscriptionInactiveError.
+  await assertEntitled(restaurantId);
   const site = await findOwnSiteById(restaurantId, siteId);
   const readiness = await validatePublishReadiness(restaurantId, siteId);
   if (!readiness.ready) {

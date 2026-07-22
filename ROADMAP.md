@@ -92,3 +92,14 @@ Custom pricing
 ## Launch Goal
 
 Move from beta platform to production-ready SaaS with pilot restaurants.
+
+## Launch-Critical Sprint (2026-07-22) — complete
+
+- SaaS Billing MVP: STARTER plan, 14-day free trial, Stripe Billing
+  (Checkout/portal/webhook), subscription status, feature gating behind
+  BILLING_ENFORCEMENT_ENABLED — completed
+- Super Admin MVP: users, businesses (+subscription state), cross-tenant
+  orders/payments, suspend + permanent delete, audit-logged — completed
+- First real production payment: runbook ready
+  (docs/runbooks/first-live-payment.md); execution requires owner's live
+  Stripe account — pending owner action

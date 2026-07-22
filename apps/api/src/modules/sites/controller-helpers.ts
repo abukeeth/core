@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { NoRestaurantError } from "../restaurants/restaurant.errors";
 import { getOwnRestaurantId } from "../restaurants/restaurant.service";
+import { SubscriptionInactiveError } from "../billing/billing.errors";
 import {
   AssetNotFoundError,
   DomainAlreadyClaimedError,
@@ -61,6 +62,11 @@ export function mapSiteError(err: unknown, res: Response): boolean {
   }
   if (err instanceof InvalidDomainError || err instanceof SlugNotEditableError) {
     res.status(400).json({ error: err.message });
+    return true;
+  }
+  if (err instanceof SubscriptionInactiveError) {
+    // 402 so the dashboard can route the owner straight to /dashboard/billing.
+    res.status(402).json({ error: err.message, code: "SUBSCRIPTION_INACTIVE" });
     return true;
   }
   return false;

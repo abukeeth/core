@@ -11,6 +11,7 @@ import { distanceMilesBetween } from "../delivery-rules/geometry";
 import { evaluateRouting } from "../delivery-rules/smart-routing";
 import { computeTaxCents } from "./tax";
 import { cartSubtotalCents } from "../cart/cart.service";
+import { getEntitlement, isBillingEnforcementEnabled } from "../../billing/entitlements";
 
 export interface CheckoutQuote {
   eligible: boolean;
@@ -44,6 +45,14 @@ export async function computeCheckoutQuote(
     return { eligible: false, reason: "Restaurant not found", subtotalCents: 0, taxCents: 0, tipCents: 0, deliveryFeeCents: 0, serviceFeeCents: 0, discountCents: 0, totalCents: 0 };
   }
   if (restaurant.isSuspended) {
+    return { eligible: false, reason: "This restaurant is temporarily unavailable", subtotalCents: 0, taxCents: 0, tipCents: 0, deliveryFeeCents: 0, serviceFeeCents: 0, discountCents: 0, totalCents: 0 };
+  }
+  // Launch sprint — platform billing gate. When enforcement is on and the
+  // owner's trial/subscription has lapsed, the storefront stops taking NEW
+  // orders (same customer-facing wording as suspension — billing state is
+  // never exposed to diners). placeOrder recomputes this quote right
+  // before charging, so the gate can't be bypassed with a stale quote.
+  if (isBillingEnforcementEnabled() && !(await getEntitlement(cart.restaurantId)).entitled) {
     return { eligible: false, reason: "This restaurant is temporarily unavailable", subtotalCents: 0, taxCents: 0, tipCents: 0, deliveryFeeCents: 0, serviceFeeCents: 0, discountCents: 0, totalCents: 0 };
   }
 
