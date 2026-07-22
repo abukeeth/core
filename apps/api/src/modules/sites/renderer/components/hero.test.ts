@@ -50,7 +50,9 @@ describe("renderHero", () => {
       { type: "hero", variant: "fullbleed-image", props: { headline: "Welcome", scrimOpacity: 0.7 } },
       ctx({ heroUrl: "/assets/hero.png" }),
     );
-    expect(html).toContain("rgba(0,0,0,0.7)");
+    // Cinematic bottom-weighted scrim carries the chosen opacity at its base.
+    expect(html).toContain("linear-gradient(180deg");
+    expect(html).toContain("rgba(6,4,3,0.7)");
   });
 
   it("escapes the CTA label", () => {
@@ -68,7 +70,9 @@ describe("renderHero", () => {
     const html = renderHero({ type: "hero", variant: "bold-block", props: { headline: "Welcome" } }, ctx({ heroUrl: "/assets/hero.png" }));
     expect(html).toContain('<img src="/assets/hero.png"');
     expect(html).toContain("text-transform:uppercase");
-    expect(html).toContain("rgba(0,0,0,0.55)");
+    // Heavier bottom scrim + a dramatic display-scale headline.
+    expect(html).toContain("rgba(6,4,3,0.62)");
+    expect(html).toContain("font-size:var(--step-4)");
   });
 
   it("§Website Builder: bold-block still shows a fallback tile (not blank) with no uploaded photo", () => {

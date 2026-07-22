@@ -1,5 +1,18 @@
 import { deriveColorScale, derivePaletteFromSeed, SCALE_STEPS } from "../../../lib/color";
-import type { BrandSettings, ThemeCatalogEntry } from "../types";
+import type { BrandSettings, StyleFamilyValue, ThemeCatalogEntry } from "../types";
+
+/**
+ * Storefront quality — Phase 1: distinct brand personalities from the SAME
+ * components. The style family drives the display type feel (tracking, weight,
+ * hero leading) and the section rhythm, so a LUXURY storefront reads tight and
+ * editorial, MODERN reads bold and airy, and MINIMAL reads calm and warm —
+ * without any per-theme component code.
+ */
+const PERSONALITY: Record<StyleFamilyValue, { tracking: string; weight: string; heroLeading: string; section: string }> = {
+  LUXURY: { tracking: "-0.02em", weight: "600", heroLeading: "1.02", section: "clamp(4rem, 2rem + 7vw, 8rem)" },
+  MODERN: { tracking: "-0.035em", weight: "700", heroLeading: "1.0", section: "clamp(3.25rem, 1.75rem + 6vw, 6.5rem)" },
+  MINIMAL: { tracking: "-0.005em", weight: "600", heroLeading: "1.12", section: "clamp(2.75rem, 1.5rem + 5vw, 5.5rem)" },
+};
 
 const RADIUS_PX: Record<ThemeCatalogEntry["tokens"]["radius"], string> = {
   sharp: "2px",
@@ -64,6 +77,7 @@ export function renderThemeCss(theme: ThemeCatalogEntry, colorSeed: string, bran
   const contentSpacing = CONTENT_SPACING_REM[brandSettings?.contentSpacing ?? "comfortable"];
   const headingFont = brandSettings?.headingFont ?? theme.tokens.typography.display;
   const bodyFont = brandSettings?.bodyFont ?? theme.tokens.typography.body;
+  const persona = PERSONALITY[theme.styleFamily];
 
   return `<style>
 :root {
@@ -83,42 +97,66 @@ export function renderThemeCss(theme: ThemeCatalogEntry, colorSeed: string, bran
   --step-0: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
   --step-1: clamp(calc(1rem * var(--type-scale-ratio)), 1.2rem + 1vw, calc(1.4rem * var(--type-scale-ratio)));
   --step-2: clamp(calc(1rem * var(--type-scale-ratio) * var(--type-scale-ratio)), 1.6rem + 2vw, calc(2rem * var(--type-scale-ratio) * var(--type-scale-ratio)));
+  --step-3: clamp(2.25rem, 1.4rem + 3.6vw, 3.75rem);
+  --step-4: clamp(2.75rem, 1.3rem + 6.2vw, 5.75rem);
+  --tracking-display: ${persona.tracking};
+  --weight-display: ${persona.weight};
+  --leading-hero: ${persona.heroLeading};
+  --space-section: ${persona.section};
+  --gutter: clamp(1.25rem, 0.5rem + 3vw, 3rem);
+  --elevation: 0 1px 2px rgba(20,14,8,0.05), 0 20px 44px -18px rgba(20,14,8,0.24);
+  --hairline: color-mix(in srgb, var(--color-text-900) 12%, transparent);
 }
 @media (prefers-reduced-motion: reduce) {
   :root { --motion-duration: 0ms; }
   * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 * { box-sizing: border-box; }
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
 body {
   margin: 0;
   font-family: var(--font-body);
   background: var(--color-surface-50);
   color: var(--color-text-900);
   font-size: var(--step-0);
-  line-height: 1.6;
+  line-height: 1.65;
 }
-h1, h2, h3 { font-family: var(--font-display); line-height: 1.2; }
-h1 { font-size: var(--step-2); }
-h2 { font-size: var(--step-1); }
-main { max-width: var(--page-width); margin: 0 auto; padding: 0 1rem; }
-p { max-width: 70ch; }
+::selection { background: var(--color-accent-500); color: #fff; }
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: var(--weight-display);
+  line-height: 1.1;
+  letter-spacing: var(--tracking-display);
+  text-wrap: balance;
+}
+h1 { font-size: var(--step-4); line-height: var(--leading-hero); }
+h2 { font-size: var(--step-3); }
+h3 { font-size: var(--step-2); }
+main { max-width: var(--page-width); margin: 0 auto; padding: 0 var(--gutter); }
+p { max-width: 66ch; }
 a { color: var(--color-primary-600); }
 button, .cta {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--button-radius);
   background: var(--color-primary-600);
   color: #ffffff;
-  padding: 0.75rem 1.5rem;
+  padding: 0.85rem 1.75rem;
   text-decoration: none;
   border: none;
   font-size: var(--step-0);
+  font-weight: 600;
+  letter-spacing: 0.01em;
   min-height: 44px;
   min-width: 44px;
   box-shadow: var(--shadow);
+  transition: transform var(--motion-duration) ease, box-shadow var(--motion-duration) ease, filter var(--motion-duration) ease;
 }
+.cta:hover, button:hover { transform: translateY(-1px); filter: brightness(1.04); }
 .card {
   border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  box-shadow: var(--elevation);
 }
 .mobile-action-bar {
   position: fixed;
