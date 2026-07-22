@@ -3,19 +3,56 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* ---------------------------------------------------------------------
+   * OrderVora Design System — Foundations
+   * Figma "Design System V2" structure/spacing/type, warm brand identity.
+   * (Hybrid direction: V2 layout system + cream surfaces + gold/bronze accent
+   * instead of V2's violet. See PROJECT_MEMORY / CLAUDE.md design rules.)
+   * ------------------------------------------------------------------- */
+  --ov-canvas: #f7f0e5;         /* app background (was V2 surface-canvas) */
+  --ov-surface: #ffffff;        /* cards / sheets */
+  --ov-subtle: #fbf7f1;         /* muted fills / inset rows */
+  --ov-brand: #b97824;          /* primary accent (was V2 brand violet) */
+  --ov-brand-strong: #9a6a2f;   /* pressed / emphasis */
+  --ov-brand-soft: #f7ebdd;     /* tinted accent background */
+  --ov-ink: #171512;            /* primary text */
+  --ov-ink-secondary: #756b5d;  /* secondary text */
+  --ov-ink-muted: #8a7d6c;      /* muted / meta text */
+  --ov-line: #e7ddcf;           /* borders / dividers */
+  --ov-success: #16a34a;        /* positive delta / open */
+  --ov-info: #2563eb;           /* in-progress status */
+  --ov-danger: #c0392b;         /* errors / needs attention */
+  --ov-elevation: 0 10px 28px -6px rgba(48, 39, 27, 0.12);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter), var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
+
+  /* Semantic color tokens → bg-canvas, text-ink, border-line, bg-brand, … */
+  --color-canvas: var(--ov-canvas);
+  --color-surface: var(--ov-surface);
+  --color-subtle: var(--ov-subtle);
+  --color-brand: var(--ov-brand);
+  --color-brand-strong: var(--ov-brand-strong);
+  --color-brand-soft: var(--ov-brand-soft);
+  --color-ink: var(--ov-ink);
+  --color-ink-secondary: var(--ov-ink-secondary);
+  --color-ink-muted: var(--ov-ink-muted);
+  --color-line: var(--ov-line);
+  --color-success: var(--ov-success);
+  --color-info: var(--ov-info);
+  --color-danger: var(--ov-danger);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 /* AI Restaurant Builder micro-interactions (Sprint 11.1) */
