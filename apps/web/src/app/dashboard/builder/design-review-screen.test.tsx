@@ -16,16 +16,18 @@ vi.mock("../website/variations/[id]/device-preview", () => ({
 }));
 
 import { DesignReviewScreen } from "./design-review-screen";
+import type { DesignCandidate } from "./use-restaurant-builder";
 
-const CANDIDATES = [
-  { id: "v-modern", styleFamily: "MODERN" as const, colorSeed: "#111", tagline: "M", cuisine: "italian", overall: 80 },
-  { id: "v-best", styleFamily: "LUXURY" as const, colorSeed: "#222", tagline: "L", cuisine: "italian", overall: 92 },
-  { id: "v-local", styleFamily: "MINIMAL" as const, colorSeed: "#333", tagline: "Lo", cuisine: "italian", overall: 75 },
+// VAPE_SHOP so concept names resolve to the curated trio (Flagship/Showcase/Corner Shop).
+const CANDIDATES: DesignCandidate[] = [
+  { id: "v-mod", styleFamily: "MODERN", businessType: "VAPE_SHOP", colorSeed: "#111", tagline: "M", cuisine: "n/a", overall: 80 },
+  { id: "v-best", styleFamily: "LUXURY", businessType: "VAPE_SHOP", colorSeed: "#222", tagline: "L", cuisine: "n/a", overall: 92 },
+  { id: "v-min", styleFamily: "MINIMAL", businessType: "VAPE_SHOP", colorSeed: "#333", tagline: "Mi", cuisine: "n/a", overall: 75 },
 ];
 
 function props(overrides: Record<string, unknown> = {}) {
   return {
-    restaurantName: "Joe's Diner",
+    restaurantName: "Easy Tobacco Shop",
     siteId: "site-1",
     selectedVersionId: "v-best",
     candidates: CANDIDATES,
@@ -40,53 +42,57 @@ function props(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("DesignReviewScreen (approval gate — the owner-facing flow)", () => {
-  it("shows the REAL preview of the selected design (not the build mockup)", () => {
+// Principle 2 (locked): these words must NEVER reach customer-facing UI.
+const BANNED = /\b(theme|template|variation|modern|luxury|local|style\s*family)\b/i;
+
+describe("DesignReviewScreen (storefront concept approval gate)", () => {
+  it("renders no banned theme/template vocabulary anywhere in the DOM", () => {
+    const { container } = render(<DesignReviewScreen {...props()} />);
+    expect(container.textContent ?? "").not.toMatch(BANNED);
+  });
+
+  it("shows the REAL preview of the selected storefront (not the build mockup)", () => {
     render(<DesignReviewScreen {...props()} />);
     expect(screen.getByTestId("real-preview")).toHaveTextContent("site-1:v-best");
   });
 
-  it("review: shows 'Approve this design' and fires onApprove when clicked", () => {
+  it("review: shows 'Use this storefront' and fires onApprove when clicked", () => {
     const onApprove = vi.fn();
     render(<DesignReviewScreen {...props({ onApprove })} />);
-    const approve = screen.getByRole("button", { name: "Approve this design" });
-    fireEvent.click(approve);
+    fireEvent.click(screen.getByRole("button", { name: "Use this storefront" }));
     expect(onApprove).toHaveBeenCalledTimes(1);
   });
 
-  it("review: offers a safe 'Choose another design' link to the variations page (no auto-publish)", () => {
+  it("review: offers a safe 'See your other storefronts' link (no auto-publish)", () => {
     render(<DesignReviewScreen {...props()} />);
-    const link = screen.getByRole("link", { name: "Choose another design" });
+    const link = screen.getByRole("link", { name: "See your other storefronts" });
     expect(link).toHaveAttribute("href", "/dashboard/website/variations");
   });
 
   it("shows NO premature success claim at the review gate (nothing is public yet)", () => {
     render(<DesignReviewScreen {...props()} />);
-    // The finale's success claims must not appear before publish is confirmed.
     expect(screen.queryByText(/open for business/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/you're live/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/officially open/i)).not.toBeInTheDocument();
-    // It should instead reassure that nothing has gone public.
     expect(screen.getByText(/nothing is public yet/i)).toBeInTheDocument();
   });
 
-  it("approving: shows an in-progress state and hides the approve button", () => {
+  it("approving: shows an in-progress state and hides the primary action", () => {
     render(<DesignReviewScreen {...props({ phase: "approving" })} />);
-    expect(screen.getByText(/Approving your design/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Approve this design" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Setting up your storefront/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Use this storefront" })).not.toBeInTheDocument();
   });
 
   it("publishing: shows a publishing-in-progress state (still no 'live' claim)", () => {
     render(<DesignReviewScreen {...props({ phase: "publishing" })} />);
-    expect(screen.getByText(/Publishing your website/)).toBeInTheDocument();
+    expect(screen.getByText(/Publishing your storefront/)).toBeInTheDocument();
     expect(screen.queryByText(/open for business/i)).not.toBeInTheDocument();
   });
 
-  it("approve_failed: surfaces the error and a 'Try approving again' retry", () => {
+  it("approve_failed: surfaces the error and a 'Try again' retry", () => {
     const onRetryApprove = vi.fn();
     render(<DesignReviewScreen {...props({ phase: "approve_failed", actionError: "approval service down", onRetryApprove })} />);
     expect(screen.getByText("approval service down")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Try approving again" }));
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(onRetryApprove).toHaveBeenCalledTimes(1);
   });
 
@@ -102,37 +108,47 @@ describe("DesignReviewScreen (approval gate — the owner-facing flow)", () => {
     expect(onRetryPublish).toHaveBeenCalledTimes(1);
   });
 
-  it("preview unavailable: shows a clear message and disables approval when no design is selected", () => {
+  it("preview unavailable: shows a clear message and disables the action when nothing is selected", () => {
     render(<DesignReviewScreen {...props({ selectedVersionId: null })} />);
     expect(screen.getByText(/Preview unavailable right now/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Approve this design" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Use this storefront" })).toBeDisabled();
   });
 
-  describe("theme switcher (Theme Engine v1 — Modern / Luxury / Local)", () => {
-    it("renders one chip per style family with friendly names, in Modern/Luxury/Local order", () => {
+  describe("storefront concept picker", () => {
+    it("renders one option per generated concept, by business-oriented name", () => {
       render(<DesignReviewScreen {...props()} />);
-      const group = screen.getByRole("group", { name: "Website theme" });
-      const chips = within(group).getAllByRole("button").map((b) => b.textContent);
-      expect(chips).toEqual(["Modern", "Luxury", "Local"]);
+      const group = screen.getByRole("group", { name: "Storefront concepts" });
+      const names = within(group)
+        .getAllByRole("button")
+        .map((b) => b.textContent?.replace("Recommended", "").trim());
+      // Recommended (highest score = v-best LUXURY) first, then by score.
+      expect(names).toEqual(["The Flagship", "The Showcase", "The Corner Shop"]);
     });
 
-    it("marks the currently-selected theme as pressed (Luxury = v-best here)", () => {
+    it("marks the highest-scoring concept as recommended and pressed", () => {
       render(<DesignReviewScreen {...props()} />);
-      expect(screen.getByRole("button", { name: "Luxury" })).toHaveAttribute("aria-pressed", "true");
-      expect(screen.getByRole("button", { name: "Modern" })).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getByText("Recommended")).toBeInTheDocument();
+      const flagship = screen.getByRole("button", { name: /The Flagship/ });
+      expect(flagship).toHaveAttribute("aria-pressed", "true");
     });
 
-    it("fires onSelectTheme with the chosen variation's id when a different theme is picked", () => {
+    it("fires onSelectTheme with the chosen concept's id", () => {
       const onSelectTheme = vi.fn();
       render(<DesignReviewScreen {...props({ onSelectTheme })} />);
-      fireEvent.click(screen.getByRole("button", { name: "Local" }));
-      expect(onSelectTheme).toHaveBeenCalledWith("v-local");
+      fireEvent.click(screen.getByRole("button", { name: /The Corner Shop/ }));
+      expect(onSelectTheme).toHaveBeenCalledWith("v-min");
     });
 
-    it("disables the theme chips while a switch is applying", () => {
+    it("shows the selected concept's name and description", () => {
+      render(<DesignReviewScreen {...props()} />);
+      expect(screen.getByRole("heading", { name: "The Flagship" })).toBeInTheDocument();
+      expect(screen.getByText(/puts your products front and center/i)).toBeInTheDocument();
+    });
+
+    it("disables the concept options while a switch is applying", () => {
       render(<DesignReviewScreen {...props({ switchingTheme: true })} />);
-      expect(screen.getByRole("button", { name: "Modern" })).toBeDisabled();
-      expect(screen.getByText(/Applying theme…/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /The Showcase/ })).toBeDisabled();
+      expect(screen.getByText(/Applying…/)).toBeInTheDocument();
     });
   });
 });

@@ -10,7 +10,7 @@ const industries = [
 ] as const;
 
 const aiModules = [
-  ["AI Website Studio", "Themes, live preview, sections, publish"],
+  ["AI Website Studio", "Storefront concepts, live preview, sections, publish"],
   ["Brand Builder", "Name, logo direction, colors, fonts"],
   ["Menu AI", "Import, structure, rewrite, optimize"],
   ["Image Studio", "Product imagery, banners, cleanup"],

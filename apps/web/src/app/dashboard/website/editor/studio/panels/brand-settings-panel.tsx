@@ -43,7 +43,7 @@ function ColorField({ label, value, onChange }: { label: string; value?: string;
           type="text"
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value || undefined)}
-          placeholder="Use theme default"
+          placeholder="Use brand default"
           className={INPUT_CLASS}
         />
       </div>
@@ -68,17 +68,17 @@ export function BrandSettingsPanel({ value, onChange }: { value: BrandSettings |
 
       <label className={LABEL_CLASS}>
         Heading font
-        <input type="text" value={settings.headingFont ?? ""} onChange={(e) => set("headingFont", e.target.value || undefined)} placeholder="Use theme default" className={INPUT_CLASS} />
+        <input type="text" value={settings.headingFont ?? ""} onChange={(e) => set("headingFont", e.target.value || undefined)} placeholder="Use brand default" className={INPUT_CLASS} />
       </label>
       <label className={LABEL_CLASS}>
         Body font
-        <input type="text" value={settings.bodyFont ?? ""} onChange={(e) => set("bodyFont", e.target.value || undefined)} placeholder="Use theme default" className={INPUT_CLASS} />
+        <input type="text" value={settings.bodyFont ?? ""} onChange={(e) => set("bodyFont", e.target.value || undefined)} placeholder="Use brand default" className={INPUT_CLASS} />
       </label>
 
       <label className={LABEL_CLASS}>
         Button style
         <select value={settings.buttonStyle ?? ""} onChange={(e) => set("buttonStyle", (e.target.value || undefined) as BrandSettings["buttonStyle"])} className={INPUT_CLASS}>
-          <option value="">Theme default</option>
+          <option value="">Brand default</option>
           {BUTTON_STYLES.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -88,7 +88,7 @@ export function BrandSettingsPanel({ value, onChange }: { value: BrandSettings |
       </label>
 
       <label className={LABEL_CLASS}>
-        Border radius ({settings.borderRadius ?? "theme default"}{settings.borderRadius !== undefined ? "px" : ""})
+        Border radius ({settings.borderRadius ?? "brand default"}{settings.borderRadius !== undefined ? "px" : ""})
         <input
           type="range"
           min={0}
@@ -102,7 +102,7 @@ export function BrandSettingsPanel({ value, onChange }: { value: BrandSettings |
       <label className={LABEL_CLASS}>
         Shadow intensity
         <select value={settings.shadowIntensity ?? ""} onChange={(e) => set("shadowIntensity", (e.target.value || undefined) as BrandSettings["shadowIntensity"])} className={INPUT_CLASS}>
-          <option value="">Theme default</option>
+          <option value="">Brand default</option>
           {SHADOW_LEVELS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -114,7 +114,7 @@ export function BrandSettingsPanel({ value, onChange }: { value: BrandSettings |
       <label className={LABEL_CLASS}>
         Page width
         <select value={settings.pageWidth ?? ""} onChange={(e) => set("pageWidth", (e.target.value || undefined) as BrandSettings["pageWidth"])} className={INPUT_CLASS}>
-          <option value="">Theme default</option>
+          <option value="">Brand default</option>
           {PAGE_WIDTHS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -126,7 +126,7 @@ export function BrandSettingsPanel({ value, onChange }: { value: BrandSettings |
       <label className={LABEL_CLASS}>
         Content spacing
         <select value={settings.contentSpacing ?? ""} onChange={(e) => set("contentSpacing", (e.target.value || undefined) as BrandSettings["contentSpacing"])} className={INPUT_CLASS}>
-          <option value="">Theme default</option>
+          <option value="">Brand default</option>
           {SPACING_LEVELS.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}

@@ -51,6 +51,7 @@ export type BuilderPhase =
 export interface DesignCandidate {
   id: string;
   styleFamily: StyleFamily | null;
+  businessType: string | null;
   colorSeed: string | null;
   tagline: string | null;
   cuisine: string | null;
@@ -148,6 +149,7 @@ export function useRestaurantBuilder(): BuilderState {
         variations.map((v) => ({
           id: v.id,
           styleFamily: v.styleFamily,
+          businessType: v.definition?.businessType ?? null,
           colorSeed: v.definition?.colorSeed ?? null,
           tagline: v.definition?.tagline ?? null,
           cuisine: v.definition?.cuisine ?? null,

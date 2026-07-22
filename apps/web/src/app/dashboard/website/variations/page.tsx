@@ -3,11 +3,10 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui";
 import type { GenerationJob, SiteVersion, WebsiteSite } from "@/lib/api";
 import { serverFetch } from "@/lib/server-api";
+import { storefrontConcept } from "@/lib/storefront-concepts";
 import { DevicePreview } from "./[id]/device-preview";
 import { GenerationProgress } from "./generation-progress";
 import { SelectButton } from "./select-button";
-
-const FAMILY_LABEL: Record<string, string> = { LUXURY: "Bold Commerce", MODERN: "Modern Editorial", MINIMAL: "Warm Local" };
 
 export default async function VariationsPage() {
   const siteResult = await serverFetch<{ site: WebsiteSite }>("/api/sites/me");
@@ -48,11 +47,11 @@ export default async function VariationsPage() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <h2 className="text-lg font-bold">
-                      {FAMILY_LABEL[variation.styleFamily ?? ""] ?? variation.styleFamily}
+                      {storefrontConcept(definition.businessType, variation.styleFamily).name}
                     </h2>
                     {isBest && (
                       <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-700">
-                        Best match
+                        Recommended
                       </span>
                     )}
                   </div>
