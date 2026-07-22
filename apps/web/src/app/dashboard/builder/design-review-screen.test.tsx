@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/builder" }));
 
@@ -37,6 +37,7 @@ function props(overrides: Record<string, unknown> = {}) {
     candidates: CANDIDATES,
     switchingTheme: false,
     onSelectTheme: vi.fn(),
+    onUse: vi.fn(),
     phase: "review" as const,
     actionError: null as string | null,
     onApprove: vi.fn(),
@@ -144,5 +145,31 @@ describe("DesignReviewScreen (storefront concept experience)", () => {
     render(<DesignReviewScreen {...props({ switchingTheme: true })} />);
     expect(screen.getByRole("button", { name: `See ${MID_NAME}` })).toBeDisabled();
     expect(screen.getByText(/Applying…/)).toBeInTheDocument();
+  });
+});
+
+describe("DesignReviewScreen — Storefront Showcase mode (NEXT_PUBLIC_STOREFRONT_SHOWCASE=true)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("renders the vertical full-height showcase instead of cards", () => {
+    vi.stubEnv("NEXT_PUBLIC_STOREFRONT_SHOWCASE", "true");
+    render(<DesignReviewScreen {...props()} />);
+    expect(screen.getByTestId("storefront-showcase")).toBeInTheDocument();
+    expect(screen.getAllByTestId("storefront-section")).toHaveLength(3);
+    // Every option is a REAL preview; recommended is marked once; per-section CTA.
+    expect(screen.getAllByTestId("real-preview")).toHaveLength(3);
+    expect(screen.getAllByText("Recommended")).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Use This Storefront" })).toHaveLength(3);
+    // No "alternatives" framing, no descriptions.
+    expect(screen.queryByText(/Other storefronts we designed for you/i)).not.toBeInTheDocument();
+  });
+
+  it("the recommended (highest-score) storefront's CTA fires onUse with its id", () => {
+    vi.stubEnv("NEXT_PUBLIC_STOREFRONT_SHOWCASE", "true");
+    const onUse = vi.fn();
+    render(<DesignReviewScreen {...props({ onUse })} />);
+    // v-best (92) is recommended → first section's CTA.
+    fireEvent.click(screen.getAllByRole("button", { name: "Use This Storefront" })[0]);
+    expect(onUse).toHaveBeenCalledWith("v-best");
   });
 });

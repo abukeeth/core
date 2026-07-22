@@ -95,6 +95,8 @@ export interface BuilderState {
   actionError: string | null;
   /** Switch to a different generated theme (persists via selectVariation) and re-preview it. */
   selectTheme: (versionId: string) => void;
+  /** Storefront Showcase: select this storefront and run approve → publish in one action. */
+  useStorefront: (versionId: string) => void;
   /** Owner-initiated: approve the previewed design, then publish. */
   approveDesign: () => void;
   /** Stage-scoped retries — each retries ONLY its own failed stage, never regeneration. */
@@ -355,6 +357,34 @@ export function useRestaurantBuilder(): BuilderState {
     [siteId, selectedVersionId, switchingTheme, candidates],
   );
 
+  // Storefront Showcase CTA: one action per storefront. Selects that storefront
+  // as the draft if it isn't already, then runs the exact same approve → publish
+  // path the card flow uses. No new API surface — just composes the existing
+  // select + approve + publish steps behind a single "Use This Storefront".
+  const useStorefront = useCallback(
+    (versionId: string) => {
+      if (!siteId || switchingTheme) return;
+      void (async () => {
+        setActionError(null);
+        if (versionId !== selectedVersionId) {
+          setSwitchingTheme(true);
+          try {
+            await selectVariation(siteId, versionId);
+            setSelectedVersionId(versionId);
+          } catch (err) {
+            setActionError(errorMessage(err, "Couldn't select this storefront"));
+            setPhase("select_failed");
+            setSwitchingTheme(false);
+            return;
+          }
+          setSwitchingTheme(false);
+        }
+        await runApproveThenPublish(siteId);
+      })();
+    },
+    [siteId, selectedVersionId, switchingTheme, runApproveThenPublish],
+  );
+
   const retrySelect = useCallback(() => {
     if (!siteId) return;
     void runSelection(siteId);
@@ -402,6 +432,7 @@ export function useRestaurantBuilder(): BuilderState {
     selectedVersionId,
     switchingTheme,
     selectTheme,
+    useStorefront,
     winningDesign,
     qrToken,
     qrError,

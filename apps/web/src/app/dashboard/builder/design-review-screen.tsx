@@ -3,18 +3,18 @@
 import { DashboardDrawer } from "@/components/dashboard-drawer";
 import { storefrontConcept } from "@/lib/storefront-concepts";
 import { StorefrontConceptCard } from "./storefront-concept-card";
+import { StorefrontShowcase, StorefrontShowcaseSection } from "./storefront-showcase";
 import type { BuilderPhase, DesignCandidate } from "./use-restaurant-builder";
 
 /**
- * The storefront selection + approval gate. The recommended storefront
- * dominates the screen as a complete business site (large real preview, concept
- * name, description, brand identity, primary "Use This Storefront" CTA); the
- * other generated storefronts sit below as alternatives. Everything is a REAL
- * rendered preview — never a schematic or placeholder.
+ * The storefront selection + approval gate. When the Storefront Showcase flag
+ * is on, the owner scrolls vertically through complete, full-height storefront
+ * websites (real previews, hero-first, sticky "Use This Storefront"), with no
+ * cards, descriptions, or design metadata. Otherwise it falls back to the
+ * prior card layout. Everything is a REAL rendered preview — never a schematic.
  *
- * Themes / style families stay internal: each option's identity comes from the
- * presentation-layer naming module and the internal style family is never
- * shown. Mobile-first; the preview auto-selects the iPhone view on a phone.
+ * Themes / style families stay internal: each storefront's name comes from the
+ * presentation-layer naming module; the internal style family is never shown.
  */
 export function DesignReviewScreen({
   restaurantName,
@@ -23,6 +23,7 @@ export function DesignReviewScreen({
   candidates,
   switchingTheme,
   onSelectTheme,
+  onUse,
   phase,
   actionError,
   onApprove,
@@ -35,6 +36,7 @@ export function DesignReviewScreen({
   candidates: DesignCandidate[];
   switchingTheme: boolean;
   onSelectTheme: (versionId: string) => void;
+  onUse: (versionId: string) => void;
   phase: BuilderPhase;
   actionError: string | null;
   onApprove: () => void;
@@ -54,6 +56,71 @@ export function DesignReviewScreen({
     }));
 
   const recommendedId = options[0]?.candidate.id ?? null;
+
+  if (process.env.NEXT_PUBLIC_STOREFRONT_SHOWCASE === "true") {
+    // One sticky CTA per storefront; it selects that storefront and runs the
+    // exact approve → publish path. The active (selected) storefront's CTA
+    // reflects progress/retry; the others stay "Use This Storefront".
+    const showcaseCta = (id: string) => {
+      const active = id === selectedVersionId;
+      const base = "min-h-11 rounded-full px-6 text-sm font-bold transition active:scale-[0.98]";
+      if (busy && active) {
+        return (
+          <button type="button" disabled className={`${base} flex items-center gap-2 bg-[#171512] text-white opacity-80`}>
+            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+            {phase === "approving" ? "Setting up…" : "Publishing…"}
+          </button>
+        );
+      }
+      if (phase === "approve_failed" && active) {
+        return <button type="button" onClick={onRetryApprove} className={`${base} bg-[#171512] text-white`}>Try again</button>;
+      }
+      if (phase === "publish_failed" && active) {
+        return <button type="button" onClick={onRetryPublish} className={`${base} bg-[#171512] text-white`}>Try publishing again</button>;
+      }
+      return (
+        <button
+          type="button"
+          onClick={() => onUse(id)}
+          disabled={busy || switchingTheme}
+          className={`${base} bg-[#171512] text-white shadow-lg shadow-black/10 disabled:opacity-60`}
+        >
+          Use This Storefront
+        </button>
+      );
+    };
+
+    return (
+      <main className="relative bg-[#F7F0E5] text-[#171512]">
+        <DashboardDrawer />
+        {actionError && (phase === "approve_failed" || phase === "publish_failed") && (
+          <div className="fixed inset-x-3 top-3 z-30 mx-auto max-w-md rounded-2xl border border-red-200 bg-red-50 p-3 text-center shadow-lg">
+            <p className="text-sm font-bold text-red-700">{actionError}</p>
+          </div>
+        )}
+        {options.length > 0 ? (
+          <StorefrontShowcase>
+            {options.map(({ candidate, concept }) => (
+              <StorefrontShowcaseSection
+                key={candidate.id}
+                siteId={siteId}
+                variationId={candidate.id}
+                name={concept.name}
+                isRecommended={candidate.id === recommendedId}
+                action={showcaseCta(candidate.id)}
+              />
+            ))}
+          </StorefrontShowcase>
+        ) : (
+          <div className="flex h-[100svh] flex-col items-center justify-center gap-2 px-6 text-center">
+            <p className="text-sm font-semibold text-[#8A7D6C]">Preview unavailable right now.</p>
+            <p className="text-xs text-[#8A7D6C]">Your storefront was created, but we couldn&apos;t open the preview. Try again.</p>
+          </div>
+        )}
+      </main>
+    );
+  }
+
   const dominant = options.find((o) => o.candidate.id === selectedVersionId) ?? null;
   const alternatives = options.filter((o) => o.candidate.id !== dominant?.candidate.id);
 

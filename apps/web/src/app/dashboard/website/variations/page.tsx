@@ -2,12 +2,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui";
 import { StorefrontConceptCard } from "@/app/dashboard/builder/storefront-concept-card";
+import { StorefrontShowcase, StorefrontShowcaseSection } from "@/app/dashboard/builder/storefront-showcase";
 import type { ConceptPalette } from "@/app/dashboard/builder/use-restaurant-builder";
 import type { GenerationJob, SiteVersion, WebsiteSite } from "@/lib/api";
 import { serverFetch } from "@/lib/server-api";
 import { storefrontConcept } from "@/lib/storefront-concepts";
 import { GenerationProgress } from "./generation-progress";
 import { SelectButton } from "./select-button";
+
+const SHOWCASE_ENABLED = process.env.NEXT_PUBLIC_STOREFRONT_SHOWCASE === "true";
 
 function paletteOf(definition: SiteVersion["definition"]): ConceptPalette | null {
   const b = definition.brandSettings;
@@ -34,6 +37,24 @@ export default async function VariationsPage() {
   );
   const recommendedId = ordered[0]?.id ?? null;
   const [dominant, ...alternatives] = ordered;
+
+  // Storefront Showcase: same full-height scroll-through experience as onboarding.
+  if (SHOWCASE_ENABLED && ordered.length > 0) {
+    return (
+      <StorefrontShowcase>
+        {ordered.map((variation, i) => (
+          <StorefrontShowcaseSection
+            key={variation.id}
+            siteId={site.id}
+            variationId={variation.id}
+            name={storefrontConcept(variation.definition.restaurantName, i).name}
+            isRecommended={variation.id === recommendedId}
+            action={<SelectButton siteId={site.id} versionId={variation.id} label="Use This Storefront" />}
+          />
+        ))}
+      </StorefrontShowcase>
+    );
+  }
 
   return (
     <PageShell maxWidth="3xl">
