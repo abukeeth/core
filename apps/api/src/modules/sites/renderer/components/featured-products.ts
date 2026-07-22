@@ -1,5 +1,5 @@
 import { escapeHtml } from "../html-escape";
-import { renderImageOrFallback } from "../image-fallback";
+import { renderImageOrFallback, resolveProductImageUrl } from "../image-fallback";
 import { featurePlaceholder } from "../placeholder-imagery";
 import { formatPrice, type RenderContext } from "../render-context";
 import type { SectionBlock } from "../../types";
@@ -85,7 +85,7 @@ export function renderFeaturedProducts(section: SectionBlock, ctx: RenderContext
       // imported photo when present, else the premium typographic monogram tile
       // (vertical-neutral) — so a vape/retail product is never shown as a dish.
       return `<li class="product-card" style="list-style:none;display:flex;flex-direction:column;background:var(--color-surface-50);border:1px solid var(--color-surface-200);border-radius:2px;overflow:hidden;">
-      ${renderImageOrFallback(item.name, item.imageUrl, "4/3")}
+      ${renderImageOrFallback(item.name, resolveProductImageUrl(ctx, item.name, item.imageUrl), "4/3")}
       <div style="display:flex;flex-direction:column;gap:0.4rem;padding:1.15rem 1.25rem 1.25rem;flex:1;">
         <h3 style="margin:0;font-size:1.25rem;line-height:1.2;">${escapeHtml(item.name)}</h3>
         ${showDescriptions && item.description ? `<p style="margin:0;color:var(--color-text-600);font-size:var(--step--1);line-height:1.6;flex:1;">${escapeHtml(item.description)}</p>` : "<span style=\"flex:1;\"></span>"}

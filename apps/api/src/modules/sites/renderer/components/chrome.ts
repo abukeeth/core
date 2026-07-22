@@ -1,5 +1,15 @@
 import { escapeHtml } from "../html-escape";
 import { computeCtaLabel } from "../../cta";
+
+/**
+ * The storefront's primary CTA label. The Brand Kit / V2 vocabulary
+ * (vertical- and strategy-aware: "Shop Now" for a vape shop, the brief's own
+ * CTA for a V2 storefront) wins; the legacy style-family copy is the fallback
+ * for pre-vocabulary definitions.
+ */
+function resolveCtaLabel(ctx: RenderContext): string {
+  return ctx.definition.vocabulary?.primaryCta ?? computeCtaLabel(ctx.definition.facts, ctx.definition.styleFamily ?? "MODERN");
+}
 import type { HeaderSettings, ThemeCatalogEntry } from "../../types";
 import type { RenderContext } from "../render-context";
 
@@ -124,7 +134,7 @@ function buildHeaderParts(ctx: RenderContext, header: HeaderSettings | undefined
     : "";
   const accountHtml = showAccount ? `<a href="${escapeHtml(ctx.orderingBaseUrl)}/account" style="text-decoration:none;color:inherit;">Account</a>` : "";
   const orderHtml = showOrderButton
-    ? `<a class="cta" href="${escapeHtml(orderingUrl(ctx))}">${escapeHtml(computeCtaLabel(ctx.definition.facts, ctx.definition.styleFamily))}</a>`
+    ? `<a class="cta" href="${escapeHtml(orderingUrl(ctx))}">${escapeHtml(resolveCtaLabel(ctx))}</a>`
     : "";
 
   return { brandHtml, navLinks, searchHtml, cartHtml, accountHtml, orderHtml, showSearch };
@@ -256,7 +266,7 @@ export function renderMobileActionBar(ctx: RenderContext): string {
       `<a href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(facts.address)}" class="cta" target="_blank" rel="noopener noreferrer">Directions</a>`,
     );
   }
-  items.push(`<a href="#primary-action" class="cta">${escapeHtml(computeCtaLabel(facts, ctx.definition.styleFamily))}</a>`);
+  items.push(`<a href="#primary-action" class="cta">${escapeHtml(resolveCtaLabel(ctx))}</a>`);
 
   return `<div class="mobile-action-bar">${items.join("\n")}</div>`;
 }

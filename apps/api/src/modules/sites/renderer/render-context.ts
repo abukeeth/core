@@ -20,6 +20,8 @@ export interface RenderAssets {
   // zero-rework: the 5.5 stage only needs to fill these fields.
   aiHeroUrl?: string;
   aiCategoryImages?: Record<string, string>;
+  /** Generated product photos keyed by item name — used when an item has no real uploaded photo. */
+  aiProductImages?: Record<string, string>;
   /** Sprint 5.5 — AI marketing/gallery banner (populates the gallery when the owner has no photos). */
   aiMarketingUrl?: string;
 }

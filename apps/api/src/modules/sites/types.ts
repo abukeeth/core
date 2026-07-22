@@ -194,15 +194,22 @@ export const productPresentationSchema = z.object({
 });
 export type ProductPresentation = z.infer<typeof productPresentationSchema>;
 
-export const siteDefinitionSchema = z.object({
-  schemaVersion: z.literal(1),
+// The bare object shape (no refinement) — kept separate so `.partial()`
+// consumers (the draft PATCH editor) can still derive from it; zod refuses
+// `.partial()` on refined schemas.
+export const siteDefinitionObjectSchema = z.object({
+  // schemaVersion 2 = Generation V2: the definition is theme-free — no
+  // themeKey/styleFamily; the renderer synthesizes its carrier from the
+  // definition's own tokens (renderer/theme-carrier.ts). Version 1 keeps
+  // its original strictness via the superRefine below.
+  schemaVersion: z.union([z.literal(1), z.literal(2)]),
   restaurantName: z.string().min(1),
   tagline: z.string().min(1),
   cuisine: z.string().min(1),
   businessType: z.string().min(1),
-  styleFamily: styleFamilySchema,
-  themeKey: z.string().min(1),
-  themeVersion: z.number().int().positive(),
+  styleFamily: styleFamilySchema.optional(),
+  themeKey: z.string().min(1).optional(),
+  themeVersion: z.number().int().positive().optional(),
   colorSeed: z
     .string()
     .regex(/^#[0-9a-fA-F]{6}$/, "colorSeed must be a 6-digit hex color"),
@@ -239,9 +246,26 @@ export const siteDefinitionSchema = z.object({
       heroUrl: z.string().optional(),
       categoryImages: z.record(z.string(), z.string()).optional(),
       marketingUrl: z.string().optional(),
+      /** Business-truth product photos, keyed by menu item name. */
+      productImages: z.record(z.string(), z.string()).optional(),
     })
     .optional(),
+  // Generation V2 provenance — INTERNAL ONLY (never rendered, never shown to
+  // the customer; see v2/contracts.ts INTERNAL_ONLY_TERMS).
+  generation: z.object({ engine: z.literal("v2"), briefId: z.string().min(1) }).optional(),
   pages: z.array(sitePageSchema).min(1),
+});
+
+export const siteDefinitionSchema = siteDefinitionObjectSchema.superRefine((definition, ctx) => {
+  // Version 1 keeps its historical strictness: a legacy definition without a
+  // theme was always invalid and stays invalid.
+  if (definition.schemaVersion === 1) {
+    for (const field of ["styleFamily", "themeKey", "themeVersion"] as const) {
+      if (definition[field] === undefined) {
+        ctx.addIssue({ code: "custom", path: [field], message: `${field} is required for schemaVersion 1` });
+      }
+    }
+  }
 });
 export type SiteDefinition = z.infer<typeof siteDefinitionSchema>;
 

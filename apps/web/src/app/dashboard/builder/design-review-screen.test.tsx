@@ -1,27 +1,21 @@
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard/builder" }));
+import { describe, expect, it, vi } from "vitest";
 
 // The real DevicePreview needs a live /preview iframe + token endpoint;
-// stub it to a marker so we can assert which real preview each card wires up.
+// stub it to a marker so we can assert which real storefront each section wires up.
 vi.mock("../website/variations/[id]/device-preview", () => ({
-  DevicePreview: ({ siteId, variationId }: { siteId: string; variationId: string }) => (
-    <div data-testid="real-preview">
+  DevicePreview: ({ siteId, variationId, chromeless }: { siteId: string; variationId: string; chromeless?: boolean }) => (
+    <div data-testid="real-preview" data-chromeless={String(!!chromeless)}>
       {siteId}:{variationId}
     </div>
   ),
 }));
 
 import { DesignReviewScreen } from "./design-review-screen";
-import { storefrontConcept } from "@/lib/storefront-concepts";
 import type { DesignCandidate } from "./use-restaurant-builder";
 
 const NAME = "Easy Tobacco Shop";
-const REC_NAME = storefrontConcept(NAME, 0).name; // "Easy Tobacco Prestige"
-const MID_NAME = storefrontConcept(NAME, 1).name; // "Easy Tobacco <middle tier>"
-const LAST_NAME = storefrontConcept(NAME, 2).name; // "Easy Tobacco Signature"
 
 const CANDIDATES: DesignCandidate[] = [
   { id: "v-mod", styleFamily: "MODERN", businessType: "VAPE_SHOP", restaurantName: NAME, colorSeed: "#111", palette: null, tagline: "M", cuisine: "n/a", overall: 80 },
@@ -31,146 +25,82 @@ const CANDIDATES: DesignCandidate[] = [
 
 function props(overrides: Record<string, unknown> = {}) {
   return {
-    restaurantName: "Easy Tobacco Shop",
+    restaurantName: NAME,
     siteId: "site-1",
     selectedVersionId: "v-best",
     candidates: CANDIDATES,
     switchingTheme: false,
-    onSelectTheme: vi.fn(),
     onUse: vi.fn(),
     phase: "review" as const,
     actionError: null as string | null,
-    onApprove: vi.fn(),
     onRetryApprove: vi.fn(),
     onRetryPublish: vi.fn(),
     ...overrides,
   };
 }
 
-// Principle 2 (locked): these words must NEVER reach customer-facing UI (theme vocabulary + "AI").
-const BANNED = /\b(ai|theme|themes|template|templates|variation|variations|modern|luxury|local|style\s*family)\b/i;
+// Locked: these words must NEVER reach customer-facing UI — theme vocabulary,
+// "AI", and the retired concept-tier naming system.
+const BANNED = /\b(ai|theme|themes|template|templates|variation|variations|modern|luxury|local|style\s*family|prestige|reserve|signature|prime|elite|select|briefs?|archetypes?|identity|identities)\b/i;
 
-describe("DesignReviewScreen (storefront concept experience)", () => {
-  it("renders no banned theme/template vocabulary anywhere in the DOM", () => {
-    const { container } = render(<DesignReviewScreen {...props()} />);
-    expect(container.textContent ?? "").not.toMatch(BANNED);
-  });
-
-  it("makes the recommended storefront dominate: name, description, recommended marker, primary CTA", () => {
-    render(<DesignReviewScreen {...props()} />);
-    expect(screen.getByRole("heading", { name: REC_NAME })).toBeInTheDocument();
-    expect(screen.getByText(/puts your best offerings front and center/i)).toBeInTheDocument();
-    expect(screen.getByText(/Recommended for you/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Use This Storefront" })).toBeInTheDocument();
-  });
-
-  it("shows the REAL preview of the recommended storefront (not a mockup)", () => {
-    render(<DesignReviewScreen {...props()} />);
-    expect(screen.getByText("site-1:v-best")).toBeInTheDocument();
-  });
-
-  it("uses ONLY real previews for every option (no schematic/placeholder)", () => {
-    render(<DesignReviewScreen {...props()} />);
-    const previews = screen.getAllByTestId("real-preview").map((p) => p.textContent);
-    expect(previews).toEqual(expect.arrayContaining(["site-1:v-best", "site-1:v-mod", "site-1:v-min"]));
-  });
-
-  it("fires onApprove from the primary CTA", () => {
-    const onApprove = vi.fn();
-    render(<DesignReviewScreen {...props({ onApprove })} />);
-    fireEvent.click(screen.getByRole("button", { name: "Use This Storefront" }));
-    expect(onApprove).toHaveBeenCalledTimes(1);
-  });
-
-  it("lists the other storefronts below as alternatives with their own names", () => {
-    render(<DesignReviewScreen {...props()} />);
-    expect(screen.getByText(/Other storefronts we designed for you/i)).toBeInTheDocument();
-    // v-min (lowest score) is the last-ranked storefront → "… Signature".
-    expect(screen.getByRole("heading", { name: LAST_NAME })).toBeInTheDocument();
-  });
-
-  it("selecting an alternative fires onSelectTheme with that storefront's id", () => {
-    const onSelectTheme = vi.fn();
-    render(<DesignReviewScreen {...props({ onSelectTheme })} />);
-    fireEvent.click(screen.getByRole("button", { name: `See ${LAST_NAME}` }));
-    expect(onSelectTheme).toHaveBeenCalledWith("v-min");
-  });
-
-  it("shows NO premature success claim at the review gate (nothing is public yet)", () => {
-    render(<DesignReviewScreen {...props()} />);
-    expect(screen.queryByText(/open for business/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/you're live/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/nothing is public yet/i)).toBeInTheDocument();
-  });
-
-  it("approving: shows in-progress state and hides the primary CTA", () => {
-    render(<DesignReviewScreen {...props({ phase: "approving" })} />);
-    expect(screen.getByText(/Setting up your storefront/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Use This Storefront" })).not.toBeInTheDocument();
-  });
-
-  it("publishing: shows publishing-in-progress (no 'live' claim yet)", () => {
-    render(<DesignReviewScreen {...props({ phase: "publishing" })} />);
-    expect(screen.getByText(/Publishing your storefront/)).toBeInTheDocument();
-    expect(screen.queryByText(/open for business/i)).not.toBeInTheDocument();
-  });
-
-  it("approve_failed: surfaces the error and a retry", () => {
-    const onRetryApprove = vi.fn();
-    render(<DesignReviewScreen {...props({ phase: "approve_failed", actionError: "approval service down", onRetryApprove })} />);
-    expect(screen.getByText("approval service down")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-    expect(onRetryApprove).toHaveBeenCalledTimes(1);
-  });
-
-  it("publish_failed: surfaces the readiness error and a publish-only retry", () => {
-    const onRetryPublish = vi.fn();
-    render(
-      <DesignReviewScreen
-        {...props({ phase: "publish_failed", actionError: "Open the full preview and approve it before publishing.", onRetryPublish })}
-      />,
-    );
-    expect(screen.getByText("Open the full preview and approve it before publishing.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Try publishing again" }));
-    expect(onRetryPublish).toHaveBeenCalledTimes(1);
-  });
-
-  it("preview unavailable: shows a clear message and no primary CTA when nothing is selected", () => {
-    render(<DesignReviewScreen {...props({ selectedVersionId: null })} />);
-    expect(screen.getByText(/Preview unavailable right now/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Use This Storefront" })).not.toBeInTheDocument();
-  });
-
-  it("disables alternative selection while a switch is applying", () => {
-    render(<DesignReviewScreen {...props({ switchingTheme: true })} />);
-    expect(screen.getByRole("button", { name: `See ${MID_NAME}` })).toBeDisabled();
-    expect(screen.getByText(/Applying…/)).toBeInTheDocument();
-  });
-});
-
-describe("DesignReviewScreen — Storefront Showcase mode (NEXT_PUBLIC_STOREFRONT_SHOWCASE=true)", () => {
-  afterEach(() => vi.unstubAllEnvs());
-
-  it("renders the vertical full-height showcase instead of cards", async () => {
-    vi.stubEnv("NEXT_PUBLIC_STOREFRONT_SHOWCASE", "true");
+describe("DesignReviewScreen — the Storefront Showcase is the ONLY selection experience", () => {
+  it("renders the full-height showcase: one complete storefront section per candidate", async () => {
     render(<DesignReviewScreen {...props()} />);
     expect(screen.getByTestId("storefront-showcase")).toBeInTheDocument();
     expect(screen.getAllByTestId("storefront-section")).toHaveLength(3);
-    // Every option is a REAL preview (LazyMount's jsdom fallback mounts on the
-    // next tick, hence async); recommended is marked once; per-section CTA.
-    expect(await screen.findAllByTestId("real-preview")).toHaveLength(3);
-    expect(screen.getAllByText("Recommended")).toHaveLength(1);
-    expect(screen.getAllByRole("button", { name: "Use This Storefront" })).toHaveLength(3);
-    // No "alternatives" framing, no descriptions.
-    expect(screen.queryByText(/Other storefronts we designed for you/i)).not.toBeInTheDocument();
+    // LazyMount's jsdom fallback mounts on the next tick, hence async.
+    const previews = await screen.findAllByTestId("real-preview");
+    expect(previews).toHaveLength(3);
+    previews.forEach((p) => expect(p).toHaveAttribute("data-chromeless", "true"));
   });
 
-  it("the recommended (highest-score) storefront's CTA fires onUse with its id", () => {
-    vi.stubEnv("NEXT_PUBLIC_STOREFRONT_SHOWCASE", "true");
+  it("renders no banned vocabulary and no concept-card metadata anywhere", () => {
+    const { container } = render(<DesignReviewScreen {...props()} />);
+    expect(container.textContent ?? "").not.toMatch(BANNED);
+    expect(screen.queryByText(/Other storefronts we designed for you/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Recommended/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/See this storefront/i)).not.toBeInTheDocument();
+  });
+
+  it("orders the best-scoring storefront first — the storefront itself is the pitch", async () => {
+    render(<DesignReviewScreen {...props()} />);
+    const previews = (await screen.findAllByTestId("real-preview")).map((p) => p.textContent);
+    expect(previews[0]).toBe("site-1:v-best");
+  });
+
+  it("every storefront carries exactly one Use This Storefront action, wired to that storefront", () => {
     const onUse = vi.fn();
     render(<DesignReviewScreen {...props({ onUse })} />);
-    // v-best (92) is recommended → first section's CTA.
-    fireEvent.click(screen.getAllByRole("button", { name: "Use This Storefront" })[0]);
+    const buttons = screen.getAllByRole("button", { name: "Use This Storefront" });
+    expect(buttons).toHaveLength(3);
+    fireEvent.click(buttons[0]);
     expect(onUse).toHaveBeenCalledWith("v-best");
+  });
+
+  it("the active storefront's CTA reflects progress while approving", () => {
+    render(<DesignReviewScreen {...props({ phase: "approving" })} />);
+    expect(screen.getByText("Setting up…")).toBeInTheDocument();
+    // The other two storefronts keep their normal CTA.
+    expect(screen.getAllByRole("button", { name: "Use This Storefront" })).toHaveLength(2);
+  });
+
+  it("a failed approve surfaces the error and a retry on the active storefront", () => {
+    const onRetryApprove = vi.fn();
+    render(<DesignReviewScreen {...props({ phase: "approve_failed", actionError: "Boom", onRetryApprove })} />);
+    expect(screen.getByText("Boom")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(onRetryApprove).toHaveBeenCalled();
+  });
+
+  it("a failed publish offers Try publishing again", () => {
+    const onRetryPublish = vi.fn();
+    render(<DesignReviewScreen {...props({ phase: "publish_failed", actionError: "Nope", onRetryPublish })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Try publishing again" }));
+    expect(onRetryPublish).toHaveBeenCalled();
+  });
+
+  it("shows a graceful message when no storefronts are available", () => {
+    render(<DesignReviewScreen {...props({ candidates: [] })} />);
+    expect(screen.getByText(/Preview unavailable right now/i)).toBeInTheDocument();
   });
 });

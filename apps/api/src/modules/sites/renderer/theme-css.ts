@@ -1,5 +1,19 @@
-import { deriveColorScale, derivePaletteFromSeed, SCALE_STEPS } from "../../../lib/color";
+import { deriveColorScale, derivePaletteFromSeed, relativeLuminance, SCALE_STEPS } from "../../../lib/color";
 import type { BrandSettings, StyleFamilyValue, ThemeCatalogEntry } from "../types";
+
+/** t=0 → a, t=1 → b. Local hex mix for dark-ground surface derivation. */
+function mixHex(a: string, b: string, t: number): string {
+  const pa = a.replace("#", "");
+  const pb = b.replace("#", "");
+  const channel = (i: number) => {
+    const va = parseInt(pa.slice(i, i + 2), 16);
+    const vb = parseInt(pb.slice(i, i + 2), 16);
+    return Math.round(va + (vb - va) * t)
+      .toString(16)
+      .padStart(2, "0");
+  };
+  return `#${channel(0)}${channel(2)}${channel(4)}`;
+}
 
 /**
  * Storefront quality — Phase 1: distinct brand personalities from the SAME
@@ -67,8 +81,33 @@ export function renderThemeCss(theme: ThemeCatalogEntry, colorSeed: string, bran
     .flatMap((token) => SCALE_STEPS.map((step) => `--color-${token}-${step}: ${palette[token][step]};`))
     .join("\n  ");
 
-  const backgroundOverride = brandSettings?.backgroundColor ? `--color-surface-50: ${brandSettings.backgroundColor};` : "";
-  const textOverride = brandSettings?.textColor ? `--color-text-900: ${brandSettings.textColor};` : "";
+  // A dark identity ground (e.g. the Artisan Craft pack) must carry the WHOLE
+  // neutral system with it: card surfaces lift slightly off the ground and the
+  // text scale re-anchors on the light foreground — otherwise components built
+  // on --color-surface-100/--color-text-600 (cards, captions) would mix a
+  // light-derived surface with light text and become unreadable.
+  const bg = brandSettings?.backgroundColor;
+  const isDarkGround = Boolean(bg && relativeLuminance(bg) < 0.35);
+  const fg = brandSettings?.textColor ?? (isDarkGround ? "#F4EDE0" : undefined);
+  const backgroundOverride = bg
+    ? isDarkGround
+      ? [
+          `--color-surface-50: ${bg};`,
+          `--color-surface-100: ${mixHex(bg, "#FFFFFF", 0.05)};`,
+          `--color-surface-200: ${mixHex(bg, "#FFFFFF", 0.11)};`,
+          `--color-surface-300: ${mixHex(bg, "#FFFFFF", 0.18)};`,
+        ].join("\n  ")
+      : `--color-surface-50: ${bg};`
+    : "";
+  const textOverride = fg
+    ? isDarkGround && bg
+      ? [
+          `--color-text-900: ${fg};`,
+          `--color-text-700: ${mixHex(fg, bg, 0.22)};`,
+          `--color-text-600: ${mixHex(fg, bg, 0.34)};`,
+        ].join("\n  ")
+      : `--color-text-900: ${fg};`
+    : "";
 
   const radius = brandSettings?.borderRadius !== undefined ? `${brandSettings.borderRadius}px` : RADIUS_PX[theme.tokens.radius];
   const buttonRadius = brandSettings?.buttonStyle === "pill" ? "999px" : brandSettings?.buttonStyle === "square" ? "0px" : radius;

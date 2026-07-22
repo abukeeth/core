@@ -1,4 +1,5 @@
 import { escapeHtml } from "./html-escape";
+import type { RenderContext } from "./render-context";
 
 /**
  * §Website Builder — a real uploaded photo is used whenever one exists; when it
@@ -47,4 +48,13 @@ export function renderImageOrFallback(name: string, imageUrl: string | undefined
   <text x="200" y="188" text-anchor="middle" dominant-baseline="middle" font-family="var(--font-display), Georgia, 'Times New Roman', serif" font-size="170" font-weight="500" letter-spacing="4" fill="hsl(${hue} 32% 32%)">${initial}</text>
   <line x1="150" y1="256" x2="250" y2="256" stroke="hsl(${hue} 30% 40%)" stroke-width="2" opacity="0.3" />
 </svg>`;
+}
+
+/**
+ * Product image resolution: the item's REAL uploaded photo always wins; the
+ * generated business-truth product photo (aiAssets.productImages) fills in
+ * when there is none; the typographic tile stays as the final floor.
+ */
+export function resolveProductImageUrl(ctx: RenderContext, itemName: string, realUrl: string | undefined): string | undefined {
+  return realUrl ?? ctx.assets.aiProductImages?.[itemName];
 }

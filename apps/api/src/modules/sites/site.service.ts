@@ -18,6 +18,7 @@ import {
   SlugNotEditableError,
 } from "./site.errors";
 import { THEME_CATALOG } from "./theme-catalog";
+import { buildCarrierTheme, isThemeFreeDefinition } from "./renderer/theme-carrier";
 import { brandProfileSchema, siteDefinitionSchema, type AssetSummary, type SiteDefinition } from "./types";
 
 const PLATFORM_DOMAIN = getStringEnv("SITE_PLATFORM_DOMAIN", "sites.ordervora.example");
@@ -390,7 +391,9 @@ export async function publishSite(restaurantId: string, siteId: string, publishe
     const definition = siteDefinitionSchema.parse(draft.definition);
     const assets = await getAssetSummary(site.id);
 
-    const theme = THEME_CATALOG.find((t) => t.key === definition.themeKey && t.version === definition.themeVersion);
+    const theme = isThemeFreeDefinition(definition)
+      ? buildCarrierTheme(definition)
+      : THEME_CATALOG.find((t) => t.key === definition.themeKey && t.version === definition.themeVersion);
     let scoreDelta: number | undefined;
     let warning: string | undefined;
 

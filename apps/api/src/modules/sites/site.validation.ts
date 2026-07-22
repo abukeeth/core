@@ -1,6 +1,6 @@
 import { AssetKind } from "@prisma/client";
 import { z } from "zod";
-import { siteDefinitionSchema, suggestionSchema } from "./types";
+import { siteDefinitionObjectSchema, siteDefinitionSchema, suggestionSchema } from "./types";
 
 export const updateSiteSchema = z.object({
   slug: z
@@ -14,7 +14,7 @@ export const updateSiteSchema = z.object({
 export type UpdateSiteBody = z.infer<typeof updateSiteSchema>;
 
 /** Constrained editor (§12): partial updates to the draft's own SiteDefinition shape. */
-export const patchDraftSchema = siteDefinitionSchema.partial();
+export const patchDraftSchema = siteDefinitionObjectSchema.partial();
 export type PatchDraftBody = z.infer<typeof patchDraftSchema>;
 
 /** Customization Studio (Sprint 20A Task 5) — a full, unsaved candidate definition to render for live preview, never persisted by this request. */

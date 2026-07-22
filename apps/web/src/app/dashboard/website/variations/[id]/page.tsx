@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/ui";
 import type { SiteVersion, WebsiteSite } from "@/lib/api";
 import { serverFetch } from "@/lib/server-api";
-import { storefrontConcept } from "@/lib/storefront-concepts";
 import { DevicePreview } from "./device-preview";
 
 function formatPrice(cents: number): string {
@@ -34,24 +33,10 @@ export default async function VariationPreviewPage({ params }: { params: Promise
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">FULL PREVIEW</p>
             <h1 className="mt-1 text-2xl font-bold">{definition.restaurantName}</h1>
-            <p className="mt-1 text-sm text-[#756B5D]">
-              {storefrontConcept(definition.restaurantName, 0).name} —{" "}
-              {storefrontConcept(definition.restaurantName, 0).description}
-            </p>
             <p className="mt-2 text-sm italic text-[#756B5D]">&ldquo;{definition.tagline}&rdquo;</p>
           </div>
 
           <DevicePreview siteId={site.id} variationId={version.id} />
-
-          <div className="flex items-center gap-2 text-xs text-[#8A7D6C]">
-            <span
-              className="h-5 w-5 shrink-0 rounded-full border border-[#E7DDCF]"
-              style={{ backgroundColor: definition.colorSeed }}
-            />
-            <span>
-              {definition.typography.display} / {definition.typography.body}
-            </span>
-          </div>
 
           {definition.pages.map((page) => (
             <div key={page.slug} className="flex flex-col gap-2 border-t border-[#EEE5D9] pt-4">

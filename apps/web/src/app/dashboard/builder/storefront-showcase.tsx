@@ -7,11 +7,9 @@ import { LazyMount } from "./lazy-mount";
  * full-height storefront websites — not cards. Each storefront occupies nearly
  * the whole viewport and is the real DevicePreview render, scrollable inside
  * like a live site. Nothing sells the design except the storefront itself:
- * no descriptions, palette chips, or design commentary. The only chrome is a
- * sticky action bar carrying a quiet name and the "Use This Storefront" CTA.
- *
- * All three storefronts get identical treatment; the recommended one is simply
- * first, with a subtle "Recommended" marker in its action bar.
+ * no names, descriptions, badges, palette chips, or design commentary. The only
+ * chrome is a sticky "Use This Storefront" CTA. All three storefronts get
+ * identical treatment; the best-scoring one is simply first.
  */
 export function StorefrontShowcase({ children }: { children: ReactNode }) {
   return (
@@ -28,14 +26,12 @@ export function StorefrontShowcaseSection({
   siteId,
   variationId,
   name,
-  isRecommended,
   action,
 }: {
   siteId: string;
   variationId: string;
   /** Only used to label the section for assistive tech — never shown as chrome. */
   name: string;
-  isRecommended: boolean;
   /** The single "Use This Storefront" control, supplied by the caller. */
   action: ReactNode;
 }) {
@@ -60,11 +56,6 @@ export function StorefrontShowcaseSection({
 
       {/* One action, at the bottom of the storefront. Nothing else. */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-2 bg-gradient-to-t from-black/30 via-black/10 to-transparent px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-12">
-        {isRecommended && (
-          <span className="pointer-events-auto rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#9A6A2F] shadow">
-            Recommended
-          </span>
-        )}
         <div className="pointer-events-auto w-full max-w-md">{action}</div>
       </div>
     </section>

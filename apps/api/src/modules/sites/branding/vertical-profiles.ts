@@ -75,6 +75,45 @@ export const VERTICAL_PROFILES: Record<string, VerticalProfile> = {
     brandStoryDefault: "{name} offers a curated selection of quality products with fast, friendly service.",
     artDirection: artDirection("a clean product arrangement on a neutral surface", "a curated product category", "a modern retail lifestyle banner"),
   },
+  BAKERY: {
+    vertical: "BAKERY",
+    vocabulary: { catalogNoun: "Menu", itemNoun: "Bake", itemPlural: "Bakes", categoryUnitSingular: "item", categoryUnitPlural: "items", primaryCta: "Order Now", exploreLabel: "See today's bakes" },
+    tone: { voice: "warm and process-proud", adjectives: ["fresh-baked", "handmade", "golden", "honest"] },
+    palette: { primary: "#8A4B24", accent: "#B07B1E", background: "#FDF8EF", text: "#2E241B" },
+    taglineSuffix: "baked fresh every morning",
+    brandStoryDefault: "{name} bakes breads, pastries, and cakes from scratch every morning.",
+    artDirection: artDirection(
+      "golden loaves and laminated pastries fresh from a stone oven",
+      "a category of fresh-baked goods",
+      "a warm bakery-counter morning scene",
+    ),
+  },
+  PIZZA: {
+    vertical: "PIZZA",
+    vocabulary: { catalogNoun: "Menu", itemNoun: "Pizza", itemPlural: "Pizzas", categoryUnitSingular: "item", categoryUnitPlural: "items", primaryCta: "Order Now", exploreLabel: "Explore the menu" },
+    tone: { voice: "lively and generous", adjectives: ["wood-fired", "bubbling", "fresh", "shareable"] },
+    palette: { primary: "#A93226", accent: "#B07B1E", background: "#FCF7EF", text: "#2B211C" },
+    taglineSuffix: "hot from the oven",
+    brandStoryDefault: "{name} makes fresh-stretched pizza with quality toppings, hot from the oven.",
+    artDirection: artDirection(
+      "a bubbling wood-fired pizza with fresh basil, pulled from the oven",
+      "a category of pizzas and sides",
+      "a lively pizzeria counter scene",
+    ),
+  },
+  CONVENIENCE_STORE: {
+    vertical: "CONVENIENCE_STORE",
+    vocabulary: { catalogNoun: "Shop", itemNoun: "Item", itemPlural: "Items", categoryUnitSingular: "item", categoryUnitPlural: "items", primaryCta: "Shop Now", exploreLabel: "Shop the aisles" },
+    tone: { voice: "quick and dependable", adjectives: ["open-late", "stocked", "handy", "local"] },
+    palette: { primary: "#1F6E8C", accent: "#C97A1A", background: "#FBFBF7", text: "#1E2226" },
+    taglineSuffix: "everything you need, right now",
+    brandStoryDefault: "{name} keeps the essentials stocked — snacks, drinks, and everyday items, always close by.",
+    artDirection: artDirection(
+      "tidy convenience-store shelves and a bright grab-and-go counter",
+      "a category of everyday essentials",
+      "a bright corner-store storefront scene",
+    ),
+  },
   OTHER: {
     vertical: "OTHER",
     vocabulary: { catalogNoun: "Menu", itemNoun: "Item", itemPlural: "Items", categoryUnitSingular: "item", categoryUnitPlural: "items", primaryCta: "Order Now", exploreLabel: "Explore" },
@@ -90,22 +129,72 @@ export const VERTICAL_PROFILES: Record<string, VerticalProfile> = {
 const KEYWORD_TO_VERTICAL: [RegExp, string][] = [
   [/vape|smoke|tobacco|hookah|nicotine/i, "VAPE_SHOP"],
   [/coffee|cafe|café|espresso|roaster/i, "COFFEE_SHOP"],
-  [/deli|sandwich|bodega/i, "DELI"],
+  [/deli\b|delicatessen|sandwich|sub\b|hoagie|pastrami|bodega/i, "DELI"],
+  [/bakery|bakehouse|patisserie|boulangerie|pastr(y|ies)|breads?\b|croissant/i, "BAKERY"],
+  [/pizz(a|eria)|calzone|slice shop/i, "PIZZA"],
+  [/convenience|corner (market|store|shop)|mini[- ]?mart|quick[- ]?stop|kiosk/i, "CONVENIENCE_STORE"],
   [/retail|store|shop|boutique/i, "RETAIL"],
-  [/restaurant|bistro|grill|kitchen|eatery|diner|taqueria|pizzeria/i, "RESTAURANT"],
+  [/restaurant|bistro|grill|kitchen|eatery|diner|taqueria/i, "RESTAURANT"],
 ];
 
 /**
- * Resolve the vertical key: an explicit enum vertical wins; otherwise infer from
- * the brand profile's free-text business type; otherwise DEFAULT.
+ * The two "default-ish" enum values. RESTAURANT is the wizard's first tile and
+ * the historical default; OTHER is the schema default. Either can be overridden
+ * by strong contrary evidence. A SPECIFIC choice (DELI, VAPE_SHOP, …) never is.
  */
-export function resolveVertical(vertical: string | undefined, brandProfile: BrandProfile): string {
-  if (vertical && VERTICAL_PROFILES[vertical.toUpperCase()]) return vertical.toUpperCase();
-  const hint = `${brandProfile.businessType ?? ""}`;
+const OVERRIDABLE_VERTICALS = new Set(["RESTAURANT", "OTHER"]);
+
+export interface VerticalEvidence {
+  /** The business's display name — a "Deli" in the name beats a default enum. */
+  businessName?: string;
+  /** Imported menu category names — e.g. "Signature Sandwiches", "Deli Classics". */
+  menuCategories?: string[];
+}
+
+function inferFromText(text: string): string | undefined {
   for (const [pattern, key] of KEYWORD_TO_VERTICAL) {
-    if (pattern.test(hint)) return key;
+    if (pattern.test(text)) return key;
   }
-  return DEFAULT_VERTICAL;
+  return undefined;
+}
+
+/**
+ * Evidence-based override for a default-ish vertical: the business NAME naming
+ * a vertical wins outright; otherwise two or more distinct menu categories
+ * pointing at the same non-restaurant vertical win. One stray "Sandwiches"
+ * category on a real restaurant menu is NOT enough to reclassify it.
+ */
+function inferFromEvidence(evidence: VerticalEvidence): string | undefined {
+  const fromName = evidence.businessName ? inferFromText(evidence.businessName) : undefined;
+  if (fromName && fromName !== "RESTAURANT") return fromName;
+
+  const hits = new Map<string, number>();
+  for (const category of evidence.menuCategories ?? []) {
+    const hit = inferFromText(category);
+    if (hit && hit !== "RESTAURANT") hits.set(hit, (hits.get(hit) ?? 0) + 1);
+  }
+  const strongest = [...hits.entries()].sort((a, b) => b[1] - a[1])[0];
+  return strongest && strongest[1] >= 2 ? strongest[0] : undefined;
+}
+
+/**
+ * Resolve the vertical key. A SPECIFIC explicit enum vertical always wins; a
+ * default-ish one (RESTAURANT/OTHER — the tap-the-first-tile / schema-default
+ * values) is overridden when the business name or the imported menu carries
+ * strong evidence of the real vertical (e.g. "DELI Fresh & Local" with
+ * "Signature Sandwiches" + "Deli Classics" is a DELI even if the wizard stored
+ * RESTAURANT). Falls back to free-text inference, then the DEFAULT profile.
+ */
+export function resolveVertical(vertical: string | undefined, brandProfile: BrandProfile, evidence: VerticalEvidence = {}): string {
+  const explicit = vertical && VERTICAL_PROFILES[vertical.toUpperCase()] ? vertical.toUpperCase() : undefined;
+  if (explicit && !OVERRIDABLE_VERTICALS.has(explicit)) return explicit;
+
+  const evidenced = inferFromEvidence(evidence);
+  if (evidenced) return evidenced;
+  if (explicit) return explicit;
+
+  const hint = `${brandProfile.businessType ?? ""}`;
+  return inferFromText(hint) ?? DEFAULT_VERTICAL;
 }
 
 /** The deterministic profile for a vertical (falls back to the DEFAULT/OTHER profile). */
