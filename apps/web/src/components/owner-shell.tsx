@@ -30,6 +30,47 @@ const MORE_ITEMS: Array<[string, string, IconName]> = [
   ["Settings", "/dashboard/restaurant", "settings"], ["Profile", "/dashboard/profile", "customers"],
 ];
 
+/* ---------------------------------------------------------------------------
+ * Detail-screen shell — a drill-down layout (back header + optional sticky
+ * action footer) used by order/product/customer detail & editor screens.
+ * ------------------------------------------------------------------------- */
+export function DetailShell({
+  title,
+  subtitle,
+  backHref,
+  footer,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  backHref: string;
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="min-h-screen bg-canvas text-ink">
+      <header className="sticky top-0 z-20 border-b border-line bg-surface/90 backdrop-blur">
+        <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
+          <Link href={backHref} aria-label="Back" className="flex size-10 shrink-0 items-center justify-center rounded-[12px] border border-line bg-surface text-ink">
+            <Icon name="back" className="h-5 w-5" />
+          </Link>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="truncate font-display text-[19px] font-semibold leading-[25px] text-ink">{title}</p>
+            {subtitle && <p className="truncate text-xs text-ink-muted">{subtitle}</p>}
+          </div>
+          <div className="size-10 shrink-0" aria-hidden="true" />
+        </div>
+      </header>
+      <main className="mx-auto w-full max-w-2xl px-4 pb-32 pt-4">{children}</main>
+      {footer && (
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 px-4 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 backdrop-blur">
+          <div className="mx-auto flex max-w-2xl items-center gap-3">{footer}</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** `active` should be the base route of the current tab, e.g. "/dashboard/orders". */
 export function DashboardShell({
   active,

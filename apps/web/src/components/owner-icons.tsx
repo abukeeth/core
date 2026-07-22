@@ -4,7 +4,7 @@ export type IconName =
   | "menu" | "search" | "bell" | "receipt" | "chevron" | "bag" | "bike"
   | "sparkles" | "plus" | "coupon" | "share" | "home" | "orders" | "products"
   | "customers" | "more" | "analytics" | "import" | "arrow" | "kds" | "website"
-  | "staff" | "settings" | "filter" | "clock";
+  | "staff" | "settings" | "filter" | "clock" | "back" | "check";
 
 export function Icon({ name, className = "h-5 w-5" }: { name: IconName; className?: string }) {
   const common = {
@@ -40,6 +40,8 @@ export function Icon({ name, className = "h-5 w-5" }: { name: IconName; classNam
     settings: <><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M4.5 4.5l2 2M17.5 17.5l2 2M2 12h3M19 12h3M4.5 19.5l2-2M17.5 6.5l2-2" /></>,
     filter: <path d="M4 6h16M7 12h10M10 18h4" />,
     clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>,
+    back: <path d="M19 12H5M11 6l-6 6 6 6" />,
+    check: <path d="M5 12.5 10 17l9-10" />,
   };
   return <svg viewBox="0 0 24 24" className={className} aria-hidden="true" {...common}>{paths[name]}</svg>;
 }
