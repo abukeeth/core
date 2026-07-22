@@ -11,7 +11,12 @@ describe("renderImageOrFallback — §Website Builder polished deterministic fal
   it("renders a non-photographic fallback tile (no <img>) when there's no uploaded photo", () => {
     const html = renderImageOrFallback("Spaghetti", undefined);
     expect(html).not.toContain("<img");
-    expect(html).toContain(">S<");
+  });
+
+  it("NEVER renders letter/monogram tiles — no <text> element at all", () => {
+    const html = renderImageOrFallback("Spaghetti", undefined);
+    expect(html).not.toContain("<text");
+    expect(html).not.toContain(">S<");
   });
 
   it("is deterministic — the same name always produces the identical fallback markup", () => {
@@ -34,11 +39,10 @@ describe("renderImageOrFallback — §Website Builder polished deterministic fal
     expect(fallback).not.toContain("<script>x</script>");
   });
 
-  it("Sprint 5 · T2 — renders a premium inline-SVG monogram tile using the theme display font", () => {
+  it("renders a premium self-contained inline-SVG tile", () => {
     const html = renderImageOrFallback("Spaghetti", undefined);
     expect(html).toContain("<svg");
     expect(html).toContain('role="img"');
-    expect(html).toContain("var(--font-display)");
     expect(html).toContain("border-radius:var(--radius)");
     // Self-contained: no external asset and no hotlink.
     expect(html).not.toContain("http");

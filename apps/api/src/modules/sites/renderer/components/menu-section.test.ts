@@ -82,7 +82,8 @@ describe("renderMenuSection", () => {
       { name: "Mains", items: [{ name: "Spaghetti", priceCents: 1500, isAvailable: true }] },
     ]));
     expect(html).not.toContain("<img");
-    expect(html).toContain(">S<");
+    expect(html).toContain('role="img"');
+    expect(html).not.toContain("<text");
   });
 
   it("§Website Builder: renders a real uploaded category photo, or a fallback tile when there is none", () => {
@@ -94,7 +95,8 @@ describe("renderMenuSection", () => {
     const withoutPhoto = renderMenuSection({ type: "menu", props: {} }, ctx([
       { name: "Mains", items: [{ name: "Spaghetti", priceCents: 1500, isAvailable: true }] },
     ]));
-    expect(withoutPhoto).toContain(">M<");
+    expect(withoutPhoto).toContain('aria-label="Mains"');
+    expect(withoutPhoto).not.toContain("<text");
   });
 });
 

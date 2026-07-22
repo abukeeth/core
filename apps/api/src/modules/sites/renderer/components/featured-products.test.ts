@@ -20,9 +20,9 @@ function ctx(items: { name: string; priceCents: number; isAvailable: boolean; im
 const section = { type: "featuredProducts" as const, props: {} };
 
 describe("renderFeaturedProducts — Sprint 5.5 non-food product tiles", () => {
-  it("uses the premium monogram tile (never a food-plate placeholder) when a product has no image", () => {
+  it("uses the premium letterless tile (never a food-plate placeholder) when a product has no image", () => {
     const html = renderFeaturedProducts(section, ctx([{ name: "Pulse Disposable", priceCents: 2499, isAvailable: true }]));
-    // premium image-less tile is an inline role=img SVG monogram...
+    // premium image-less tile is an inline role=img letterless SVG...
     expect(html).toContain('role="img"');
     expect(html).toContain("Pulse Disposable");
     // ...and never the food-dish data-URI placeholder.

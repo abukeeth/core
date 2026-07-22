@@ -74,6 +74,7 @@ describe("renderBestSellers", () => {
   it("§Website Builder: falls back to a polished non-photographic tile when an item has no uploaded photo", () => {
     const html = renderBestSellers({ type: "bestSellers", props: {} }, ctx([{ menuItemId: "m1", name: "Spaghetti", quantitySold: 42 }]));
     expect(html).not.toContain("<img");
-    expect(html).toContain(">S<");
+    expect(html).toContain('role="img"');
+    expect(html).not.toContain("<text");
   });
 });
