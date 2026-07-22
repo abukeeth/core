@@ -44,16 +44,16 @@ export function PaymentProviderStep({ onDone }: { onDone: (restaurant: Restauran
 
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">GET PAID</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Connect a payment provider</h1>
-      <p className="mt-3 text-sm leading-6 text-[#756B5D]">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">GET PAID</p>
+      <h1 className="mt-2 text-3xl font-display font-semibold tracking-tight">Connect a payment provider</h1>
+      <p className="mt-3 text-sm leading-6 text-ink-secondary">
         Connect Stripe to accept card payments online, or skip and set this up later from Dashboard → Payments.
       </p>
 
       <form onSubmit={handleConnect} className="mt-6 space-y-4">
         {error && <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{error}</p>}
 
-        <label className="block text-sm font-semibold text-[#2A251F]">
+        <label className="block text-sm font-semibold text-ink">
           Stripe secret key
           <input
             type="password"
@@ -64,7 +64,7 @@ export function PaymentProviderStep({ onDone }: { onDone: (restaurant: Restauran
           />
         </label>
 
-        <label className="block text-sm font-semibold text-[#2A251F]">
+        <label className="block text-sm font-semibold text-ink">
           Stripe publishable key
           <input
             type="text"

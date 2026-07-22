@@ -50,16 +50,16 @@ export function LocationStep({
 
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">WHERE ARE YOU</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">Location</h1>
-      <p className="mt-3 text-sm leading-6 text-[#756B5D]">
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">WHERE ARE YOU</p>
+      <h1 className="mt-2 text-3xl font-display font-semibold tracking-tight">Location</h1>
+      <p className="mt-3 text-sm leading-6 text-ink-secondary">
         Used for pickup, delivery, and your website. You can refine this later.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         {error && <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{error}</p>}
 
-        <label className="block text-sm font-semibold text-[#2A251F]">
+        <label className="block text-sm font-semibold text-ink">
           Address
           <input
             type="text"

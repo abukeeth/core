@@ -33,9 +33,9 @@ export function BusinessTypeStep({ onDone }: { onDone: (restaurant: Restaurant) 
 
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">LET&apos;S SET UP YOUR BUSINESS</p>
-      <h1 className="mt-2 text-3xl font-bold tracking-tight">What kind of business is this?</h1>
-      <p className="mt-3 text-sm leading-6 text-[#756B5D]">This helps us tailor your menu, website, and ordering flow.</p>
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">LET&apos;S SET UP YOUR BUSINESS</p>
+      <h1 className="mt-2 text-3xl font-display font-semibold tracking-tight">What kind of business is this?</h1>
+      <p className="mt-3 text-sm leading-6 text-ink-secondary">This helps us tailor your menu, website, and ordering flow.</p>
 
       {error && <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">{error}</p>}
 
@@ -48,8 +48,8 @@ export function BusinessTypeStep({ onDone }: { onDone: (restaurant: Restaurant) 
             disabled={submitting !== null}
             className={`flex min-h-24 flex-col items-center justify-center gap-2 rounded-2xl border px-3 py-4 text-center text-sm font-bold transition active:scale-[0.98] disabled:opacity-50 ${
               submitting === type.value
-                ? "border-[#B97824] bg-[#B97824] text-white"
-                : "border-[#E7DDCF] bg-[#FBF7F1] text-[#2A251F] hover:bg-white"
+                ? "border-brand bg-brand text-white"
+                : "border-line bg-subtle text-ink hover:bg-surface"
             }`}
           >
             <span className="text-2xl" aria-hidden="true">
