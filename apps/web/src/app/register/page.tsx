@@ -68,43 +68,46 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="min-h-screen w-full overflow-x-hidden bg-[#F7F0E5] px-4 py-8 text-[#171512] sm:px-6">
+    <main className="min-h-screen w-full overflow-x-hidden bg-canvas px-4 py-8 text-ink sm:px-6">
       <div className="mx-auto w-full max-w-md">
         <div className="mb-10 flex items-center justify-between">
-          <div className="text-xl font-bold tracking-tight text-[#B97824]">OrderVora</div>
-          <span className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#756B5D] shadow-sm">Business OS</span>
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-brand font-display text-base font-semibold text-white">O</span>
+            <span className="font-display text-xl font-semibold tracking-[-0.2px] text-ink">OrderVora</span>
+          </div>
+          <span className="rounded-full bg-surface px-3 py-1.5 text-xs font-semibold text-ink-secondary shadow-sm">Business OS</span>
         </div>
 
-        <section className="rounded-[28px] border border-[#E7DDCF] bg-white p-5 shadow-[0_18px_50px_rgba(48,39,27,0.07)] sm:p-7">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">CREATE ACCOUNT</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-tight">Start building your business.</h1>
-          <p className="mt-3 text-sm leading-6 text-[#756B5D]">Create your owner account, then import your menu and launch your website.</p>
+        <section className="rounded-[24px] border border-line bg-surface p-5 shadow-[var(--ov-elevation)] sm:p-7">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand">CREATE ACCOUNT</p>
+          <h1 className="mt-2 font-display text-[28px] font-semibold leading-[34px] tracking-[-0.3px]">Start building your business.</h1>
+          <p className="mt-3 text-sm leading-6 text-ink-secondary">Create your owner account, then import your menu and launch your website.</p>
 
           <form onSubmit={handleSubmit} className="mt-7 space-y-4">
-            {error && <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+            {error && <p className="rounded-[14px] border border-danger/25 bg-danger/5 px-4 py-3 text-sm text-danger">{error}</p>}
 
-            <label className="block text-sm font-semibold text-[#2A251F]">
+            <label className="block text-sm font-semibold text-ink">
               Owner name
-              <input type="text" required autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className="mt-2 min-h-14 w-full rounded-2xl border border-[#E7DDCF] bg-[#FFFDF9] px-4 text-base outline-none transition focus:border-[#B97824] focus:ring-4 focus:ring-[#B97824]/10" />
+              <input type="text" required autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} className="mt-2 min-h-14 w-full rounded-[14px] border border-line bg-surface px-4 text-base text-ink outline-none transition focus:border-brand" />
             </label>
 
-            <label className="block text-sm font-semibold text-[#2A251F]">
+            <label className="block text-sm font-semibold text-ink">
               Email
-              <input type="email" required inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2 min-h-14 w-full rounded-2xl border border-[#E7DDCF] bg-[#FFFDF9] px-4 text-base outline-none transition focus:border-[#B97824] focus:ring-4 focus:ring-[#B97824]/10" />
+              <input type="email" required inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className="mt-2 min-h-14 w-full rounded-[14px] border border-line bg-surface px-4 text-base text-ink outline-none transition focus:border-brand" />
             </label>
 
-            <label className="block text-sm font-semibold text-[#2A251F]">
+            <label className="block text-sm font-semibold text-ink">
               Password
-              <input type="password" required minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-2 min-h-14 w-full rounded-2xl border border-[#E7DDCF] bg-[#FFFDF9] px-4 text-base outline-none transition focus:border-[#B97824] focus:ring-4 focus:ring-[#B97824]/10" />
+              <input type="password" required minLength={8} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-2 min-h-14 w-full rounded-[14px] border border-line bg-surface px-4 text-base text-ink outline-none transition focus:border-brand" />
             </label>
 
-            <button type="submit" disabled={submitting} className="mt-2 flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#171512] px-5 text-base font-bold text-white shadow-lg shadow-black/10 transition active:scale-[0.99] disabled:opacity-50">
+            <button type="submit" disabled={submitting} className="mt-2 flex min-h-14 w-full items-center justify-center rounded-[16px] bg-brand px-5 text-base font-semibold text-white transition active:scale-[0.99] disabled:opacity-50">
               {submitting ? "Creating account…" : "Create business account"}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-[#756B5D]">
-            Already have an account? <Link href="/login" className="font-bold text-[#A9681F]">Log in</Link>
+          <p className="mt-6 text-center text-sm text-ink-secondary">
+            Already have an account? <Link href="/login" className="font-semibold text-brand">Log in</Link>
           </p>
         </section>
       </div>
