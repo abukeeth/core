@@ -111,7 +111,7 @@ export default function Home() {
           <SectionLabel>One engine. Many businesses.</SectionLabel>
           <div className="mt-4 grid gap-8 lg:grid-cols-2 lg:items-end">
             <h2 className="text-4xl font-bold tracking-[-0.03em] sm:text-5xl">Start with restaurants. Expand everywhere.</h2>
-            <p className="text-lg leading-8 text-[#756B5D]">Templates change the experience—not the core system. One platform can serve food, retail, and local commerce.</p>
+            <p className="text-lg leading-8 text-[#756B5D]">Each business gets its own complete storefront—not a shared shell. One platform can serve food, retail, and neighborhood commerce.</p>
           </div>
           <div className="mt-10 grid grid-cols-2 gap-3 lg:grid-cols-3">
             {industries.map(([name, meta], index) => (

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { selectVariation } from "@/lib/api";
 
-export function SelectButton({ siteId, versionId }: { siteId: string; versionId: string }) {
+export function SelectButton({ siteId, versionId, label = "Use this storefront" }: { siteId: string; versionId: string; label?: string }) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,7 +16,7 @@ export function SelectButton({ siteId, versionId }: { siteId: string; versionId:
       await selectVariation(siteId, versionId);
       router.push("/dashboard/website/editor");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not select this variation");
+      setError(err instanceof Error ? err.message : "Could not select this storefront");
       setSubmitting(false);
     }
   }
@@ -30,7 +30,7 @@ export function SelectButton({ siteId, versionId }: { siteId: string; versionId:
         disabled={submitting}
         className="min-h-12 w-full rounded-2xl bg-[#171512] px-4 text-sm font-bold text-white disabled:opacity-50"
       >
-        {submitting ? "Selecting…" : "Select this design"}
+        {submitting ? "Selecting…" : label}
       </button>
     </div>
   );

@@ -5,6 +5,7 @@ vi.mock("../../lib/prisma", () => ({
     site: { findUnique: vi.fn() },
     siteVersion: { findUnique: vi.fn(), update: vi.fn() },
     siteScore: { create: vi.fn(), findFirst: vi.fn(), findMany: vi.fn() },
+    restaurant: { findUnique: vi.fn() },
   },
 }));
 
@@ -58,6 +59,7 @@ beforeEach(() => {
   mockScoreSiteDefinition.mockResolvedValue({ overall: 85, seo: 85, performance: 85, accessibility: 85, brandConsistency: 85, conversion: 85, suggestions: [] });
   mockPrisma.siteVersion.update.mockResolvedValue({} as never);
   mockPrisma.siteScore.create.mockResolvedValue({ id: "score-1", overall: 85 } as never);
+  mockPrisma.restaurant.findUnique.mockResolvedValue({ businessType: "RESTAURANT" } as never);
 });
 
 describe("runScore", () => {

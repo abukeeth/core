@@ -37,7 +37,7 @@ export function GenerateButton({ siteId, mode }: { siteId?: string; mode: "creat
         disabled={submitting}
         className="self-start rounded-full bg-foreground px-5 py-2 text-sm font-medium text-background disabled:opacity-50"
       >
-        {submitting ? "Starting…" : mode === "create" ? "Generate my website" : "Regenerate variations"}
+        {submitting ? "Starting…" : mode === "create" ? "Generate my storefront" : "Design new storefronts"}
       </button>
     </div>
   );

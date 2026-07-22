@@ -32,9 +32,9 @@ export default async function ScorePage() {
     return (
       <PageShell maxWidth="2xl">
         <p className="text-sm text-zinc-600 dark:text-zinc-400">
-          No active draft yet — select a variation from the{" "}
+          No active draft yet — choose a storefront from the{" "}
           <Link href="/dashboard/website/variations" className="underline">
-            Variation Picker
+            storefront picker
           </Link>{" "}
           first.
         </p>

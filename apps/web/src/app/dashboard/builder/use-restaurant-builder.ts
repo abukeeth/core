@@ -48,11 +48,19 @@ export type BuilderPhase =
  * Powers the Design Review theme switcher (each renders the same business
  * data through a different theme) and the finale's personalized captions.
  */
+export interface ConceptPalette {
+  primary?: string;
+  accent?: string;
+  background?: string;
+  text?: string;
+}
+
 export interface DesignCandidate {
   id: string;
   styleFamily: StyleFamily | null;
   businessType: string | null;
   colorSeed: string | null;
+  palette: ConceptPalette | null;
   tagline: string | null;
   cuisine: string | null;
   overall: number;
@@ -151,6 +159,14 @@ export function useRestaurantBuilder(): BuilderState {
           styleFamily: v.styleFamily,
           businessType: v.definition?.businessType ?? null,
           colorSeed: v.definition?.colorSeed ?? null,
+          palette: v.definition?.brandSettings
+            ? {
+                primary: v.definition.brandSettings.primaryColor,
+                accent: v.definition.brandSettings.accentColor,
+                background: v.definition.brandSettings.backgroundColor,
+                text: v.definition.brandSettings.textColor,
+              }
+            : null,
           tagline: v.definition?.tagline ?? null,
           cuisine: v.definition?.cuisine ?? null,
           overall: v.scores?.[0]?.overall ?? 0,

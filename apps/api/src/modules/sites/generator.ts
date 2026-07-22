@@ -129,7 +129,7 @@ class InProcessGenerationJobRunner implements GenerationJobRunner {
       const scored: { family: StyleFamilyValue; definition: SiteDefinition; score: WebsiteScore }[] = [];
       for (const { family, definition } of assembled) {
         const fit = themeSelection[family];
-        const score = await scoreSiteDefinition(definition, { brandProfile, theme: fit.theme, assets: assetSummary });
+        const score = await scoreSiteDefinition(definition, { brandProfile, theme: fit.theme, assets: assetSummary, businessType: ingest.businessType });
         scored.push({ family, definition, score });
       }
 
