@@ -5,8 +5,8 @@ import { describe, expect, it, vi } from "vitest";
 // Stub the real preview (needs a token + iframe); assert the showcase wires the
 // REAL DevicePreview in immersive mode — never a card/thumbnail/mockup.
 vi.mock("../website/variations/[id]/device-preview", () => ({
-  DevicePreview: ({ siteId, variationId, immersive }: { siteId: string; variationId: string; immersive?: boolean }) => (
-    <div data-testid="device-preview" data-immersive={String(!!immersive)}>
+  DevicePreview: ({ siteId, variationId, chromeless }: { siteId: string; variationId: string; chromeless?: boolean }) => (
+    <div data-testid="device-preview" data-chromeless={String(!!chromeless)}>
       {siteId}:{variationId}
     </div>
   ),
@@ -45,13 +45,13 @@ function renderShowcase(onUse = vi.fn()) {
 }
 
 describe("Storefront Showcase", () => {
-  it("renders one full-height section per storefront, each with a REAL immersive preview (no cards/thumbnails)", () => {
+  it("renders one full-height section per storefront, each a REAL full-bleed chromeless storefront (no cards/previews)", () => {
     renderShowcase();
     const sections = screen.getAllByTestId("storefront-section");
     expect(sections).toHaveLength(3);
     const previews = screen.getAllByTestId("device-preview");
     expect(previews).toHaveLength(3);
-    previews.forEach((p) => expect(p).toHaveAttribute("data-immersive", "true"));
+    previews.forEach((p) => expect(p).toHaveAttribute("data-chromeless", "true"));
     expect(screen.getByText("site-1:v1")).toBeInTheDocument();
   });
 
@@ -63,14 +63,14 @@ describe("Storefront Showcase", () => {
     expect(heights).toEqual([true, true, true]);
   });
 
-  it("shows the storefront name only in the sticky action bar — no headline or description over the hero", () => {
+  it("shows NO visible name, headline, description, or palette chips — the storefront is the only presentation", () => {
     renderShowcase();
-    // No headings sit above the previews.
     expect(screen.queryByRole("heading")).not.toBeInTheDocument();
-    // No design commentary / palette chips.
     expect(screen.queryByLabelText("Brand colors")).not.toBeInTheDocument();
     expect(screen.queryByText(/front and center|tells your brand|everyday visits/i)).not.toBeInTheDocument();
-    expect(screen.getByText("Bil Prestige")).toBeInTheDocument();
+    // The premium name is not painted as chrome — it only labels the section for assistive tech.
+    expect(screen.queryByText("Bil Prestige")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("storefront-section")[0]).toHaveAttribute("aria-label", "Bil Prestige");
   });
 
   it("keeps a 'Use This Storefront' CTA in every section and wires it to the handler", () => {
@@ -94,10 +94,10 @@ describe("Storefront Showcase", () => {
     expect(showcase.className).toContain("motion-reduce:snap-none");
   });
 
-  it("each section's action bar labels its own storefront (accessible pairing)", () => {
+  it("labels each section for assistive tech and pairs it with a single action", () => {
     renderShowcase();
     const first = screen.getAllByTestId("storefront-section")[0];
-    expect(within(first).getByText("Bil Prestige")).toBeInTheDocument();
+    expect(first).toHaveAttribute("aria-label", "Bil Prestige");
     expect(within(first).getByRole("button", { name: "Use This Storefront" })).toBeInTheDocument();
   });
 });

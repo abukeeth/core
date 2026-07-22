@@ -61,29 +61,30 @@ export function DesignReviewScreen({
     // One sticky CTA per storefront; it selects that storefront and runs the
     // exact approve → publish path. The active (selected) storefront's CTA
     // reflects progress/retry; the others stay "Use This Storefront".
+    const base =
+      "flex min-h-14 w-full items-center justify-center gap-2 rounded-full px-8 text-base font-bold text-white shadow-lg shadow-black/20 transition active:scale-[0.99]";
     const showcaseCta = (id: string) => {
       const active = id === selectedVersionId;
-      const base = "min-h-11 rounded-full px-6 text-sm font-bold transition active:scale-[0.98]";
       if (busy && active) {
         return (
-          <button type="button" disabled className={`${base} flex items-center gap-2 bg-[#171512] text-white opacity-80`}>
-            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
+          <button type="button" disabled className={`${base} bg-[#171512] opacity-80`}>
+            <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden="true" />
             {phase === "approving" ? "Setting up…" : "Publishing…"}
           </button>
         );
       }
       if (phase === "approve_failed" && active) {
-        return <button type="button" onClick={onRetryApprove} className={`${base} bg-[#171512] text-white`}>Try again</button>;
+        return <button type="button" onClick={onRetryApprove} className={`${base} bg-[#171512]`}>Try again</button>;
       }
       if (phase === "publish_failed" && active) {
-        return <button type="button" onClick={onRetryPublish} className={`${base} bg-[#171512] text-white`}>Try publishing again</button>;
+        return <button type="button" onClick={onRetryPublish} className={`${base} bg-[#171512]`}>Try publishing again</button>;
       }
       return (
         <button
           type="button"
           onClick={() => onUse(id)}
           disabled={busy || switchingTheme}
-          className={`${base} bg-[#171512] text-white shadow-lg shadow-black/10 disabled:opacity-60`}
+          className={`${base} bg-[#171512] disabled:opacity-60`}
         >
           Use This Storefront
         </button>
@@ -91,8 +92,7 @@ export function DesignReviewScreen({
     };
 
     return (
-      <main className="relative bg-[#F7F0E5] text-[#171512]">
-        <DashboardDrawer />
+      <main className="relative h-[100svh] w-full overflow-hidden bg-[#F7F0E5] text-[#171512]">
         {actionError && (phase === "approve_failed" || phase === "publish_failed") && (
           <div className="fixed inset-x-3 top-3 z-30 mx-auto max-w-md rounded-2xl border border-red-200 bg-red-50 p-3 text-center shadow-lg">
             <p className="text-sm font-bold text-red-700">{actionError}</p>

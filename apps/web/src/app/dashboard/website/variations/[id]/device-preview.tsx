@@ -42,6 +42,7 @@ export function DevicePreview({
   hideDeviceSwitcher = false,
   frameHeightClassName = "h-[300px] sm:h-[600px]",
   immersive = false,
+  chromeless = false,
 }: {
   siteId: string;
   variationId: string;
@@ -55,6 +56,13 @@ export function DevicePreview({
    * viewport auto-detects mobile. The owner can still switch devices.
    */
   immersive?: boolean;
+  /**
+   * Full-bleed, zero-chrome: no device switcher, no frame/border, no width cap
+   * — the storefront fills the entire parent as if it were the published site.
+   * Used by the Storefront Showcase so the owner walks through complete
+   * websites, not previews.
+   */
+  chromeless?: boolean;
 }) {
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -136,17 +144,19 @@ export function DevicePreview({
     doc.addEventListener("click", onClick);
   }
 
-  // In immersive mode the frame fills the parent (flex-1) instead of a fixed
-  // card height, so the storefront reads like a full website.
-  const frameH = immersive ? "h-full" : frameHeightClassName;
+  // Immersive/chromeless fill the parent instead of a fixed card height, so the
+  // storefront reads like a full website. Chromeless drops all framing entirely.
+  const fullHeight = immersive || chromeless;
+  const frameH = fullHeight ? "h-full" : frameHeightClassName;
+  const showSwitcher = !hideDeviceSwitcher && !chromeless;
 
   if (error) {
     return <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>;
   }
   if (!token) {
     return (
-      <div className={`flex w-full animate-pulse flex-col items-center justify-center gap-2 rounded-2xl bg-[#EEE5D9] ${frameH}`}>
-        <p className="text-sm font-semibold text-[#8A7D6C]">Loading preview…</p>
+      <div className={`flex w-full animate-pulse flex-col items-center justify-center gap-2 bg-[#EEE5D9] ${chromeless ? "" : "rounded-2xl"} ${frameH}`}>
+        <p className="text-sm font-semibold text-[#8A7D6C]">Loading storefront…</p>
       </div>
     );
   }
@@ -154,8 +164,8 @@ export function DevicePreview({
   const src = `/preview/${token}?variation=${encodeURIComponent(variationId)}&path=${encodeURIComponent(path)}`;
 
   return (
-    <div className={immersive ? "flex h-full flex-col gap-2" : "flex flex-col gap-3"}>
-      {!hideDeviceSwitcher && (
+    <div className={chromeless ? "h-full w-full" : fullHeight ? "flex h-full flex-col gap-2" : "flex flex-col gap-3"}>
+      {showSwitcher && (
         <div className={immersive ? "flex shrink-0 justify-center gap-2" : "flex gap-2"}>
           {(Object.keys(DEVICE_WIDTHS) as Device[]).map((d) => (
             <button
@@ -174,11 +184,13 @@ export function DevicePreview({
       )}
       <div
         className={
-          immersive
-            ? "mx-auto flex w-full min-h-0 flex-1 overflow-hidden rounded-2xl bg-white shadow-[0_18px_50px_rgba(48,39,27,0.16)]"
-            : "mx-auto w-full overflow-hidden rounded-2xl border border-[#E7DDCF] bg-white transition-[max-width]"
+          chromeless
+            ? "flex h-full w-full overflow-hidden bg-white"
+            : immersive
+              ? "mx-auto flex w-full min-h-0 flex-1 overflow-hidden rounded-2xl bg-white shadow-[0_18px_50px_rgba(48,39,27,0.16)]"
+              : "mx-auto w-full overflow-hidden rounded-2xl border border-[#E7DDCF] bg-white transition-[max-width]"
         }
-        style={{ maxWidth: DEVICE_WIDTHS[device] }}
+        style={chromeless ? undefined : { maxWidth: DEVICE_WIDTHS[device] }}
         data-testid="device-preview-frame"
         data-device={device}
       >

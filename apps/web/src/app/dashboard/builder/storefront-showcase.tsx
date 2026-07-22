@@ -33,42 +33,39 @@ export function StorefrontShowcaseSection({
 }: {
   siteId: string;
   variationId: string;
-  /** Quiet identity for the action bar only — never a headline over the hero. */
+  /** Only used to label the section for assistive tech — never shown as chrome. */
   name: string;
   isRecommended: boolean;
-  /** The sticky "Use This Storefront" control, supplied by the caller. */
+  /** The single "Use This Storefront" control, supplied by the caller. */
   action: ReactNode;
 }) {
   return (
     <section
+      aria-label={name}
       data-testid="storefront-section"
-      className="relative flex h-[100svh] snap-start flex-col px-3 pb-3 pt-3 sm:px-6 sm:pt-5"
+      className="relative h-[100svh] snap-start overflow-hidden bg-[#F7F0E5]"
     >
-      {/* The storefront IS the presentation: real render, hero-first, fills the section. */}
-      <div className="min-h-0 flex-1">
-        <LazyMount
-          className="h-full"
-          placeholder={
-            <div className="flex h-full w-full animate-pulse items-center justify-center rounded-2xl bg-[#EEE5D9]">
-              <p className="text-sm font-semibold text-[#8A7D6C]">Loading storefront…</p>
-            </div>
-          }
-        >
-          <DevicePreview siteId={siteId} variationId={variationId} immersive />
-        </LazyMount>
-      </div>
+      {/* The storefront IS the presentation: full-bleed real render, hero-first,
+          zero preview/dashboard chrome — the owner enters it as if it were live. */}
+      <LazyMount
+        className="h-full w-full"
+        placeholder={
+          <div className="flex h-full w-full animate-pulse items-center justify-center bg-[#EEE5D9]">
+            <p className="text-sm font-semibold text-[#8A7D6C]">Loading storefront…</p>
+          </div>
+        }
+      >
+        <DevicePreview siteId={siteId} variationId={variationId} chromeless />
+      </LazyMount>
 
-      {/* Sticky action bar — always visible while this storefront is in view. */}
-      <div className="sticky bottom-0 z-10 mt-3 flex items-center justify-between gap-3 rounded-full border border-[#E7DDCF] bg-white/95 px-4 py-2.5 shadow-[0_10px_30px_rgba(48,39,27,0.12)] backdrop-blur">
-        <div className="flex min-w-0 items-center gap-2">
-          {isRecommended && (
-            <span className="shrink-0 rounded-full bg-[#F3E7D3] px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#9A6A2F]">
-              Recommended
-            </span>
-          )}
-          <span className="truncate text-sm font-bold text-[#171512]">{name}</span>
-        </div>
-        <div className="shrink-0">{action}</div>
+      {/* One action, at the bottom of the storefront. Nothing else. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex flex-col items-center gap-2 bg-gradient-to-t from-black/30 via-black/10 to-transparent px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-12">
+        {isRecommended && (
+          <span className="pointer-events-auto rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-[#9A6A2F] shadow">
+            Recommended
+          </span>
+        )}
+        <div className="pointer-events-auto w-full max-w-md">{action}</div>
       </div>
     </section>
   );
