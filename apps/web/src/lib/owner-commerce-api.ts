@@ -461,3 +461,19 @@ export function listOwnCustomers() {
 export function getOwnCustomer(id: string) {
   return apiFetch<{ customer: OwnerCustomerDetail }>(`/api/restaurants/me/customers/${id}`);
 }
+
+// --- Notifications (owner) -------------------------------------------------------
+
+export interface OwnerNotification {
+  id: string;
+  type: string;
+  status: string;
+  channel: string;
+  orderId: string | null;
+  orderNumber: number | null;
+  createdAt: string;
+}
+
+export function listOwnNotifications() {
+  return apiFetch<{ notifications: OwnerNotification[] }>("/api/restaurants/me/notifications");
+}
