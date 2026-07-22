@@ -30,11 +30,11 @@ export const metadata: Metadata = {
     template: "%s | OrderVora",
   },
   description:
-    "OrderVora is the ordering platform for restaurants: AI menu import, an AI-built website, online ordering, checkout, kitchen, and delivery — all in one place.",
+    "OrderVora is the ordering platform for restaurants: menu import, a ready-made storefront, online ordering, checkout, kitchen, and delivery — all in one place.",
   openGraph: {
     title: "OrderVora — The Ordering Platform for Your Restaurant",
     description:
-      "AI menu import, an AI-built website, online ordering, checkout, kitchen, and delivery — all in one place.",
+      "Menu import, a ready-made storefront, online ordering, checkout, kitchen, and delivery — all in one place.",
     type: "website",
     siteName: "OrderVora",
   },

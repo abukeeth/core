@@ -23,8 +23,8 @@ describe("WebsiteDesignStatus — replaces the old simulated AI Brand Concepts m
   it("shows a real Generate button (no simulated concepts) when no site exists yet", () => {
     render(<WebsiteDesignStatus siteId={null} job={null} variations={[]} />);
 
-    expect(screen.getByText("Generate your website with AI")).toBeInTheDocument();
-    expect(screen.getByText("Generate my website")).toBeInTheDocument();
+    expect(screen.getByText("Create your storefront")).toBeInTheDocument();
+    expect(screen.getByText("Generate my storefront")).toBeInTheDocument();
     expect(screen.queryByText(/Concept A|Concept B|Concept C/)).not.toBeInTheDocument();
   });
 

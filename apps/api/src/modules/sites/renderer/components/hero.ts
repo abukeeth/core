@@ -21,10 +21,20 @@ function readString(props: Record<string, unknown>, key: string, fallback = ""):
   return typeof props[key] === "string" ? (props[key] as string) : fallback;
 }
 
-/** A themed gradient tile standing in for an un-uploaded full-bleed photo — never a blank hero. */
+/**
+ * A cinematic, palette-aware backdrop standing in for an un-uploaded full-bleed
+ * photo — layered radial "key lights" in the brand's accent + primary over a
+ * deep base, so it reads like an art-directed scene rather than a flat two-stop
+ * gradient. Deterministic on the name (the highlight drifts per business).
+ */
 function fullBleedFallback(name: string, minHeight: string): string {
   const hue = deterministicHue(name);
-  return `<div aria-hidden="true" style="width:100%;height:${minHeight};background:linear-gradient(135deg, hsl(${hue} 45% 30%), hsl(${(hue + 40) % 360} 45% 18%));display:block;"></div>`;
+  const ax = 12 + (hue % 34);
+  const ay = 8 + (hue % 22);
+  return `<div aria-hidden="true" style="width:100%;height:${minHeight};display:block;background:
+    radial-gradient(115% 85% at ${ax}% ${ay}%, color-mix(in srgb, var(--color-accent-500) 34%, transparent), transparent 58%),
+    radial-gradient(120% 100% at 85% 92%, color-mix(in srgb, var(--color-primary-600) 55%, transparent), transparent 55%),
+    linear-gradient(160deg, color-mix(in srgb, var(--color-primary-600) 80%, #050505), #0b0a09);"></div>`;
 }
 
 /**
@@ -102,10 +112,11 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
     const imageHtml = backgroundUrl
       ? `<img src="${escapeHtml(backgroundUrl)}" alt="${escapeHtml(heroName)}" style="width:100%;height:${minHeight};object-fit:cover;display:block;" />`
       : fullBleedFallback(heroName, minHeight);
-    // bold-block: heavier scrim + uppercase display headline for a punchier, commerce-forward statement.
+    // bold-block: cinematic scrim + a dramatic uppercase display headline for a
+    // punchier, commerce-forward statement.
     const headlineStyle = isBold
-      ? "color:#ffffff;margin:0 0 0.5rem;text-transform:uppercase;letter-spacing:0.02em;font-size:var(--step-2);"
-      : "color:#ffffff;margin:0 0 0.5rem;";
+      ? "color:#ffffff;margin:0 0 0.75rem;text-transform:uppercase;letter-spacing:-0.01em;font-size:var(--step-4);line-height:1.02;"
+      : "color:#ffffff;margin:0 0 0.75rem;font-size:var(--step-4);line-height:var(--leading-hero);";
 
     // padding:0 overrides the global `section { padding: var(--content-spacing) 0 }`
     // rule (theme-css.ts) so a full-bleed hero really is edge-to-edge; without it
@@ -113,7 +124,7 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
     // the scrim overlay tints, breaking the cinematic effect.
     return `<section class="hero hero--${escapeHtml(variant)}" style="position:relative;padding:0;">
   ${imageHtml}
-  <div style="position:absolute;inset:0;background:rgba(0,0,0,${isBold ? Math.max(overlayOpacity, 0.55) : overlayOpacity});display:flex;flex-direction:column;justify-content:center;align-items:${
+  <div style="position:absolute;inset:0;background:linear-gradient(180deg, rgba(6,4,3,0.34) 0%, rgba(6,4,3,0.12) 42%, rgba(6,4,3,${isBold ? Math.max(overlayOpacity, 0.62) : Math.max(overlayOpacity, 0.5)}) 100%);display:flex;flex-direction:column;justify-content:center;align-items:${
     ALIGN_ITEMS[alignment] ?? ALIGN_ITEMS.center
   };padding:2rem;text-align:${TEXT_ALIGN[alignment] ?? TEXT_ALIGN.center};">
     ${badgeHtml}
@@ -129,9 +140,8 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   // full-bleed background, preserving each variant's text-forward identity.
   const insetImageUrl = resolveHeroInsetImage(ctx);
   const insetMaxWidth = variant === "minimal-typographic" ? "280px" : isEditorial ? "560px" : "420px";
-  const hue = deterministicHue(heroName);
   const frameBorder = isWarmFrame ? "border:8px solid var(--color-surface-50);" : "";
-  const insetFallback = `<div aria-hidden="true" style="width:100%;max-width:${insetMaxWidth};aspect-ratio:4/3;border-radius:var(--radius);box-shadow:var(--shadow);${frameBorder}background:linear-gradient(135deg, hsl(${hue} 45% 90%), hsl(${(hue + 40) % 360} 45% 80%));"></div>`;
+  const insetFallback = `<div aria-hidden="true" style="width:100%;max-width:${insetMaxWidth};aspect-ratio:4/3;border-radius:var(--radius);box-shadow:var(--elevation);${frameBorder}background:radial-gradient(120% 120% at 22% 12%, color-mix(in srgb, var(--color-accent-500) 28%, var(--color-surface-100)), color-mix(in srgb, var(--color-primary-600) 26%, var(--color-surface-100)));"></div>`;
   const insetImageHtml = insetImageUrl
     ? `<img src="${escapeHtml(insetImageUrl)}" alt="${escapeHtml(heroName)}" style="width:100%;max-width:${insetMaxWidth};border-radius:var(--radius);box-shadow:var(--shadow);${frameBorder}" />`
     : insetFallback;
@@ -139,7 +149,7 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   const justify = variant === "split" || isEditorial ? "space-between" : "center";
   const wrapperExtra = isWarmFrame ? "flex-direction:column;align-items:center;text-align:center;" : "";
   const headlineHtml = isEditorial
-    ? `<h1 style="font-size:var(--step-2);letter-spacing:-0.01em;">${escapeHtml(headline)}</h1>`
+    ? `<h1 style="font-size:var(--step-3);letter-spacing:-0.02em;">${escapeHtml(headline)}</h1>`
     : `<h1>${escapeHtml(headline)}</h1>`;
   const textAlign = isWarmFrame ? "center" : TEXT_ALIGN[alignment] ?? TEXT_ALIGN.center;
 

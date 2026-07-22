@@ -29,8 +29,8 @@ describe("DashboardDrawer (Sprint 19B-1)", () => {
     expect(dashboardLink.className).not.toContain("bg-[#171512]");
 
     expect(screen.getByRole("link", { name: "Menu" })).toHaveAttribute("href", "/dashboard/menu");
-    expect(screen.getByRole("link", { name: "AI" })).toHaveAttribute("href", "/dashboard/builder");
-    expect(screen.getByRole("link", { name: "AI Website Studio" })).toHaveAttribute("href", "/dashboard/website");
+    expect(screen.getByRole("link", { name: "Storefront" })).toHaveAttribute("href", "/dashboard/builder");
+    expect(screen.getByRole("link", { name: "Storefront Studio" })).toHaveAttribute("href", "/dashboard/website");
     expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/dashboard/restaurant");
   });
 

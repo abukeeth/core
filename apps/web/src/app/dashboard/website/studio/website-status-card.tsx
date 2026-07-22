@@ -7,7 +7,7 @@ const STATUS_COPY: Record<SiteStatus, { label: string; tone: BadgeTone; message:
   DRAFT: {
     label: "Setting up",
     tone: "warning",
-    message: (name) => `${name}'s AI-designed website foundation is ready. Choose a brand concept and publish when you're ready.`,
+    message: (name) => `${name}'s storefront foundation is ready. Choose your storefront and publish when you're ready.`,
   },
   PUBLISHING: {
     label: "Publishing…",
@@ -39,7 +39,7 @@ const STATUS_COPY: Record<SiteStatus, { label: string; tone: BadgeTone; message:
 const NO_SITE = {
   label: "Not started",
   tone: "neutral" as BadgeTone,
-  message: (name: string) => `${name} doesn't have a website yet — generate one with AI to get started.`,
+  message: (name: string) => `${name} doesn't have a storefront yet — create one to get started.`,
 };
 
 export function WebsiteStatusCard({ restaurantName, status }: { restaurantName: string; status: SiteStatus | null }) {
@@ -55,7 +55,7 @@ export function WebsiteStatusCard({ restaurantName, status }: { restaurantName: 
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-lg font-bold tracking-tight text-[#171512] sm:text-xl">AI Website Studio</h2>
+              <h2 className="text-lg font-bold tracking-tight text-[#171512] sm:text-xl">Storefront Studio</h2>
               <Badge tone={copy.tone}>{copy.label}</Badge>
             </div>
             <p className="mt-1 max-w-md text-sm leading-6 text-[#756B5D]">{copy.message(restaurantName)}</p>

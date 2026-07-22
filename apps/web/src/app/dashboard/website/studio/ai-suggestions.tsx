@@ -18,7 +18,7 @@ const SUGGESTIONS: Suggestion[] = [
 export function AiSuggestions() {
   return (
     <Card>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">AI SUGGESTIONS</p>
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#9A6A2F]">SUGGESTIONS</p>
       <div className="mt-4 flex flex-col divide-y divide-[#EEE5D9]">
         {SUGGESTIONS.map(({ title, description, icon: SuggestionIcon }) => (
           <div key={title} className="flex items-center gap-4 py-4 first:pt-0 last:pb-0">

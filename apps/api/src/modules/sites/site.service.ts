@@ -396,7 +396,8 @@ export async function publishSite(restaurantId: string, siteId: string, publishe
 
     if (theme) {
       const brandProfile = site.brandProfile ? brandProfileSchema.parse(site.brandProfile) : NEUTRAL_BRAND_PROFILE_FOR_SCORING;
-      const newScore = await scoreSiteDefinition(definition, { brandProfile, theme, assets });
+      const restaurant = await prisma.restaurant.findUnique({ where: { id: restaurantId }, select: { businessType: true } });
+      const newScore = await scoreSiteDefinition(definition, { brandProfile, theme, assets, businessType: restaurant?.businessType });
 
       const previousScore = site.publishedVersionId
         ? await prisma.siteScore.findFirst({ where: { siteVersionId: site.publishedVersionId }, orderBy: { measuredAt: "desc" } })

@@ -110,4 +110,23 @@ describe("scoreSiteDefinition", () => {
     expect(first.accessibility).toBe(second.accessibility);
     expect(first.conversion).toBe(second.conversion);
   });
+
+  it("boosts a theme built for the tenant's business type so it becomes the recommended storefront (vertical fit)", async () => {
+    const vapeTheme = THEME_CATALOG.find((t) => t.key === "vape-vapor")!;
+    expect(vapeTheme.businessTypes).toContain("VAPE_SHOP");
+
+    const withoutMatch = await scoreSiteDefinition(goodDefinition(), { brandProfile, theme: vapeTheme, assets: noAssets });
+    const withMatch = await scoreSiteDefinition(goodDefinition(), { brandProfile, theme: vapeTheme, assets: noAssets, businessType: "VAPE_SHOP" });
+
+    expect(withMatch.overall).toBeGreaterThan(withoutMatch.overall);
+    expect(withMatch.overall).toBe(Math.min(100, withoutMatch.overall + 8));
+  });
+
+  it("gives no vertical-fit bonus when the theme is not built for the business type", async () => {
+    const vapeTheme = THEME_CATALOG.find((t) => t.key === "vape-vapor")!;
+    const base = await scoreSiteDefinition(goodDefinition(), { brandProfile, theme: vapeTheme, assets: noAssets });
+    const mismatched = await scoreSiteDefinition(goodDefinition(), { brandProfile, theme: vapeTheme, assets: noAssets, businessType: "DELI" });
+
+    expect(mismatched.overall).toBe(base.overall);
+  });
 });

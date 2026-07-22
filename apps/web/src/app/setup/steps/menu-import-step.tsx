@@ -195,7 +195,7 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
         <h1 className="mt-2 text-3xl font-display font-semibold tracking-tight">Building your menu…</h1>
         <p className="mt-3 text-sm leading-6 text-ink-secondary">
           {uploading
-            ? "Uploading your menu and getting our AI ready…"
+            ? "Uploading your menu and preparing your storefront…"
             : "This can take a minute — we’ll keep you here until it’s ready to review."}
         </p>
         <div className="mt-6">
@@ -254,10 +254,11 @@ export function MenuImportStep({ onDone }: { onDone: (restaurant: Restaurant) =>
 
   return (
     <div>
-      <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">BUILD YOUR MENU</p>
-      <h1 className="mt-2 text-3xl font-display font-semibold tracking-tight">Import your menu</h1>
+      <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">IMPORT YOUR BUSINESS</p>
+      <h1 className="mt-2 text-3xl font-display font-semibold tracking-tight">Import your business</h1>
       <p className="mt-3 text-sm leading-6 text-ink-secondary">
-        Upload a photo or PDF of your menu and AI will build it for you, or skip and add items manually later.
+        Upload a menu photo or PDF and OrderVora builds your storefront for you. Business name and type are optional — we
+        infer them from your menu. You can also skip and add items manually later.
       </p>
 
       <div className="mt-6 space-y-4">

@@ -59,7 +59,7 @@ export default function LoginPage() {
         <section className="rounded-[24px] border border-line bg-surface p-5 shadow-[var(--ov-elevation)] sm:p-7">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-brand">WELCOME BACK</p>
           <h1 className="mt-2 text-3xl font-bold tracking-tight">Run your business from one calm place.</h1>
-          <p className="mt-3 text-sm leading-6 text-ink-secondary">Sign in to manage orders, menu, website, AI tools, customers, and operations.</p>
+          <p className="mt-3 text-sm leading-6 text-ink-secondary">Sign in to manage orders, menu, storefront, customers, and operations.</p>
 
           <div className="mt-7 grid gap-3">
             <button type="button" onClick={() => showComingSoon("Apple")} className="flex min-h-13 w-full items-center justify-center gap-3 rounded-2xl border border-line bg-ink px-4 text-sm font-bold text-white shadow-sm">
