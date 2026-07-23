@@ -55,4 +55,22 @@ describe("serverFetch — timeout and network error mapping", () => {
 
     expect(result).toEqual({ ok: true, data: { user: { id: "u1" } } });
   });
+
+  it("strips a trailing slash from API_URL so the request URL never has a double slash", async () => {
+    // apiUrl is read once at module import, so set the env and re-import.
+    const prev = process.env.API_URL;
+    process.env.API_URL = "https://api.example.com/";
+    vi.resetModules();
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ user: { id: "u1" } }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { serverFetch: freshServerFetch } = await import("./server-api");
+    await freshServerFetch("/api/auth/me");
+
+    const [url] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://api.example.com/api/auth/me");
+
+    process.env.API_URL = prev;
+    vi.resetModules();
+  });
 });

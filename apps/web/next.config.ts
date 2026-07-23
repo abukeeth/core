@@ -9,7 +9,13 @@ import type { NextConfig } from "next";
 // build step), not just set at container/runtime startup. See
 // apps/web/Dockerfile for how the Docker build assembles it from
 // API_URL_SCHEME/API_HOST.
-const apiUrl = process.env.API_URL ?? "http://localhost:4000";
+// Strip any trailing slash(es) so a rewrite destination never becomes
+// `${apiUrl}//api/:path*`. A double slash is treated by the Express API as a
+// distinct, unrouted path (`Cannot POST //api/auth/register` → a non-JSON 404),
+// which surfaced in production as register/login failing with a bare
+// "Request failed". Tolerating a trailing slash here makes the proxy resilient
+// regardless of how API_URL happens to be entered in the deploy environment.
+const apiUrl = (process.env.API_URL ?? "http://localhost:4000").replace(/\/+$/, "");
 
 const nextConfig: NextConfig = {
   // Production Hardening Phase 4 — emits .next/standalone, a self-contained

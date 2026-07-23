@@ -4,7 +4,10 @@ import { cookies } from "next/headers";
 // environment. Unlike next.config.ts's rewrites (baked at build time),
 // this module is evaluated at server process startup, so API_URL here
 // is read from the runtime environment.
-const apiUrl = process.env.API_URL ?? "http://localhost:4000";
+// Trailing slash(es) stripped for the same reason as next.config.ts's
+// rewrites: `${apiUrl}${path}` (path already begins with `/api/...`) must not
+// become a double slash, which the Express API treats as an unrouted 404.
+const apiUrl = (process.env.API_URL ?? "http://localhost:4000").replace(/\/+$/, "");
 
 // A Server Component awaiting serverFetch blocks that page's entire
 // server-side render — a hung call here (e.g. a cold-started backend)

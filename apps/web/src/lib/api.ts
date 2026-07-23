@@ -242,7 +242,12 @@ async function apiFetch<T>(path: string, options: RequestInit = {}, timeoutMs: n
     // publishing"). Appending issues here fixes every such call site at
     // once instead of patching each one individually.
     const issues = Array.isArray(data?.issues) ? data.issues.filter((i: unknown): i is string => typeof i === "string") : [];
-    const base = data?.error ?? "Request failed";
+    // When the body isn't the API's structured JSON (e.g. a proxy/misroute
+    // returning an HTML error page — the double-slash 404 that broke prod
+    // register/login), `data` is null. Surface the HTTP status instead of a
+    // bare "Request failed" so the real failure is diagnosable. Only the
+    // status is exposed here — never the response body.
+    const base = data?.error ?? `Request failed (HTTP ${res.status})`;
     const code = typeof data?.code === "string" ? (data.code as ApiErrorCode) : res.status >= 500 ? "SERVICE_TEMPORARILY_UNAVAILABLE" : "REQUEST_FAILED";
     const mapped = mapServerError(code, res.status, base);
     const message = issues.length > 0 ? `${mapped}: ${issues.join(" ")}` : mapped;
