@@ -108,4 +108,22 @@ describe("apiFetch — timeout and network error mapping", () => {
     expect(err).toBeInstanceOf(ApiRequestError);
     expect((err as ApiRequestError).code).toBe("AUTH_REQUEST_IN_PROGRESS");
   });
+
+  it("surfaces the HTTP status when the failed response body is not the API's JSON (e.g. a proxy/misroute HTML 404)", async () => {
+    // Reproduces the double-slash `//api/...` 404 that broke prod register/login:
+    // the body is an HTML error page, so res.json() rejects and data is null.
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: async () => {
+        throw new SyntaxError("Unexpected token '<'");
+      },
+    }));
+
+    const err = await login("owner@example.com", "hunter2").catch((caught) => caught);
+    expect(err).toBeInstanceOf(ApiRequestError);
+    // No longer a bare "Request failed" — the status makes the misroute diagnosable.
+    expect((err as ApiRequestError).message).toMatch(/HTTP 404/);
+    expect((err as ApiRequestError).status).toBe(404);
+  });
 });

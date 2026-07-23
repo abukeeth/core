@@ -68,7 +68,11 @@ function fallbackContentCore(input: IngestData): ContentCore {
     tagline: `${input.restaurantName} — great food, done right`,
     heroHeadline: input.restaurantName,
     heroSubhead: input.description ?? "Welcome — take a look at what we're serving.",
-    aboutStory: "[add your story]",
+    // Empty, not a bracketed placeholder: with no AI story and no owner input
+    // there is nothing real to tell yet, so the About teaser self-omits and the
+    // About page shows a neutral line — a literal "[add your story]" must never
+    // reach the customer.
+    aboutStory: "",
     signatureDishesIntro: "A few of our favorites.",
     galleryIntro: "A look inside.",
     ctaLabel: "View Menu",

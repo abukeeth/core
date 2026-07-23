@@ -1,7 +1,12 @@
 import type { Request, Response } from "express";
 import { NoRestaurantError } from "../../restaurants/restaurant.errors";
 import { getOwnRestaurantId } from "../../restaurants/restaurant.service";
-import { DeliveryRuleNotFoundError, DeliveryZoneNotFoundError, InvalidFallbackRuleError } from "./delivery-zones.errors";
+import {
+  DeliveryRuleNotFoundError,
+  DeliveryZoneNotFoundError,
+  FulfillmentMethodNotAvailableError,
+  InvalidFallbackRuleError,
+} from "./delivery-zones.errors";
 import {
   createDeliveryRuleSchema,
   createDeliveryZoneSchema,
@@ -97,7 +102,7 @@ export async function createRuleHandler(req: Request, res: Response): Promise<vo
   try {
     res.status(201).json({ deliveryRule: await createRule(restaurantId, parsed.data) });
   } catch (err) {
-    if (err instanceof InvalidFallbackRuleError) {
+    if (err instanceof InvalidFallbackRuleError || err instanceof FulfillmentMethodNotAvailableError) {
       res.status(400).json({ error: err.message });
       return;
     }
@@ -122,7 +127,7 @@ export async function updateRuleHandler(req: Request, res: Response): Promise<vo
       res.status(404).json({ error: err.message });
       return;
     }
-    if (err instanceof InvalidFallbackRuleError) {
+    if (err instanceof InvalidFallbackRuleError || err instanceof FulfillmentMethodNotAvailableError) {
       res.status(400).json({ error: err.message });
       return;
     }

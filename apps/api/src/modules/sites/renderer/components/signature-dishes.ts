@@ -11,6 +11,10 @@ interface SignatureItem {
 
 export function renderSignatureDishes(section: SectionBlock, ctx: RenderContext): string {
   const intro = typeof section.props.intro === "string" ? section.props.intro : "";
+  // Vertical-aware heading set at assemble time ("Signature Dishes" for food,
+  // "Featured Products" for retail/vape, "Featured Items" otherwise). Falls back
+  // to the historical default so older definitions render unchanged.
+  const heading = typeof section.props.title === "string" && section.props.title ? section.props.title : "Signature Dishes";
   const items = Array.isArray(section.props.items) ? (section.props.items as SignatureItem[]) : [];
 
   if (items.length === 0) return "";
@@ -35,7 +39,7 @@ export function renderSignatureDishes(section: SectionBlock, ctx: RenderContext)
     .join("\n");
 
   return `<section class="signature-dishes">
-  <h2>Signature Dishes</h2>
+  <h2>${escapeHtml(heading)}</h2>
   ${intro ? `<p>${escapeHtml(intro)}</p>` : ""}
   <ul style="display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:1rem;padding:0;">
     ${cards}
