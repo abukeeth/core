@@ -85,6 +85,27 @@ production boot without it. Point it at S3/R2/B2/MinIO:
 Cloudflare R2 is a good low-cost fit (S3-compatible, set the R2 endpoint). Full
 detail: `object-storage.md`.
 
+## 3a. Storefront generation quality (AI text & images)
+
+The website generator runs fully **without any AI key** — it produces real
+5-page sites with per-business color, vocabulary, and layout. AI keys upgrade
+the *copy* and *photography*; they are not required to launch. To get the
+premium output:
+
+- **AI marketing copy** — set an AI key (`OPENAI_API_KEY` etc., §1). This is
+  automatic: with a key, hero/about/tagline copy is AI-written in distinct
+  voices; without one, copy falls back to neutral templated lines (no broken
+  placeholders — the generic "eclectic" descriptor and the "[add your story]"
+  placeholder are suppressed).
+- **AI photography** — off by default and safe to leave off (missing photos
+  degrade to palette gradients, never broken boxes). To enable, set **all
+  three** together or the storefront will show broken image icons:
+  `AI_IMAGE_ENABLED=true` + an image key (or `AI_IMAGE_BACKEND=local`) +
+  **persistent object storage** (§3). A per-business budget cap (~12 images)
+  bounds cost. **Verified:** enabling images without object storage produces
+  404-ing `/assets` URLs (broken images) — configure storage first.
+- **Owner-uploaded photos** always win over both and need none of the above.
+
 ## 4. Go-live steps (once deployed)
 
 1. Confirm `/health` (liveness) and `/ready` (DB probe) are green on the API.
