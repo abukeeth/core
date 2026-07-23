@@ -1,6 +1,12 @@
-import type { DeliveryRule, DeliveryZone } from "@prisma/client";
+import type { DeliveryRule, DeliveryZone, FulfillmentMethod } from "@prisma/client";
 import { prisma } from "../../../lib/prisma";
-import { DeliveryRuleNotFoundError, DeliveryZoneNotFoundError, InvalidFallbackRuleError } from "./delivery-zones.errors";
+import { isFulfillmentMethodAvailable } from "../fulfillment/registry";
+import {
+  DeliveryRuleNotFoundError,
+  DeliveryZoneNotFoundError,
+  FulfillmentMethodNotAvailableError,
+  InvalidFallbackRuleError,
+} from "./delivery-zones.errors";
 import type {
   CreateDeliveryRuleInput,
   CreateDeliveryZoneInput,
@@ -77,7 +83,15 @@ async function validateFallback(restaurantId: string, fallbackToRuleId: string |
   }
 }
 
+/** Rejects a rule that routes to a fulfillment method with no working dispatch yet (stub providers). */
+function assertFulfillmentMethodAvailable(method: FulfillmentMethod | undefined): void {
+  if (method && !isFulfillmentMethodAvailable(method)) {
+    throw new FulfillmentMethodNotAvailableError(method);
+  }
+}
+
 export async function createRule(restaurantId: string, input: CreateDeliveryRuleInput): Promise<DeliveryRule> {
+  assertFulfillmentMethodAvailable(input.fulfillmentMethod);
   await validateFallback(restaurantId, input.fallbackToRuleId);
   return prisma.deliveryRule.create({ data: { restaurantId, ...input } });
 }
@@ -96,6 +110,7 @@ export async function updateRule(
   input: UpdateDeliveryRuleInput,
 ): Promise<DeliveryRule> {
   const rule = await findOwnRule(restaurantId, id);
+  assertFulfillmentMethodAvailable(input.fulfillmentMethod);
   await validateFallback(restaurantId, input.fallbackToRuleId, rule.id);
   return prisma.deliveryRule.update({ where: { id: rule.id }, data: input });
 }
