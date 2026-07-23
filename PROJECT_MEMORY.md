@@ -12,11 +12,21 @@ Goal: help restaurants own their ordering channel instead of depending on high c
 
 ## Official Repository
 
-Repository: `ordervora/Ordervora-MVP`
+Repository: `abukeeth/core`
 
 Main branch: `main`
 
-This repository is the source of truth for product code.
+This repository is the source of truth for product code. (Earlier revisions of
+this file named `ordervora/Ordervora-MVP`, which does not match the actual
+remote — corrected here.)
+
+## Launch
+
+For onboarding the first real business on the current stack (Vercel web +
+Railway API, restaurant-own-driver delivery, Stripe BYOP, manual billing), see
+`docs/runbooks/first-customer-launch.md` — the go-live checklist and the
+explicit list of what is intentionally off for the pilot (and how to enable
+each later).
 
 ## Architecture
 
