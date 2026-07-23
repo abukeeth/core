@@ -12,7 +12,7 @@ vi.mock("../../lib/file-storage", () => ({
 }));
 
 vi.mock("./job-runner", () => ({
-  importJobRunner: { enqueue: vi.fn() },
+  importJobRunner: { enqueue: vi.fn(), enqueueConsolidated: vi.fn() },
 }));
 
 vi.mock("../menu/menu.service", () => ({
@@ -29,7 +29,7 @@ import { prisma } from "../../lib/prisma";
 import { createCategory, createItem } from "../menu/menu.service";
 import { updateRestaurantById } from "../restaurants/restaurant.service";
 import { ImportJobNotFoundError, ImportJobNotReadyError, ImportJobNotRerunnableError } from "./import.errors";
-import { approveJob, createImportJob, reapStaleImportJobs, rejectJob, rerunJob, updateJobData } from "./import.service";
+import { approveJob, createConsolidatedImportJob, createImportJob, reapStaleImportJobs, rejectJob, rerunJob, updateJobData } from "./import.service";
 import { importJobRunner } from "./job-runner";
 
 const mockPrisma = vi.mocked(prisma, { deep: true });
@@ -377,5 +377,32 @@ describe("approveJob", () => {
     await approveJob("my-restaurant", "job-1");
 
     expect(mockUpdateRestaurantById).not.toHaveBeenCalled();
+  });
+});
+
+describe("createConsolidatedImportJob (Onboarding V3)", () => {
+  it("creates one MULTI job and enqueues consolidated extraction with the mapped sources", async () => {
+    mockPrisma.importJob.create.mockResolvedValue({ id: "multi-1", sourceType: "MULTI" } as never);
+
+    const job = await createConsolidatedImportJob("rest-1", "owner-1", {
+      images: [{ buffer: Buffer.from("img"), mimeType: "image/jpeg", originalName: "a.jpg" }],
+      pdfs: [{ buffer: Buffer.from("pdf"), mimeType: "application/pdf", originalName: "menu.pdf" }],
+      websiteUrl: "https://example.com",
+      googleMapsUrl: "https://maps.google.com/x",
+    });
+
+    expect(job.id).toBe("multi-1");
+    expect(mockPrisma.importJob.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ restaurantId: "rest-1", createdById: "owner-1", sourceType: "MULTI" }) }),
+    );
+    expect(mockJobRunner.enqueueConsolidated).toHaveBeenCalledTimes(1);
+    const [enqueuedId, sources] = mockJobRunner.enqueueConsolidated.mock.calls[0]!;
+    expect(enqueuedId).toBe("multi-1");
+    expect(sources).toMatchObject({
+      images: [{ mimeType: "image/jpeg", originalName: "a.jpg" }],
+      pdfs: [{ mimeType: "application/pdf" }],
+      websiteUrl: "https://example.com",
+      googleMapsUrl: "https://maps.google.com/x",
+    });
   });
 });
