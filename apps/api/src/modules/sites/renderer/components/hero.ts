@@ -163,7 +163,12 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   // editorial-split leads with the (larger) image for an asymmetric magazine layout; every other inset variant keeps the original text-then-image order.
   const body = isEditorial ? `${insetImageHtml}\n  ${textBlock}` : `${textBlock}\n  ${insetImageHtml}`;
 
-  return `<section class="hero hero--${escapeHtml(variant)}" style="min-height:${minHeight};display:flex;align-items:center;padding:2rem 1rem;gap:${isEditorial ? "3rem" : "2rem"};flex-wrap:wrap;justify-content:${justify};${wrapperExtra}">
+  // With a real photo the hero holds a tall, deliberate min-height. With only the
+  // fallback tile (no uploaded/generated image) that same height reads as a huge
+  // empty band, so the section hugs its content instead — sparse, not broken.
+  const sectionMinHeight = insetImageUrl ? minHeight : "auto";
+
+  return `<section class="hero hero--${escapeHtml(variant)}" style="min-height:${sectionMinHeight};display:flex;align-items:center;padding:2rem 1rem;gap:${isEditorial ? "3rem" : "2rem"};flex-wrap:wrap;justify-content:${justify};${wrapperExtra}">
   ${body}
 </section>`;
 }

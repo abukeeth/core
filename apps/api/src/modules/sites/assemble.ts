@@ -98,6 +98,27 @@ function groupMenuByCategory(menu: MenuItemSummary[]) {
   return order.map((name) => ({ name, items: byCategory.get(name)! }));
 }
 
+/**
+ * Vertical-aware heading for the "signature" home section. Food businesses keep
+ * "Signature Dishes"; retail-style businesses (vape/retail/convenience/grocery)
+ * get "Featured Products"; cafés/bakeries/delis and anything else get the
+ * neutral "Featured Items" — so a vape shop never reads "Signature Dishes".
+ */
+function featuredSectionTitle(businessType: string | undefined): string {
+  switch (businessType) {
+    case "RESTAURANT":
+    case "PIZZA":
+      return "Signature Dishes";
+    case "VAPE_SHOP":
+    case "RETAIL":
+    case "CONVENIENCE_STORE":
+    case "GROCERY":
+      return "Featured Products";
+    default:
+      return "Featured Items";
+  }
+}
+
 function buildHomeSection(type: SectionType, input: AssembleInput, facts: SiteFacts): SectionBlock {
   switch (type) {
     case "hero":
@@ -118,9 +139,21 @@ function buildHomeSection(type: SectionType, input: AssembleInput, facts: SiteFa
         : { type, props: { title: "Signature Dishes", eyebrow: "Favourites" } };
     }
     case "signatureDishes":
-      return { type, props: { intro: input.content.signatureDishesIntro, items: pickSignatureDishes(input.ingest.menu) } };
+      return {
+        type,
+        props: {
+          title: featuredSectionTitle(input.ingest.businessType),
+          intro: input.content.signatureDishesIntro,
+          items: pickSignatureDishes(input.ingest.menu),
+        },
+      };
     case "aboutTeaser":
-      return { type, props: { excerpt: truncate(input.content.aboutStory, 280), linkTo: "/about" } };
+      // Only build an excerpt when there's a real story; an empty story must
+      // stay empty so the teaser self-omits (never an empty "Our Story" band).
+      return {
+        type,
+        props: { excerpt: input.content.aboutStory.trim() ? truncate(input.content.aboutStory, 280) : "", linkTo: "/about" },
+      };
     case "hoursLocation":
       return { type, props: { address: input.ingest.address, phone: input.ingest.phone } };
     case "gallery":
@@ -136,6 +169,20 @@ function buildHomeSection(type: SectionType, input: AssembleInput, facts: SiteFa
   }
 }
 
+/**
+ * Cuisine to surface in SEO copy — omitted when the brand analysis had zero
+ * confidence in it (the safe-default path, e.g. the generic "eclectic" used
+ * when no AI provider is configured), so a placeholder descriptor never reaches
+ * the customer's title/tab.
+ */
+function seoCuisine(input: AssembleInput): string | undefined {
+  // Omit ONLY when brand analysis explicitly had zero confidence in the cuisine
+  // (the safe-default "eclectic" path). When confidence is absent (legacy/hand-
+  // built definitions), keep the cuisine so existing output stays byte-identical.
+  const confidence = input.brandProfile.confidence?.cuisine;
+  return confidence === undefined || confidence > 0 ? input.brandProfile.cuisine : undefined;
+}
+
 function buildHomePage(input: AssembleInput, facts: SiteFacts, city: string | undefined): SitePage {
   const availability = {
     hasMenuItems: input.ingest.menu.length > 0,
@@ -145,8 +192,8 @@ function buildHomePage(input: AssembleInput, facts: SiteFacts, city: string | un
   const order = filterSectionsByAvailability(input.theme.layouts.home, availability);
   return {
     slug: "/",
-    title: buildPageTitle("Home", input.ingest.restaurantName, input.brandProfile.cuisine, city),
-    metaDescription: buildMetaDescription(input.content.tagline, input.brandProfile.cuisine, city),
+    title: buildPageTitle("Home", input.ingest.restaurantName, seoCuisine(input), city),
+    metaDescription: buildMetaDescription(input.content.tagline, seoCuisine(input), city),
     sections: order.map((type) => buildHomeSection(type, input, facts)),
   };
 }
@@ -154,8 +201,8 @@ function buildHomePage(input: AssembleInput, facts: SiteFacts, city: string | un
 function buildMenuPage(input: AssembleInput, city: string | undefined): SitePage {
   return {
     slug: "/menu",
-    title: buildPageTitle("Menu", input.ingest.restaurantName, input.brandProfile.cuisine, city),
-    metaDescription: buildMetaDescription(`${input.ingest.restaurantName}'s full menu.`, input.brandProfile.cuisine, city),
+    title: buildPageTitle("Menu", input.ingest.restaurantName, seoCuisine(input), city),
+    metaDescription: buildMetaDescription(`${input.ingest.restaurantName}'s full menu.`, seoCuisine(input), city),
     sections: [
       { type: "menu", variant: input.theme.variants.menuLayout[0], props: { categories: groupMenuByCategory(input.ingest.menu) } },
       { type: "footer", props: { restaurantName: input.ingest.restaurantName } },
@@ -166,8 +213,8 @@ function buildMenuPage(input: AssembleInput, city: string | undefined): SitePage
 function buildAboutPage(input: AssembleInput, city: string | undefined): SitePage {
   return {
     slug: "/about",
-    title: buildPageTitle("About", input.ingest.restaurantName, input.brandProfile.cuisine, city),
-    metaDescription: buildMetaDescription(`The story behind ${input.ingest.restaurantName}.`, input.brandProfile.cuisine, city),
+    title: buildPageTitle("About", input.ingest.restaurantName, seoCuisine(input), city),
+    metaDescription: buildMetaDescription(`The story behind ${input.ingest.restaurantName}.`, seoCuisine(input), city),
     sections: [
       { type: "aboutStory", props: { story: input.content.aboutStory } },
       { type: "footer", props: { restaurantName: input.ingest.restaurantName } },
@@ -178,8 +225,8 @@ function buildAboutPage(input: AssembleInput, city: string | undefined): SitePag
 function buildContactPage(input: AssembleInput, facts: SiteFacts, city: string | undefined): SitePage {
   return {
     slug: "/contact",
-    title: buildPageTitle("Contact", input.ingest.restaurantName, input.brandProfile.cuisine, city),
-    metaDescription: buildMetaDescription(`Get in touch with ${input.ingest.restaurantName}.`, input.brandProfile.cuisine, city),
+    title: buildPageTitle("Contact", input.ingest.restaurantName, seoCuisine(input), city),
+    metaDescription: buildMetaDescription(`Get in touch with ${input.ingest.restaurantName}.`, seoCuisine(input), city),
     sections: [
       { type: "contactInfo", props: { address: facts.address, phone: facts.phone } },
       { type: "contactForm", props: {} },
@@ -191,8 +238,8 @@ function buildContactPage(input: AssembleInput, facts: SiteFacts, city: string |
 function buildGalleryPage(input: AssembleInput, city: string | undefined): SitePage {
   return {
     slug: "/gallery",
-    title: buildPageTitle("Gallery", input.ingest.restaurantName, input.brandProfile.cuisine, city),
-    metaDescription: buildMetaDescription(input.content.galleryIntro, input.brandProfile.cuisine, city),
+    title: buildPageTitle("Gallery", input.ingest.restaurantName, seoCuisine(input), city),
+    metaDescription: buildMetaDescription(input.content.galleryIntro, seoCuisine(input), city),
     sections: [
       { type: "gallery", props: { intro: input.content.galleryIntro } },
       { type: "footer", props: { restaurantName: input.ingest.restaurantName } },

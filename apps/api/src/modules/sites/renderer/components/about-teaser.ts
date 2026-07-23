@@ -7,6 +7,11 @@ export function renderAboutTeaser(section: SectionBlock, ctx: RenderContext): st
   const excerpt = typeof section.props.excerpt === "string" ? section.props.excerpt : "";
   const linkTo = typeof section.props.linkTo === "string" ? section.props.linkTo : "/about";
 
+  // No real story yet → self-omit rather than render an empty "Our Story"
+  // heading or a bracketed placeholder (mirrors how reviews/testimonials omit
+  // when there's no real data).
+  if (!excerpt.trim()) return "";
+
   // Theme Engine V3 — restaurant-maison gets an editorial, emotionally-weighted
   // treatment: a spaced eyebrow, the story set as a large centered serif
   // passage, a brass hairline, and a refined call to read on. Other themes keep
@@ -35,7 +40,10 @@ export function renderAboutTeaser(section: SectionBlock, ctx: RenderContext): st
 }
 
 export function renderAboutStory(section: SectionBlock, ctx: RenderContext): string {
-  const story = typeof section.props.story === "string" ? section.props.story : "";
+  const rawStory = typeof section.props.story === "string" ? section.props.story : "";
+  // The /about page must not be blank when there's no real story, and must never
+  // show a bracketed placeholder — fall back to a neutral, presentable line.
+  const story = rawStory.trim() ? rawStory : `Welcome to ${ctx.definition.restaurantName}. Take a look at what we offer — we'd love to serve you.`;
 
   const photoBand =
     ctx.assets.galleryImages.length > 0

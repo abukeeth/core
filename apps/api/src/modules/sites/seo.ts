@@ -21,13 +21,19 @@ function truncate(text: string, maxLength: number): string {
   return text.length <= maxLength ? text : `${text.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
-/** §9 title pattern: `{Page} — {Restaurant} | {Cuisine} in {City}`. */
-export function buildPageTitle(page: string, restaurantName: string, cuisine: string, city?: string): string {
-  const suffix = city ? `${cuisine} in ${city}` : cuisine;
-  return truncate(`${page} — ${restaurantName} | ${suffix}`, MAX_TITLE_LENGTH);
+/**
+ * §9 title pattern: `{Page} — {Restaurant} | {Cuisine} in {City}`.
+ * `cuisine` is omitted when undefined (e.g. a low-confidence safe-default guess
+ * the caller chose not to surface) so a generic placeholder like "eclectic"
+ * never reaches the customer — the title degrades to `{Page} — {Restaurant}`
+ * (optionally with the city) instead.
+ */
+export function buildPageTitle(page: string, restaurantName: string, cuisine: string | undefined, city?: string): string {
+  const descriptor = cuisine ? (city ? `${cuisine} in ${city}` : cuisine) : city;
+  return truncate(descriptor ? `${page} — ${restaurantName} | ${descriptor}` : `${page} — ${restaurantName}`, MAX_TITLE_LENGTH);
 }
 
-export function buildMetaDescription(base: string, cuisine: string, city?: string): string {
-  const suffix = city ? `${cuisine} in ${city}.` : `${cuisine} cuisine.`;
-  return truncate(`${base} ${suffix}`, MAX_META_DESCRIPTION_LENGTH);
+export function buildMetaDescription(base: string, cuisine: string | undefined, city?: string): string {
+  const suffix = cuisine ? (city ? `${cuisine} in ${city}.` : `${cuisine} cuisine.`) : city ? `In ${city}.` : "";
+  return truncate(suffix ? `${base} ${suffix}` : base, MAX_META_DESCRIPTION_LENGTH);
 }

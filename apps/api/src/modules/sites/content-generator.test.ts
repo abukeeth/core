@@ -71,7 +71,9 @@ describe("generateContentCore", () => {
     const core = await generateContentCore(ingest, brandProfile);
 
     expect(core.heroHeadline).toBe("Trattoria Bella");
-    expect(core.aboutStory).toBe("[add your story]");
+    // No real story available → empty, so the About teaser self-omits rather
+    // than surfacing a literal "[add your story]" placeholder to the customer.
+    expect(core.aboutStory).toBe("");
   });
 
   it("falls back to templated copy when the API call throws", async () => {
