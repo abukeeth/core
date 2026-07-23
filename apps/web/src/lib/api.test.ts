@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ApiRequestError, forgotPassword, login, resendVerification } from "./api";
+import { ApiRequestError, createConsolidatedImport, forgotPassword, login, resendVerification } from "./api";
 
 describe("apiFetch — timeout and network error mapping", () => {
   beforeEach(() => {
@@ -125,5 +125,59 @@ describe("apiFetch — timeout and network error mapping", () => {
     // No longer a bare "Request failed" — the status makes the misroute diagnosable.
     expect((err as ApiRequestError).message).toMatch(/HTTP 404/);
     expect((err as ApiRequestError).status).toBe(404);
+  });
+});
+
+describe("createConsolidatedImport (Onboarding V3)", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("posts every file plus the optional URLs as multipart to /api/imports/consolidated", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ job: { id: "multi-1", sourceType: "MULTI", status: "PENDING" } }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { job } = await createConsolidatedImport({
+      files: [new File(["a"], "a.jpg", { type: "image/jpeg" }), new File(["b"], "menu.pdf", { type: "application/pdf" })],
+      websiteUrl: "https://example.com",
+      googleMapsUrl: "https://maps.google.com/x",
+    });
+
+    expect(job.id).toBe("multi-1");
+    const [path, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe("/api/imports/consolidated");
+    expect(options.method).toBe("POST");
+    const body = options.body as FormData;
+    expect(body.getAll("files")).toHaveLength(2);
+    expect(body.get("websiteUrl")).toBe("https://example.com");
+    expect(body.get("googleMapsUrl")).toBe("https://maps.google.com/x");
+  });
+
+  it("omits URL fields when not provided", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ job: { id: "multi-2" } }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createConsolidatedImport({ files: [new File(["a"], "a.jpg", { type: "image/jpeg" })] });
+
+    const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const body = options.body as FormData;
+    expect(body.has("websiteUrl")).toBe(false);
+    expect(body.has("googleMapsUrl")).toBe(false);
+  });
+
+  it("surfaces the API error message on a failed upload", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "Upload at least one source — an image, a PDF, a website URL, or a Google Maps URL." }),
+    }));
+
+    await expect(createConsolidatedImport({ files: [] })).rejects.toMatchObject({
+      status: 400,
+      message: expect.stringMatching(/at least one source/i),
+    });
   });
 });

@@ -117,6 +117,24 @@ Planned:
 
 ## Current Development Direction
 
+**Onboarding V3 (latest completed work) — 3-screen store creation behind a
+flag:** the 7-step Business Setup Wizard is replaced, behind
+`NEXT_PUBLIC_ONBOARDING_V3` (default OFF), by a 3-screen flow (Create → Analysis
+& Review → Live Build/Ready) that REUSES the existing consolidated import,
+generation/builder, and QR pipelines — no rebuild. Backend (Phase 1) landed the
+`MULTI` consolidated import (`runConsolidatedExtraction`, best-N images + PDFs +
+website/Google URLs), the `POST /api/imports/consolidated` endpoint, and 24/7
+default-hours seeding on store creation. Frontend (phases 3–6) added the flag
+helper (`apps/web/src/lib/feature-flags.ts`), the `createConsolidatedImport`
+client, the three V3 screens under `apps/web/src/app/setup/v3/`, and a
+data-driven resumable container. The old wizard is preserved intact in
+`setup/legacy-wizard.tsx` and is the default until the flag is turned on. Screen
+3 hands off to `/dashboard/builder` (marking `setupStep=DONE`), the same reuse
+the legacy wizard's final step used. Do NOT delete or bypass the legacy wizard
+while the flag is off.
+
+
+
 **Generation V2 (approved architecture, P0+P1 landed — shadow mode live):** the next-generation
 pipeline is Business source → BusinessUnderstanding (evidence-backed) →
 three ORIGINAL CreativeBriefs invented per business → three independent
