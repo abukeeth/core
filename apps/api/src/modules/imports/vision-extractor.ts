@@ -28,6 +28,27 @@ const IMAGE_INTRO = "You are extracting a restaurant menu from the attached imag
 const TEXT_INTRO = "You are extracting a restaurant menu from the following webpage text content.";
 
 /**
+ * Recover the JSON object from a model response before parsing. Despite the
+ * "return ONLY a JSON object, no markdown fences" instruction, models
+ * routinely wrap the payload in a ```json fence or a sentence of preamble
+ * ("Here is the extracted menu:"). A raw JSON.parse on that throws and fails
+ * the whole import, so strip a surrounding code fence and, as a fallback,
+ * slice the outermost { … } span. Returns the trimmed input unchanged when no
+ * object span is present, so JSON.parse still surfaces a clear error.
+ */
+export function extractJsonObjectText(raw: string): string {
+  const withoutFences = raw
+    .trim()
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+  const first = withoutFences.indexOf("{");
+  const last = withoutFences.lastIndexOf("}");
+  if (first === -1 || last <= first) return withoutFences;
+  return withoutFences.slice(first, last + 1);
+}
+
+/**
  * Shared call + response-parsing core for every extraction path (image
  * or text), so they never drift out of sync on validation behavior.
  */
@@ -37,7 +58,12 @@ async function callAndParse(text: string, images?: { data: Buffer; mediaType: AI
     throw new Error("AI response contained no text content");
   }
 
-  const parsed: unknown = JSON.parse(responseText);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(extractJsonObjectText(responseText));
+  } catch {
+    throw new Error("AI response was not valid JSON");
+  }
   return extractedMenuDataSchema.parse(parsed);
 }
 
