@@ -51,4 +51,19 @@ describe("commerceEventBus", () => {
       expect(mockLoggerDebug).toHaveBeenCalledWith({ orderId: "o4", restaurantId: "r4" }, expect.stringContaining("ORDER_READY")),
     );
   });
+
+  it("subscribe() returns an unsubscribe that detaches the handler (connection-scoped listeners don't leak)", async () => {
+    const handler = vi.fn();
+    const unsubscribe = commerceEventBus.subscribe("ORDER_DELIVERED", handler);
+
+    commerceEventBus.emit({ type: "ORDER_DELIVERED", restaurantId: "r5", orderId: "o5" });
+    await vi.waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+
+    unsubscribe();
+    commerceEventBus.emit({ type: "ORDER_DELIVERED", restaurantId: "r5", orderId: "o6" });
+
+    // Give any (incorrectly still-attached) handler a chance to run before asserting.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
 });

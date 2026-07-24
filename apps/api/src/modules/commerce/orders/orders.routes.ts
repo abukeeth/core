@@ -19,6 +19,7 @@ import {
   refundHandler,
   startPreparingHandler,
 } from "./orders.controller";
+import { kitchenStreamHandler } from "./kitchen-stream.controller";
 
 // Owner/staff-facing — mounted at "/api/restaurants" myself, so internal
 // paths resolve to e.g. "/api/restaurants/me/orders".
@@ -27,6 +28,10 @@ export const ordersRouter = Router();
 const staffOrOwner = requireRole(Role.RESTAURANT_OWNER, Role.RESTAURANT_STAFF);
 
 ordersRouter.get("/me/orders", requireAuth, staffOrOwner, staffActionRateLimiter, listOrdersHandler);
+// Registered before "/me/orders/:id" so the literal "stream" segment isn't
+// captured as an order id. No rate limiter: this is one long-lived SSE
+// connection per open KDS tab, not a repeated staff action.
+ordersRouter.get("/me/orders/stream", requireAuth, staffOrOwner, kitchenStreamHandler);
 ordersRouter.get("/me/orders/:id", requireAuth, staffOrOwner, staffActionRateLimiter, getOrderHandler);
 ordersRouter.get("/me/orders/:id/events", requireAuth, staffOrOwner, staffActionRateLimiter, getOrderEventsHandler);
 ordersRouter.patch("/me/orders/:id/start-preparing", requireAuth, staffOrOwner, staffActionRateLimiter, startPreparingHandler);

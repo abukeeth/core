@@ -39,7 +39,18 @@ class CommerceEventBus {
   }
 
   on(type: OrderEventType | typeof WILDCARD, handler: CommerceEventHandler): void {
-    this.emitter.on(type, (event: CommerceEvent) => {
+    this.subscribe(type, handler);
+  }
+
+  /**
+   * Like `on`, but returns an unsubscribe function. Required for
+   * connection-scoped listeners (e.g. an SSE stream per open KDS tab): each
+   * connection MUST detach on disconnect, or listeners accumulate against the
+   * 50-listener cap and leak. Long-lived, process-wide subscribers can use the
+   * fire-and-forget `on`.
+   */
+  subscribe(type: OrderEventType | typeof WILDCARD, handler: CommerceEventHandler): () => void {
+    const wrapped = (event: CommerceEvent) => {
       try {
         void Promise.resolve(handler(event)).catch((err: unknown) => {
           logger.error({ err, eventType: type }, `[commerce-events] handler for "${type}" failed`);
@@ -53,7 +64,9 @@ class CommerceEventBus {
         logger.error({ err, eventType: type }, `[commerce-events] handler for "${type}" failed`);
         errorTracker.captureException(err, { eventType: type });
       }
-    });
+    };
+    this.emitter.on(type, wrapped);
+    return () => this.emitter.off(type, wrapped);
   }
 
   emit(event: CommerceEvent): void {

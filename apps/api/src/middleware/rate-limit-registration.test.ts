@@ -14,13 +14,28 @@ process.env.JWT_REFRESH_TTL ??= "30d";
 // regression guard for Sprint 07.7 H-13/H-14, so a route added later
 // without the limiter fails this test rather than silently shipping
 // unprotected.
-function everyRouteUses(router: Router, middleware: (...args: never[]) => unknown): void {
+function everyRouteUses(
+  router: Router,
+  middleware: (...args: never[]) => unknown,
+  exemptPaths: readonly string[] = [],
+): void {
   const routeLayers = router.stack.filter((layer) => layer.route);
   expect(routeLayers.length).toBeGreaterThan(0);
+  const exempt = new Set(exemptPaths);
+  const seenExempt = new Set<string>();
   for (const layer of routeLayers) {
     const path = layer.route!.path;
+    if (exempt.has(path)) {
+      seenExempt.add(path);
+      continue;
+    }
     const usesMiddleware = (layer.route!.stack as Array<{ handle: unknown }>).some((l) => l.handle === middleware);
     expect(usesMiddleware, `expected route "${path}" to use the expected rate limiter`).toBe(true);
+  }
+  // Guard the exemptions themselves: if an exempt path no longer exists (route
+  // renamed/removed), fail so a stale exemption can't silently hide a real gap.
+  for (const path of exempt) {
+    expect(seenExempt.has(path), `exempt route "${path}" is no longer registered — remove or update the exemption`).toBe(true);
   }
 }
 
@@ -42,7 +57,13 @@ describe("staffActionRateLimiter registration (Sprint 07.7 H-14)", () => {
 
   it("is registered on every route in the staff-facing ordersRouter", async () => {
     const { ordersRouter } = await import("../modules/commerce/orders/orders.routes.js");
-    everyRouteUses(ordersRouter, staffActionRateLimiter);
+    // "/me/orders/stream" is the KDS Server-Sent Events stream — a single
+    // long-lived connection, not a repeated action. A per-request limiter is
+    // semantically wrong there (it would count the one open connection once)
+    // and could block EventSource reconnects on the reliability-critical
+    // kitchen screen, so it is deliberately exempt. It is still auth-gated
+    // (requireAuth + staff/owner role).
+    everyRouteUses(ordersRouter, staffActionRateLimiter, ["/me/orders/stream"]);
   });
 
   it("is registered on every route in deliveryRulesRouter", async () => {
