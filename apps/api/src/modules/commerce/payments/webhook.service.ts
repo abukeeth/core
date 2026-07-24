@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { decryptSecret } from "../../../lib/encryption";
 import { prisma } from "../../../lib/prisma";
+import { canTransitionOrderStatus } from "../orders/order-state-machine";
 import { PaymentProviderNotFoundError } from "./payments.errors";
 import { paymentProviderRegistry } from "./registry";
 
@@ -21,9 +22,14 @@ export type WebhookOutcome =
  * Verifies signature, writes the idempotent WebhookEvent row (unique on
  * [source, externalEventId] — a P2002 conflict means "already processed,
  * no-op, still 200 OK"), and updates PaymentAttempt/Payment status from
- * the normalized event. Does NOT touch Order state — that's the orders
- * module's responsibility (via its own subscription/poll), out of scope
- * for this module.
+ * the normalized event. For the synchronous checkout path, Order state is
+ * owned by the orders/checkout module (authorize/capture set it inline), so
+ * this handler deliberately does NOT reconcile authorized/captured back onto
+ * the Order — echoing them could regress a PAID order to AUTHORIZED on a
+ * late/out-of-order webhook. It DOES reconcile the one class of money event
+ * that only ever arrives asynchronously: an externally-initiated refund
+ * (Stripe-dashboard refund or a dispute), which otherwise leaves the Order
+ * showing PAID while the money has actually been returned.
  */
 export async function handlePaymentWebhook(input: HandleWebhookInput): Promise<WebhookOutcome> {
   const provider = await prisma.paymentProvider.findUnique({ where: { id: input.providerId } });
@@ -86,6 +92,38 @@ async function applyPaymentStatus(providerPaymentIntentId: string, status: strin
   if (paymentStatus) {
     await prisma.payment.update({ where: { id: payment.id }, data: { status: paymentStatus } });
   }
+
+  // Reconcile the Order for externally-initiated refunds only. The
+  // synchronous checkout path never produces these, so there is no race
+  // with authorize/capture; a refund/dispute is the realistic async-only
+  // money event that would otherwise leave Order.paymentStatus stale.
+  if (status === "refunded" || status === "partially_refunded") {
+    await reconcileOrderRefund(attempt.orderId, status === "refunded");
+  }
+}
+
+/**
+ * Mirrors the in-app refundOrder outcome (orders.service.ts) for a refund that
+ * was initiated outside the app: a full refund moves paymentStatus → REFUNDED
+ * and, when the fulfillment state machine allows it, status → REFUNDED; a
+ * partial refund moves paymentStatus → PARTIALLY_REFUNDED without ever
+ * downgrading an already-full refund.
+ */
+async function reconcileOrderRefund(orderId: string, isFullRefund: boolean): Promise<void> {
+  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  if (!order) return;
+
+  if (!isFullRefund) {
+    if (order.paymentStatus === "REFUNDED") return;
+    await prisma.order.update({ where: { id: order.id }, data: { paymentStatus: "PARTIALLY_REFUNDED" } });
+    return;
+  }
+
+  const data: Prisma.OrderUpdateInput = { paymentStatus: "REFUNDED" };
+  if (order.status !== "REFUNDED" && canTransitionOrderStatus(order.status, "REFUNDED")) {
+    data.status = "REFUNDED";
+  }
+  await prisma.order.update({ where: { id: order.id }, data });
 }
 
 function mapToAttemptStatus(status: string) {

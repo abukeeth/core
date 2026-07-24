@@ -66,6 +66,20 @@ export default function OrderTrackingPage() {
     };
   }, [orderId]);
 
+  // Live tracking: poll for status/timeline updates while the order is still
+  // in flight, and stop once it reaches a terminal state so a finished order
+  // isn't polled forever. (No WebSocket transport exists yet — this is the
+  // polling stand-in; cadence matches the KDS auto-refresh.)
+  const orderStatus = order?.status;
+  useEffect(() => {
+    const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED", "REFUNDED", "FAILED"]);
+    if (orderStatus && TERMINAL_STATUSES.has(orderStatus)) return;
+    const intervalId = setInterval(() => {
+      void load();
+    }, 15_000);
+    return () => clearInterval(intervalId);
+  }, [orderStatus, load]);
+
   useEffect(() => {
     customerMe()
       .then(() => {
