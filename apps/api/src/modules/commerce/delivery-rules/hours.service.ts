@@ -30,6 +30,29 @@ export async function setHours(restaurantId: string, rows: HoursRowInput[]): Pro
   });
 }
 
+// Onboarding V3 — every new store opens 24/7 by default (owner edits later in
+// Settings), so a freshly-created store accepts orders immediately instead of
+// reading as "closed" for lack of any hours. 0–1439 minutes is the widest the
+// minute-of-day model allows (a ~1-minute gap at midnight is inherent to it).
+const ALL_DAYS_OF_WEEK: HoursDayOfWeek[] = [
+  "MONDAY",
+  "TUESDAY",
+  "WEDNESDAY",
+  "THURSDAY",
+  "FRIDAY",
+  "SATURDAY",
+  "SUNDAY",
+];
+
+/** Seeds a 24/7 schedule only when the restaurant has no hours yet — never overwrites an owner's edits. */
+export async function ensureDefaultBusinessHours(restaurantId: string): Promise<void> {
+  const existing = await prisma.restaurantHours.count({ where: { restaurantId } });
+  if (existing > 0) return;
+  await prisma.restaurantHours.createMany({
+    data: ALL_DAYS_OF_WEEK.map((dayOfWeek) => ({ restaurantId, dayOfWeek, opensAt: 0, closesAt: 1439, isClosed: false })),
+  });
+}
+
 // JS Date#getDay(): 0 = Sunday ... 6 = Saturday.
 const DAY_BY_JS_INDEX: HoursDayOfWeek[] = [
   "SUNDAY",

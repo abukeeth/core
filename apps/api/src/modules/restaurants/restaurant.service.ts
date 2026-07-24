@@ -1,6 +1,7 @@
 import { MembershipRole, MembershipScope, Prisma, type Restaurant } from "@prisma/client";
 import { prisma } from "../../lib/prisma";
 import { bestEffort } from "../../lib/best-effort";
+import { ensureDefaultBusinessHours } from "../commerce/delivery-rules/hours.service";
 import { ensureOnboardingStatus, recordOnboardingActivity } from "../onboarding/onboarding.service";
 import { NoRestaurantError, RestaurantAlreadyExistsError, RestaurantNotFoundError } from "./restaurant.errors";
 import { generateReferralCode } from "./referral-code";
@@ -109,6 +110,10 @@ export async function createRestaurant(ownerId: string, input: CreateRestaurantI
   });
   // Open the onboarding lifecycle record so progress is tracked from step 1.
   await bestEffort(() => ensureOnboardingStatus(restaurant.id));
+  // Onboarding V3 — new stores are open 24/7 by default so they accept orders
+  // immediately (owner adjusts hours in Settings). Best-effort: a seeding
+  // failure must never block business creation.
+  await bestEffort(() => ensureDefaultBusinessHours(restaurant.id));
   return restaurant;
 }
 

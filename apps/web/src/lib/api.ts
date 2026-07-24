@@ -178,7 +178,10 @@ export type ImportSourceType =
   | "GOOGLE_MAPS"
   | "DOORDASH"
   | "UBER_EATS"
-  | "GRUBHUB";
+  | "GRUBHUB"
+  // Onboarding V3 — one job consolidating several sources (best-N images +
+  // PDFs + website URL + Google Maps URL) into a single reviewable extraction.
+  | "MULTI";
 
 export type ImportStatus = "PENDING" | "PROCESSING" | "AWAITING_REVIEW" | "APPROVED" | "REJECTED" | "FAILED";
 
@@ -740,6 +743,48 @@ export async function createImportJob(
     throw new Error(data?.error ?? "Import failed");
   }
 
+  return data as { job: ImportJob };
+}
+
+/**
+ * Onboarding V3 — the "Analyze My Business" action. Posts up to 30 files
+ * (images + PDFs) plus optional website / Google Maps URLs as multipart and
+ * creates ONE consolidated (MULTI) import job the review screen then polls,
+ * exactly like a single import. Bypasses apiFetch's forced JSON Content-Type
+ * for the same reason as createImportJob (the browser must set the multipart
+ * boundary). Uses the generous upload timeout — several photos can be large.
+ */
+export async function createConsolidatedImport(input: {
+  files: File[];
+  websiteUrl?: string;
+  googleMapsUrl?: string;
+}): Promise<{ job: ImportJob }> {
+  const formData = new FormData();
+  for (const file of input.files) {
+    formData.append("files", file);
+  }
+  if (input.websiteUrl) formData.append("websiteUrl", input.websiteUrl);
+  if (input.googleMapsUrl) formData.append("googleMapsUrl", input.googleMapsUrl);
+
+  let res: Response;
+  try {
+    res = await fetch("/api/imports/consolidated", {
+      method: "POST",
+      credentials: "include",
+      body: formData,
+      signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS),
+    });
+  } catch (err) {
+    if (isTimeoutError(err)) {
+      throw new ApiRequestError(TIMEOUT_MESSAGE, "REQUEST_TIMEOUT");
+    }
+    throw new ApiRequestError(NETWORK_MESSAGE, "NETWORK_UNREACHABLE");
+  }
+
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    throw new ApiRequestError(data?.error ?? "Import failed", "REQUEST_FAILED", res.status);
+  }
   return data as { job: ImportJob };
 }
 

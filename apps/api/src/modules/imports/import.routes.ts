@@ -5,7 +5,9 @@ import { getNumberEnv } from "../../config/env";
 import { importRateLimiter } from "../../middleware/rate-limit";
 import { requireAuth } from "../../middleware/require-auth";
 import { requireRole } from "../../middleware/require-role";
-import { approve, create, getOne, list, reject, rerun, updateData } from "./import.controller";
+import { approve, create, createConsolidated, getOne, list, reject, rerun, updateData } from "./import.controller";
+
+const MAX_CONSOLIDATED_FILES = getNumberEnv("IMPORT_MAX_CONSOLIDATED_FILES", 30);
 
 const MAX_FILE_SIZE_BYTES = getNumberEnv("IMPORT_MAX_FILE_SIZE_BYTES", 10 * 1024 * 1024);
 
@@ -33,6 +35,14 @@ export const importRouter = Router();
 const staffOrOwner = requireRole(Role.RESTAURANT_OWNER, Role.RESTAURANT_STAFF);
 
 importRouter.post("/", requireAuth, staffOrOwner, importRateLimiter, upload.single("file"), create);
+importRouter.post(
+  "/consolidated",
+  requireAuth,
+  staffOrOwner,
+  importRateLimiter,
+  upload.array("files", MAX_CONSOLIDATED_FILES),
+  createConsolidated,
+);
 importRouter.get("/", requireAuth, staffOrOwner, list);
 importRouter.get("/:id", requireAuth, staffOrOwner, getOne);
 importRouter.patch("/:id", requireAuth, staffOrOwner, updateData);

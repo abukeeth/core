@@ -43,7 +43,7 @@
 
 | Route | Purpose | Design |
 |---|---|---|
-| `/setup` | 7-step Business Setup Wizard (type → info → location → payment → menu import → theme → done) | Warm |
+| `/setup` | Store onboarding. Default: 7-step Business Setup Wizard (type → info → location → payment → menu import → theme → done). Behind `NEXT_PUBLIC_ONBOARDING_V3` (default OFF): the 3-screen Onboarding V3 flow (Create → Analysis & Review → Live Build/Ready, hands off to `/dashboard/builder`). | Warm |
 
 ## Owner dashboard (`/dashboard/*`)
 
