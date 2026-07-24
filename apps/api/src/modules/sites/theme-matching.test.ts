@@ -108,7 +108,7 @@ describe("selectThemesForAllFamilies (golden tests, deterministic)", () => {
   it("still picks a theme in every family when there are zero photos, via the fallback path", () => {
     const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 0, "RESTAURANT");
     // For a restaurant, LUXURY candidates are bold-commerce (needs 1 photo) and
-    // restaurant-maison (needs 2); vape-vapor is VAPE-scoped and excluded. Both
+    // restaurant-maison (needs 2); the VAPE-scoped vape-lab is excluded. Both
     // eligible themes are photo-excluded at zero photos, so the fallback returns
     // the least photo-dependent one, bold-commerce (with a polished non-photo
     // tile at render time — see image-fallback.ts), rather than leaving the
@@ -158,12 +158,12 @@ describe("business-type-aware selection (V3 Milestone 1)", () => {
     expect(result.LUXURY.reasons[0]).toMatch(/purpose-built for restaurant/i);
   });
 
-  it("a VAPE_SHOP tenant selects the purpose-built vape-vapor for LUXURY and never a Restaurant theme", () => {
+  it("a VAPE_SHOP tenant selects the purpose-built vape-lab for LUXURY and never a Restaurant theme", () => {
     const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "VAPE_SHOP");
-    // vape-vapor is VAPE-scoped and wins its family by the business-type boost,
+    // vape-lab is VAPE-scoped and wins its family by the business-type boost,
     // even against a formal/polished profile that personality alone would send
     // elsewhere.
-    expect(result.LUXURY.theme.key).toBe("vape-vapor");
+    expect(result.LUXURY.theme.key).toBe("vape-lab");
     // restaurant-maison is scoped to RESTAURANT and must not appear in any family.
     expect([result.LUXURY.theme.key, result.MODERN.theme.key, result.MINIMAL.theme.key]).not.toContain("restaurant-maison");
   });
@@ -173,17 +173,17 @@ describe("business-type-aware selection (V3 Milestone 1)", () => {
     expect(cafe.MINIMAL.theme.key).toBe("cafe-daybreak");
 
     const deli = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "DELI");
-    expect(deli.MODERN.theme.key).toBe("deli-counter");
+    expect(deli.MODERN.theme.key).toBe("deli-brooklyn");
 
     const vape = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "VAPE_SHOP");
-    expect(vape.LUXURY.theme.key).toBe("vape-vapor");
+    expect(vape.LUXURY.theme.key).toBe("vape-lab");
 
     // A restaurant never receives any of the three vertical themes.
     const restaurant = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 3, "RESTAURANT");
     const picked = [restaurant.LUXURY.theme.key, restaurant.MODERN.theme.key, restaurant.MINIMAL.theme.key];
     expect(picked).not.toContain("cafe-daybreak");
-    expect(picked).not.toContain("deli-counter");
-    expect(picked).not.toContain("vape-vapor");
+    expect(picked).not.toContain("deli-brooklyn");
+    expect(picked).not.toContain("vape-lab");
   });
 
   it("resolves a type-specific theme once one is added (e.g. a BAKERY theme wins for a bakery, and only for a bakery)", () => {
@@ -230,8 +230,8 @@ describe("business-type-aware selection (V3 Milestone 1)", () => {
 
   it("a Vape Shop with zero photos still gets its purpose-built theme (no photo requirement), never the photo-hungry restaurant theme", () => {
     const result = selectThemesForAllFamilies(THEME_CATALOG, UPSCALE_SUSHI, 0, "VAPE_SHOP");
-    // vape-vapor has no photo constraint, so this is a real pick, not a fallback.
-    expect(result.LUXURY.theme.key).toBe("vape-vapor");
+    // vape-lab has no photo constraint, so this is a real pick, not a fallback.
+    expect(result.LUXURY.theme.key).toBe("vape-lab");
     expect(result.LUXURY.reasons[0]).toMatch(/purpose-built for vape/i);
   });
 });

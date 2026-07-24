@@ -6,9 +6,10 @@ describe("THEME_CATALOG", () => {
     for (const family of ["LUXURY", "MODERN", "MINIMAL"] as const) {
       const count = THEME_CATALOG.filter((t) => t.styleFamily === family).length;
       expect(count).toBeGreaterThanOrEqual(2);
-      // Each family carries 4 deprecated/base themes plus one Sprint-5 vertical
-      // theme (cafe-daybreak / deli-counter / vape-vapor) = 5.
-      expect(count).toBeLessThanOrEqual(5);
+      // Base + deprecated vertical + flagship vertical themes. LUXURY is the
+      // largest: bold-commerce, restaurant-maison, the deprecated vape-vapor,
+      // and the flagship vape-lab (plus deprecated base entries) = 6.
+      expect(count).toBeLessThanOrEqual(6);
     }
   });
 
@@ -17,13 +18,14 @@ describe("THEME_CATALOG", () => {
       THEME_CATALOG.filter((t) => t.styleFamily === family && !t.deprecated)
         .map((t) => t.key)
         .sort();
-    // Sprint 5 adds one type-scoped vertical theme per family (cafe-daybreak,
-    // deli-counter, vape-vapor) alongside the type-agnostic base systems.
-    expect(activeByFamily("MODERN")).toEqual(["deli-counter", "modern-editorial"]);
+    // Each family carries the type-agnostic base systems plus the flagship
+    // vertical themes (deli-brooklyn / cafe-daybreak / vape-lab). The earlier
+    // deli-counter / vape-vapor are deprecated (superseded by the flagships).
+    expect(activeByFamily("MODERN")).toEqual(["deli-brooklyn", "modern-editorial"]);
     expect(activeByFamily("MINIMAL")).toEqual(["cafe-daybreak", "warm-local"]);
-    // LUXURY carries restaurant-maison (RESTAURANT) and vape-vapor (VAPE_SHOP)
+    // LUXURY carries restaurant-maison (RESTAURANT) and vape-lab (VAPE_SHOP)
     // alongside the type-agnostic bold-commerce.
-    expect(activeByFamily("LUXURY")).toEqual(["bold-commerce", "restaurant-maison", "vape-vapor"]);
+    expect(activeByFamily("LUXURY")).toEqual(["bold-commerce", "restaurant-maison", "vape-lab"]);
   });
 
   it("has unique key+version pairs", () => {
