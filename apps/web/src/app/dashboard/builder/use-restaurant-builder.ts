@@ -17,6 +17,11 @@ import {
 import { createTable } from "@/lib/owner-commerce-api";
 
 const POLL_INTERVAL_MS = 1200;
+// Wall-clock cap on the progress screen: if generation hasn't reported
+// COMPLETED/FAILED within this window, surface a clear failure with a retry
+// instead of leaving the customer on an endless progress bar. The server now
+// bounds each AI call, so a healthy generation finishes well under this.
+const MAX_GENERATION_MS = 5 * 60 * 1000;
 
 /**
  * The builder no longer auto-publishes. After generation, a design is
@@ -304,18 +309,33 @@ export function useRestaurantBuilder(): BuilderState {
     if (phase !== "generating" || !siteId) return;
     let cancelled = false;
 
+    const startedAt = Date.now();
+
     const interval = setInterval(async () => {
       try {
         const { job: latest } = await getGenerationStatus(siteId);
-        if (cancelled || !latest) return;
-        setJob(latest);
-        if (latest.status === "COMPLETED") {
-          void runSelection(siteId);
-        } else if (latest.status === "FAILED") {
+        if (cancelled) return;
+        // Poll FIRST, then check the wall-clock — so a generation that
+        // finished while the tab was backgrounded/suspended still resolves to
+        // COMPLETED on the next tick instead of being wrongly failed.
+        if (latest) {
+          setJob(latest);
+          if (latest.status === "COMPLETED") {
+            void runSelection(siteId);
+            return;
+          }
+          if (latest.status === "FAILED") {
+            setPhase("generation_failed");
+            return;
+          }
+        }
+        // Still unresolved after the cap → clear failure, never an endless bar.
+        if (Date.now() - startedAt > MAX_GENERATION_MS) {
           setPhase("generation_failed");
         }
       } catch {
-        // Transient fetch failure — keep polling on the next tick.
+        // Transient fetch failure — keep polling on the next tick (still bounded
+        // by MAX_GENERATION_MS above).
       }
     }, POLL_INTERVAL_MS);
 
