@@ -446,6 +446,9 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
     version: 1,
     styleFamily: "MODERN",
     businessTypes: ["DELI"],
+    // Superseded by the flagship `deli-brooklyn` design system below. Kept
+    // (never deleted) so any site already published on it renders identically.
+    deprecated: true,
     personalityVector: {
       traditionalContemporary: 0.55,
       casualFormal: 0.28,
@@ -497,6 +500,9 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
     version: 1,
     styleFamily: "LUXURY",
     businessTypes: ["VAPE_SHOP"],
+    // Superseded by the flagship `vape-lab` design system below. Kept (never
+    // deleted) so any site already published on it renders identically.
+    deprecated: true,
     personalityVector: {
       traditionalContemporary: 0.8,
       casualFormal: 0.6,
@@ -530,6 +536,136 @@ export const THEME_CATALOG: ThemeCatalogEntry[] = [
         borderRadius: 4,
         shadowIntensity: "strong",
         pageWidth: "standard",
+        contentSpacing: "comfortable",
+      },
+    },
+  },
+
+  // --- FLAGSHIP vertical theme · Deli ---------------------------------------
+  // "Brooklyn" — a premium NYC-deli / modern-food-brand design system. Cream
+  // ground, deep-green ink, bronze highlights, editorial serif display over a
+  // clean grotesk body, and a bespoke home structure that leads with food, not
+  // a generic "hero + features + story". Its hero, nav, product cards, and the
+  // buildYourOwn / comboDeals / catering bands are all rendered by themeKey-
+  // scoped branches in the components (see hero.ts, chrome.ts, product-card.ts).
+  // Type-scoped to DELI and boosted ahead of the deprecated deli-counter.
+  {
+    key: "deli-brooklyn",
+    version: 1,
+    styleFamily: "MODERN",
+    businessTypes: ["DELI"],
+    personalityVector: {
+      traditionalContemporary: 0.42,
+      casualFormal: 0.34,
+      playfulSerious: 0.4,
+      understatedBold: 0.72,
+      rusticPolished: 0.55,
+    },
+    cuisineAffinities: { deli: 0.95, sandwiches: 0.95, american: 0.6, breakfast: 0.5, catering: 0.7 },
+    constraints: {},
+    tokens: {
+      colorSeed: "#1F5130",
+      typography: { display: "Fraunces", body: "Inter" },
+      radius: "soft",
+      motion: "subtle",
+      typeScaleRatio: 1.32,
+    },
+    variants: { hero: ["editorial-split"], menuLayout: ["card-grid"], chrome: ["editorial"] },
+    layouts: {
+      home: [
+        "hero",
+        "signatureDishes", // "Fan Favorites" — real menu items, deli product cards
+        "buildYourOwn",
+        "comboDeals",
+        "bestSellers", // "Most Ordered This Week" — real order history; self-omits
+        "catering",
+        "reviews", // real verified reviews only; self-omits
+        "hoursLocation",
+        "ctaBanner",
+        "footer",
+      ],
+    },
+    presentation: {
+      header: { logoPosition: "left", headerLayout: "standard", stickyHeader: true, announcementBar: { enabled: true, text: "Order ahead — ready when you are" }, showSearch: false, showCart: true, showOrderButton: true, mobileNavStyle: "drawer" },
+      footer: { showContactInfo: true, showHours: true, newsletterEnabled: true },
+      productPresentation: { categoryNavStyle: "sticky", cardLayout: "grid", infoDensity: "detailed", priceStyle: "bold", outOfStockAppearance: "badge", addToCartStyle: "button" },
+      brandSettings: {
+        primaryColor: "#1F5130",
+        accentColor: "#A6772F",
+        backgroundColor: "#FBF6EA",
+        textColor: "#211E17",
+        headingFont: "Fraunces",
+        bodyFont: "Inter",
+        buttonStyle: "pill",
+        borderRadius: 18,
+        shadowIntensity: "medium",
+        pageWidth: "wide",
+        contentSpacing: "spacious",
+      },
+    },
+  },
+
+  // --- FLAGSHIP vertical theme · Vape ---------------------------------------
+  // "Lab" — a luxury-technology-brand design system for vape/smoke shops.
+  // Near-black ground, violet primary, cyan highlights, a monospace/grotesk
+  // pairing, and a bespoke home structure: compliance age-gate → cinematic dark
+  // hero → collection strip → per-category product grids (Devices / E-Liquids /
+  // New Arrivals) → best sellers → loyalty → reviews → store locations. Product
+  // cards, hero, and nav are rendered by themeKey-scoped branches. Type-scoped
+  // to VAPE_SHOP and boosted ahead of the deprecated vape-vapor.
+  {
+    key: "vape-lab",
+    version: 1,
+    styleFamily: "LUXURY",
+    businessTypes: ["VAPE_SHOP"],
+    personalityVector: {
+      traditionalContemporary: 0.88,
+      casualFormal: 0.62,
+      playfulSerious: 0.72,
+      understatedBold: 0.96,
+      rusticPolished: 0.9,
+    },
+    cuisineAffinities: {},
+    constraints: {},
+    tokens: {
+      colorSeed: "#150A24",
+      typography: { display: "Space Grotesk", body: "IBM Plex Mono" },
+      radius: "soft",
+      motion: "energetic",
+      typeScaleRatio: 1.38,
+    },
+    variants: { hero: ["fullbleed-image"], menuLayout: ["card-grid"], chrome: ["bold"] },
+    layouts: {
+      home: [
+        // Hero first (keeps the catalog's hero-first invariant); the age-gate is
+        // a fixed full-page overlay, so its DOM position is immaterial — it
+        // still blocks the whole storefront until the visitor confirms 21+.
+        "hero",
+        "ageGate",
+        "featuredBrands", // premium strip of the REAL menu categories
+        "productCollection", // expanded in assemble into one product grid per REAL category (Devices / E-Liquids / …)
+        "bestSellers", // real order history; self-omits
+        "loyalty", // real loyalty program; self-omits
+        "reviews", // real verified reviews only; self-omits
+        "storeLocations",
+        "footer",
+      ],
+    },
+    presentation: {
+      header: { logoPosition: "left", headerLayout: "standard", stickyHeader: true, announcementBar: { enabled: true, text: "You must be 21 or older to purchase" }, showSearch: true, showCart: true, showOrderButton: true, mobileNavStyle: "drawer" },
+      footer: { showContactInfo: true, showHours: true, newsletterEnabled: true },
+      productPresentation: { categoryNavStyle: "sticky", cardLayout: "grid", infoDensity: "compact", priceStyle: "bold", outOfStockAppearance: "badge", addToCartStyle: "button" },
+      brandSettings: {
+        primaryColor: "#8B5CF6",
+        accentColor: "#22D3EE",
+        backgroundColor: "#08060F",
+        textColor: "#EDEAF7",
+        headingFont: "Space Grotesk",
+        bodyFont: "IBM Plex Mono",
+        buttonStyle: "square",
+        borderRadius: 6,
+        shadowIntensity: "strong",
+        pageWidth: "wide",
         contentSpacing: "comfortable",
       },
     },

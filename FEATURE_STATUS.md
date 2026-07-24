@@ -105,6 +105,7 @@
 | Custom-domain TLS (ACME/Let's Encrypt) | 🔩 | Issuance is a stub — **pilot stays on platform subdomain**. |
 | Site scoring (SEO/a11y/perf/brand/conversion) | ✅ | |
 | Customization Studio (live preview, sections, brand/header/footer) | ✅ 🚀 | |
+| Flagship vertical themes (deli-brooklyn, vape-lab) | ✅ | Agency-grade, structurally-distinct per-vertical design systems (bespoke layout/nav/sections/cards/type/color). DELI→deli-brooklyn, VAPE_SHOP→vape-lab; old deli-counter/vape-vapor deprecated. Real-data-only (reviews/badges/ratings never fabricated). |
 | Generation V2 (three original briefs, no themes) | 🟡 | P0–P3 landed, **shadow mode, off by default**; not wired into web UI. |
 | Bilingual EN/AR generation, AI product-image gen | ⛔ | Post-launch. |
 

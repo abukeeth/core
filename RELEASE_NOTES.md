@@ -1,6 +1,46 @@
 # Release Notes
 
-## Onboarding V3 — 3-screen store creation frontend (latest)
+## Flagship vertical storefront themes — Deli & Vape (latest)
+
+Two agency-grade, structurally-distinct storefront design systems replace the
+old "generic template, different colors" vertical themes (which are deprecated,
+not deleted, so published sites render unchanged). They differ by **layout,
+navigation, homepage structure, product cards, typography, color, and media
+strategy** — not only color.
+
+- **`deli-brooklyn`** (premium NYC deli): cream ground, deep-green ink, bronze
+  highlights, Fraunces serif display. Bespoke home: editorial split hero →
+  Fan Favorites (deli product cards) → deep-green **Build Your Own** band →
+  **Perfect Pairings** → **Most Ordered This Week** (real order data) →
+  **Catering** panel → reviews → hours → order CTA.
+- **`vape-lab`** (luxury tech brand): near-black ground, violet primary, cyan
+  highlights, Space Grotesk / IBM Plex Mono. Bespoke home: cinematic dark hero
+  + **age gate** → **Shop the Collection** strip → a **product grid per real
+  category** (Devices / E-Liquids / …) → Best Sellers → a readable dark
+  **Rewards** panel → reviews → **Store Locations**.
+- **Per-vertical product cards** (`product-card.ts`): the deli card (4:3 media,
+  Best-Seller badge, Quick Add pill) and vape card (1:1 media, Trending badge,
+  neon Add) are structurally different, not one card recolored.
+- New section renderers: buildYourOwn, comboDeals, catering, productCollection,
+  featuredBrands, storeLocations; bespoke hero (`flagship-hero.ts`) and a
+  readable-on-dark loyalty panel — all branched by `themeKey`.
+
+**Honesty (§2 Guardrails), enforced in code + tests:** every section renders
+only from REAL data and self-omits when it's absent. Reviews show only real
+verified reviews. Product badges come only from real order history
+(`ctx.bestSellers`). Ratings/review counts render only from a real per-item
+aggregate (`ctx.productStats`, review-ready but unpopulated today) — **never a
+fabricated rating, count, brand, or "new"/bundle-price claim.** Combo cards show
+two real items at their two real prices, never an invented bundle total.
+
+Selection: a DELI tenant now gets `deli-brooklyn` and a VAPE_SHOP tenant gets
+`vape-lab` (business-type match boost). Tests: **API 1663 passed / 5 skipped**
+(+23 new across cards, sections, and theme assembly/selection); typecheck clean.
+This lands on the same branch as the Onboarding V3 work (PR #39).
+
+---
+
+## Onboarding V3 — 3-screen store creation frontend
 
 The 7-step Business Setup Wizard is replaced, **behind the
 `NEXT_PUBLIC_ONBOARDING_V3` flag (default OFF)**, by a 3-screen flow that

@@ -24,6 +24,17 @@ export const sectionTypeSchema = z.enum([
   // placeholder).
   "featuredCategories",
   "featuredProducts",
+  // Flagship vertical themes (deli-brooklyn / vape-lab) — bespoke home sections
+  // that only render from REAL data (real menu items, real order history, real
+  // reviews, the tenant's real address) and self-omit when that data is absent.
+  // None fabricates prices, ratings, review counts, brands, or "new"/"trending"
+  // claims (§2 Guardrails). Content props (titles/eyebrows) are set in assemble.
+  "buildYourOwn", // deli — "Build Your Own" band: real modifier/topping-driven, generic honest process copy
+  "comboDeals", // deli — suggested pairings from REAL menu items (never an invented bundle price)
+  "catering", // deli — catering enquiry band (generic capability copy + real contact/order CTA)
+  "productCollection", // vape — a titled grid of REAL items from one category (Devices / E-Liquids / New Arrivals); self-omits if empty
+  "featuredBrands", // vape — premium strip of the REAL menu categories ("shop the collection")
+  "storeLocations", // vape — the tenant's REAL location(s); self-omits without an address
   // Theme Engine V3 (restaurant-maison) — a "how to order" band listing the
   // service options (pickup / delivery / dine-in / reservations) the tenant
   // has actually enabled. Reads real DeliveryConfig flags + facts.hasReservations
