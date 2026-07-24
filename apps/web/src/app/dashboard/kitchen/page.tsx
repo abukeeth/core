@@ -12,6 +12,11 @@ const QUEUE_STATUSES = ["CONFIRMED", "PREPARING", "READY", "OUT_FOR_DELIVERY"];
 // old poll-only 15s.
 const FALLBACK_REFRESH_MS = 30_000;
 const SOUND_PREFERENCE_KEY = "ordervora-kitchen-sound-enabled";
+// Last-known queue, persisted so a reload or a network blip shows the orders
+// that were on screen instead of a blank/error state. Dynamic order data is
+// intentionally only cached here (never by the service worker), so a stale
+// snapshot can't be served as if it were live.
+const QUEUE_CACHE_KEY = "ordervora-kitchen-queue-cache";
 
 const SEVERITY_CLASSES: Record<string, string> = {
   normal: "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
@@ -85,6 +90,7 @@ export default function KitchenQueuePage() {
     () => typeof window === "undefined" || window.localStorage.getItem(SOUND_PREFERENCE_KEY) !== "false",
   );
   const [flashingIds, setFlashingIds] = useState<Set<string>>(() => new Set());
+  const [isOffline, setIsOffline] = useState(false);
   const seenOrderIdsRef = useRef<Set<string>>(new Set());
   const flashTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
@@ -132,8 +138,20 @@ export default function KitchenQueuePage() {
         seenOrderIdsRef.current = new Set(all.map((o) => o.id));
 
         setOrders(all);
+        setError(null);
+        try {
+          window.localStorage.setItem(QUEUE_CACHE_KEY, JSON.stringify(all));
+        } catch {
+          // Cache is a nicety; a full/blocked localStorage must not break the queue.
+        }
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load queue"));
+      .catch((err) => {
+        // Offline is expected and handled by the banner + cached queue — don't
+        // surface it as a scary error. Only report genuine (online) failures.
+        if (typeof navigator === "undefined" || navigator.onLine) {
+          setError(err instanceof Error ? err.message : "Failed to load queue");
+        }
+      });
   }, [soundEnabled]);
 
   // Hold the latest refresh so the SSE connection can stay open for the whole
@@ -143,6 +161,46 @@ export default function KitchenQueuePage() {
   useEffect(() => {
     refreshRef.current = refresh;
   }, [refresh]);
+
+  // Hydrate the last-known queue from cache on mount (post-render, so it never
+  // causes an SSR hydration mismatch). Seed the seen-order set from it too, so
+  // cached orders don't re-flash on reload — only orders that arrived since the
+  // last cached view do. Runs before the first fetch resolves.
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(QUEUE_CACHE_KEY);
+      if (!raw) return;
+      const cached = JSON.parse(raw) as OwnerOrder[];
+      if (Array.isArray(cached) && cached.length > 0) {
+        seenOrderIdsRef.current = new Set(cached.map((o) => o.id));
+        // One-shot hydration from localStorage on mount — deliberately an
+        // effect (not a useState initializer) so server and first client
+        // render agree (no SSR hydration mismatch); localStorage only exists
+        // on the client.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setOrders(cached);
+      }
+    } catch {
+      // Corrupt/blocked cache — ignore and fall back to a live fetch.
+    }
+  }, []);
+
+  // Connection awareness: show the offline banner and, on reconnect, refetch
+  // immediately (the SSE stream also auto-reconnects on its own).
+  useEffect(() => {
+    const sync = () => setIsOffline(typeof navigator !== "undefined" && !navigator.onLine);
+    const handleOnline = () => {
+      sync();
+      void refreshRef.current();
+    };
+    sync();
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", sync);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", sync);
+    };
+  }, []);
 
   useEffect(() => {
     refresh();
@@ -198,7 +256,17 @@ export default function KitchenQueuePage() {
           </div>
         </div>
 
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {isOffline && (
+          <div
+            role="status"
+            className="flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300"
+          >
+            <span aria-hidden>⚠️</span>
+            Offline — showing the last known queue. Updates resume automatically when the connection returns.
+          </div>
+        )}
+
+        {error && !isOffline && <p className="text-sm text-red-600">{error}</p>}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {orders.map((order) => {

@@ -53,6 +53,20 @@ const nextConfig: NextConfig = {
       { source: "/store/:path*", destination: `${apiUrl}/store/:path*` },
     ];
   },
+  async headers() {
+    return [
+      {
+        // The service worker must never be served stale, or a client can be
+        // pinned to an old SW and miss cache-strategy updates. See
+        // public/sw.js and components/service-worker-registrar.tsx.
+        source: "/sw.js",
+        headers: [
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
