@@ -22,7 +22,7 @@ describe("FinaleReveal", () => {
   it("celebrates the restaurant by name and shows the live preview", () => {
     render(
       <FinaleReveal
-        restaurantName="Joe's Diner"
+        restaurantName="Joe's Diner" restaurantId="rest-1"
         siteId="site-1"
         siteSlug="joes-diner"
         siteDomain="https://joes-diner.sites.ordervora.example"
@@ -39,7 +39,7 @@ describe("FinaleReveal", () => {
   it("shows the real siteDomain from the API, not a hardcoded platform-domain suffix", () => {
     render(
       <FinaleReveal
-        restaurantName="Joe's Diner"
+        restaurantName="Joe's Diner" restaurantId="rest-1"
         siteId="site-1"
         siteSlug="joes-diner"
         siteDomain="https://joes-diner.sites.example-deployment.com"
@@ -56,7 +56,7 @@ describe("FinaleReveal", () => {
   it("falls back to the canonical www.ordervora.com/store/<slug> URL if siteDomain is somehow unavailable", () => {
     render(
       <FinaleReveal
-        restaurantName="Joe's Diner"
+        restaurantName="Joe's Diner" restaurantId="rest-1"
         siteId="site-1"
         siteSlug="joes-diner"
         siteDomain={null}
@@ -73,7 +73,7 @@ describe("FinaleReveal", () => {
   it("renders a QR code encoding the customer ordering URL when a token exists", () => {
     render(
       <FinaleReveal
-        restaurantName="Joe's Diner"
+        restaurantName="Joe's Diner" restaurantId="rest-1"
         siteId="site-1"
         siteSlug="joes-diner"
         siteDomain="https://joes-diner.sites.ordervora.example"
@@ -89,7 +89,7 @@ describe("FinaleReveal", () => {
   it("shows a friendly message instead of a broken QR code when provisioning failed", () => {
     render(
       <FinaleReveal
-        restaurantName="Joe's Diner"
+        restaurantName="Joe's Diner" restaurantId="rest-1"
         siteId="site-1"
         siteSlug="joes-diner"
         siteDomain="https://joes-diner.sites.ordervora.example"
@@ -105,18 +105,19 @@ describe("FinaleReveal", () => {
 
   it("offers next-step CTAs to the website, tables, and dashboard — with the restaurant itself as the primary payoff", () => {
     render(
-      <FinaleReveal restaurantName="Joe's Diner" siteId="site-1" siteSlug="joes-diner" siteDomain="https://joes-diner.sites.ordervora.example" publishedVersionId={null} qrToken={null} qrError={null} />,
+      <FinaleReveal restaurantName="Joe's Diner" restaurantId="rest-1" siteId="site-1" siteSlug="joes-diner" siteDomain="https://joes-diner.sites.ordervora.example" publishedVersionId={null} qrToken={null} qrError={null} />,
     );
 
-    expect(screen.getByText("Open My Restaurant")).toBeInTheDocument();
-    expect(screen.getByText("Manage QR codes")).toBeInTheDocument();
-    expect(screen.getByText("Go to dashboard")).toBeInTheDocument();
+    expect(screen.getByText("Open Website")).toBeInTheDocument();
+    expect(screen.getByText("Start Test Order")).toBeInTheDocument();
+    expect(screen.getByText("Manage Website")).toBeInTheDocument();
+    expect(screen.getByText("Go to Dashboard")).toBeInTheDocument();
   });
 
   it("keeps the celebration chime muted by default, with a visible toggle", () => {
     render(
       <FinaleReveal
-        restaurantName="Joe's Diner"
+        restaurantName="Joe's Diner" restaurantId="rest-1"
         siteId="site-1"
         siteSlug="joes-diner"
         siteDomain="https://joes-diner.sites.ordervora.example"

@@ -50,8 +50,8 @@ export function heroPlaceholder(seed = "hero"): string {
     return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#f0c68a" opacity="${op.toFixed(2)}" filter="url(#soft-hero)"/>`;
   }).join("");
   return uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
-    ${defs("hero", `<radialGradient id="bg-hero" cx="${gx}%" cy="34%" r="95%"><stop offset="0%" stop-color="#4a2c1a"/><stop offset="38%" stop-color="#231610"/><stop offset="100%" stop-color="#0a0705"/></radialGradient>
-      <linearGradient id="scrim-hero" x1="0" y1="0" x2="0" y2="1"><stop offset="45%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="0.65"/></linearGradient>`)}
+    ${defs("hero", `<radialGradient id="bg-hero" cx="${gx}%" cy="34%" r="95%"><stop offset="0%" stop-color="#d59a5c"/><stop offset="38%" stop-color="#b0763c"/><stop offset="100%" stop-color="#7c4e28"/></radialGradient>
+      <linearGradient id="scrim-hero" x1="0" y1="0" x2="0" y2="1"><stop offset="40%" stop-color="#3a2415" stop-opacity="0"/><stop offset="100%" stop-color="#2a1a0e" stop-opacity="0.62"/></linearGradient>`)}
     <rect width="1600" height="900" fill="url(#bg-hero)"/>
     <ellipse cx="800" cy="820" rx="900" ry="200" fill="#5a3a20" opacity="0.5" filter="url(#soft-hero)"/>
     ${bokeh}
@@ -83,7 +83,7 @@ export function dishPlaceholder(name: string): string {
     return `<circle cx="${x.toFixed(0)}" cy="${y.toFixed(0)}" r="${3 + (i % 2)}" fill="#5c6b3a" opacity="0.8"/>`;
   }).join("");
   return uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid slice">
-    ${defs("dish", `<radialGradient id="tbl-dish" cx="40%" cy="36%" r="82%"><stop offset="0%" stop-color="#31261f"/><stop offset="100%" stop-color="#140d09"/></radialGradient>
+    ${defs("dish", `<radialGradient id="tbl-dish" cx="40%" cy="36%" r="82%"><stop offset="0%" stop-color="#c2a074"/><stop offset="100%" stop-color="#8a6a48"/></radialGradient>
       <radialGradient id="plate-dish" cx="40%" cy="34%" r="64%"><stop offset="0%" stop-color="#f6f1e8"/><stop offset="76%" stop-color="#e6ddcf"/><stop offset="100%" stop-color="#cabfad"/></radialGradient>`)}
     <rect width="600" height="600" fill="url(#tbl-dish)"/>
     <ellipse cx="314" cy="324" rx="214" ry="214" fill="#000" opacity="0.4" filter="url(#soft-dish)"/>
@@ -126,7 +126,7 @@ export function featurePlaceholder(name: string): string {
     return `<circle cx="${cx}" cy="${cy}" r="${2 + (i % 2)}" fill="#c9a15a" opacity="0.5"/>`;
   }).join("");
   return uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 520" preserveAspectRatio="xMidYMid slice">
-    ${defs("feat", `<radialGradient id="key-feat" cx="${lx}%" cy="34%" r="70%"><stop offset="0%" stop-color="hsl(${hue + 6} 40% 26%)"/><stop offset="55%" stop-color="hsl(${hue} 45% 11%)"/><stop offset="100%" stop-color="#080503"/></radialGradient>`)}
+    ${defs("feat", `<radialGradient id="key-feat" cx="${lx}%" cy="34%" r="70%"><stop offset="0%" stop-color="hsl(${hue + 6} 44% 56%)"/><stop offset="55%" stop-color="hsl(${hue} 46% 44%)"/><stop offset="100%" stop-color="hsl(${hue} 42% 32%)"/></radialGradient>`)}
     <rect width="640" height="520" fill="url(#key-feat)"/>
     ${forms}
     <ellipse cx="${lx * 6}" cy="150" rx="150" ry="110" fill="#f0c68a" opacity="0.16" filter="url(#soft-feat)"/>
@@ -151,7 +151,7 @@ export function ambientPlaceholder(seed: string): string {
     return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#f2cf95" opacity="0.14" filter="url(#soft-amb)"/>`;
   }).join("");
   return uri(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid slice">
-    ${defs("amb", `<linearGradient id="bg-amb" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="hsl(${base} 40% 24%)"/><stop offset="60%" stop-color="hsl(${base} 45% 12%)"/><stop offset="100%" stop-color="#0d0906"/></linearGradient>`)}
+    ${defs("amb", `<linearGradient id="bg-amb" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="hsl(${base} 42% 62%)"/><stop offset="60%" stop-color="hsl(${base} 44% 50%)"/><stop offset="100%" stop-color="hsl(${base} 40% 40%)"/></linearGradient>`)}
     <rect width="600" height="400" fill="url(#bg-amb)"/>
     <ellipse cx="300" cy="330" rx="360" ry="120" fill="hsl(${base} 40% 30%)" opacity="0.5" filter="url(#soft-amb)"/>
     ${glints}

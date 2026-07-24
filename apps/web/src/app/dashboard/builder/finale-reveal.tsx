@@ -48,6 +48,7 @@ function playChime() {
 
 export function FinaleReveal({
   restaurantName,
+  restaurantId,
   siteId,
   siteSlug,
   siteDomain,
@@ -56,6 +57,7 @@ export function FinaleReveal({
   qrError,
 }: {
   restaurantName: string;
+  restaurantId: string;
   siteId: string;
   siteSlug: string;
   siteDomain: string | null;
@@ -66,6 +68,10 @@ export function FinaleReveal({
   const reducedMotion = usePrefersReducedMotion();
   const qrContainerRef = useRef<HTMLDivElement>(null);
   const orderUrl = qrToken && typeof window !== "undefined" ? `${window.location.origin}/order/qr/${qrToken}` : null;
+  // The real, published Marketing Website (B) and the real Ordering Storefront
+  // (A) — the two customer-facing surfaces this success screen hands off to.
+  const websiteUrl = siteDomain ?? fallbackStorefrontUrl(siteSlug);
+  const testOrderUrl = restaurantId ? `/order/${restaurantId}` : orderUrl ?? websiteUrl;
   const [chimeEnabled, setChimeEnabled] = useState(
     () => typeof window !== "undefined" && window.localStorage.getItem(CHIME_PREF_KEY) === "on",
   );
@@ -159,21 +165,33 @@ export function FinaleReveal({
       </div>
 
       <div className="flex flex-col items-center gap-3">
-        <Link
-          href="/dashboard/website"
-          className="min-h-14 rounded-full bg-[#171512] px-8 py-3 text-base font-bold text-white shadow-lg shadow-black/10 active:scale-[0.99]"
-        >
-          Open My Restaurant
-        </Link>
+        <div className="flex flex-wrap justify-center gap-3">
+          <a
+            href={websiteUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-h-14 rounded-full bg-[#171512] px-8 py-3 text-base font-bold text-white shadow-lg shadow-black/10 active:scale-[0.99]"
+          >
+            Open Website
+          </a>
+          <a
+            href={testOrderUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="min-h-14 rounded-full border border-[#171512] bg-white px-8 py-3 text-base font-bold text-[#171512] active:scale-[0.99]"
+          >
+            Start Test Order
+          </a>
+        </div>
         <div className="flex flex-wrap justify-center gap-3">
           <Link
-            href="/dashboard/tables"
+            href="/dashboard/website"
             className="min-h-11 rounded-full border border-[#E7DDCF] bg-white px-5 py-2 text-sm font-bold text-[#171512]"
           >
-            Manage QR codes
+            Manage Website
           </Link>
           <Link href="/dashboard" className="px-5 py-2 text-sm font-semibold text-[#756B5D] underline-offset-4 hover:underline">
-            Go to dashboard
+            Go to Dashboard
           </Link>
         </div>
       </div>
