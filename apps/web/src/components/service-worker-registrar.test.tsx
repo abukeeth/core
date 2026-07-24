@@ -10,7 +10,7 @@ afterEach(() => {
   if (originalDescriptor) {
     Object.defineProperty(navigator, "serviceWorker", originalDescriptor);
   } else {
-    // @ts-expect-error jsdom has no serviceWorker by default; remove our stub.
+    // jsdom has no serviceWorker by default; remove our stub.
     delete (navigator as { serviceWorker?: unknown }).serviceWorker;
   }
 });
@@ -27,7 +27,7 @@ describe("ServiceWorkerRegistrar", () => {
   });
 
   it("no-ops (renders nothing, doesn't throw) when service workers are unavailable", () => {
-    // @ts-expect-error force the unsupported case.
+    // Force the unsupported case.
     delete (navigator as { serviceWorker?: unknown }).serviceWorker;
 
     const { container } = render(<ServiceWorkerRegistrar />);

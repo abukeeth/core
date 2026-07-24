@@ -266,6 +266,11 @@ export default function CheckoutPage() {
           className="pointer-events-auto mx-auto flex w-full max-w-[460px] items-center justify-center gap-2 rounded-full bg-ink px-5 py-4 text-[15px] font-semibold text-canvas shadow-[0_14px_34px_-12px_rgba(30,20,6,0.5)] transition active:scale-[0.98] disabled:opacity-40">
           {submitting ? "Placing order…" : <>Place order · <span className="tabular-nums">${formatPrice(quote.totalCents)}</span></>}
         </button>
+        <p className="pointer-events-auto mx-auto mt-2 max-w-[460px] text-center text-[11px] leading-4 text-ink-muted">
+          By placing your order you agree to the{" "}
+          <Link href="/terms" className="underline">Terms</Link> and{" "}
+          <Link href="/refund" className="underline">Refund Policy</Link>.
+        </p>
       </div>
     </div>
   );

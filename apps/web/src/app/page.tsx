@@ -191,7 +191,14 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-[#E7DDCF] px-4 py-8 sm:px-6 lg:px-10">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><strong className="text-xl text-[#B97824]">OrderVora</strong><span className="text-sm font-semibold text-[#756B5D]">Business Operating System</span></div>
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3"><strong className="text-xl text-[#B97824]">OrderVora</strong><span className="text-sm font-semibold text-[#756B5D]">Business Operating System</span></div>
+          <nav className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-[#756B5D]">
+            <Link href="/terms" className="hover:text-[#171512]">Terms</Link>
+            <Link href="/privacy" className="hover:text-[#171512]">Privacy</Link>
+            <Link href="/refund" className="hover:text-[#171512]">Refunds</Link>
+          </nav>
+        </div>
       </footer>
     </main>
   );

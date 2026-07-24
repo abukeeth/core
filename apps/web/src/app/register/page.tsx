@@ -104,6 +104,11 @@ export default function RegisterPage() {
             <button type="submit" disabled={submitting} className="mt-2 flex min-h-14 w-full items-center justify-center rounded-[16px] bg-brand px-5 text-base font-semibold text-white transition active:scale-[0.99] disabled:opacity-50">
               {submitting ? "Creating account…" : "Create business account"}
             </button>
+            <p className="text-center text-xs leading-5 text-ink-secondary">
+              By creating an account you agree to our{" "}
+              <Link href="/terms" className="font-semibold text-brand">Terms of Service</Link> and{" "}
+              <Link href="/privacy" className="font-semibold text-brand">Privacy Policy</Link>.
+            </p>
           </form>
 
           <p className="mt-6 text-center text-sm text-ink-secondary">
