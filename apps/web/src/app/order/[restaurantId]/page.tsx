@@ -219,17 +219,20 @@ export default function OrderMenuPage() {
         {/* 2 · FULFILLMENT */}
         <div className="flex flex-col gap-2.5 px-4 pb-1 pt-3.5">
           <div className="flex gap-1 rounded-[14px] border border-line bg-subtle p-1">
-            {(["PICKUP", "DELIVERY"] as const).map((type) => (
-              <button key={type} type="button" onClick={() => setFulfillment(type)}
-                aria-pressed={cart?.fulfillmentType === type}
-                className={`flex-1 rounded-[10px] py-2.5 text-sm font-semibold transition ${cart?.fulfillmentType === type ? "bg-surface text-ink shadow-sm" : "text-ink-secondary"}`}>
-                {type === "PICKUP" ? "Pickup" : "Delivery"}
-              </button>
-            ))}
+            {(["PICKUP", "DELIVERY"] as const).map((type) => {
+              const active = cart?.fulfillmentType === type;
+              return (
+                <button key={type} type="button" onClick={() => setFulfillment(type)}
+                  aria-pressed={active}
+                  className={`flex-1 rounded-[10px] py-2.5 text-sm font-semibold transition ${active ? "bg-ink text-canvas shadow-sm" : "text-ink-secondary"}`}>
+                  {type === "PICKUP" ? "Pickup" : "Delivery"}
+                </button>
+              );
+            })}
           </div>
           <div className="flex items-center justify-center gap-2 text-xs text-ink-secondary">
             <span className="size-1.5 rounded-full bg-success shadow-[0_0_0_3px_rgba(22,163,74,0.18)]" />
-            Open now · Ready in ~15 min
+            {cart?.fulfillmentType === "DELIVERY" ? "Open now · Delivered in ~35–50 min" : "Open now · Ready for pickup in ~15 min"}
           </div>
         </div>
 
