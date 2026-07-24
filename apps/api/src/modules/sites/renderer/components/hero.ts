@@ -50,7 +50,13 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   const headline = readString(props, "headline", ctx.definition.tagline);
   const subhead = readString(props, "subhead");
   const ctaLabel = readString(props, "ctaLabel", "View Menu");
-  const ctaLink = readString(props, "ctaLink", "#primary-action");
+  // Primary hero CTA opens the Ordering Storefront (A). Older definitions saved
+  // a dead "#primary-action" self-anchor as the link — treat that (and an empty
+  // link) as "send the customer to ordering", so every Order/Menu hero button
+  // actually reaches the storefront.
+  const orderUrl = `${ctx.orderingBaseUrl}/order/${ctx.restaurantId}`;
+  const rawCtaLink = readString(props, "ctaLink", "");
+  const ctaLink = !rawCtaLink || rawCtaLink === "#primary-action" ? orderUrl : rawCtaLink;
   const secondaryCtaLabel = readString(props, "secondaryCtaLabel");
   const secondaryCtaLink = readString(props, "secondaryCtaLink", "/menu");
   const badge = readString(props, "badge");

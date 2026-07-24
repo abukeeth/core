@@ -74,15 +74,18 @@ describe("getOrCreateActiveCart", () => {
   // `items` as required and reads `cart.items.length` immediately on the
   // menu page — a response missing it crashed that page on load. Confirms
   // both the found-existing and newly-created paths always request items.
-  it("always includes items in both the existing-cart and new-cart queries", async () => {
+  // Items now also nest the related menuItem name so the cart can show the
+  // real product name instead of a generic "Item" placeholder.
+  const itemsInclude = { items: { include: { menuItem: { select: { name: true } } } } };
+  it("always includes items (with the menuItem name) in both the existing-cart and new-cart queries", async () => {
     mockPrisma.cart.findFirst.mockResolvedValue({ id: "cart-1", items: [] } as never);
     await getOrCreateActiveCart("r1", { customerId: "c1" });
-    expect(mockPrisma.cart.findFirst).toHaveBeenCalledWith(expect.objectContaining({ include: { items: true } }));
+    expect(mockPrisma.cart.findFirst).toHaveBeenCalledWith(expect.objectContaining({ include: itemsInclude }));
 
     mockPrisma.cart.findFirst.mockResolvedValue(null as never);
     mockPrisma.cart.create.mockResolvedValue({ id: "cart-2", items: [] } as never);
     await getOrCreateActiveCart("r1", { guestSessionId: "guest-abc" });
-    expect(mockPrisma.cart.create).toHaveBeenCalledWith(expect.objectContaining({ include: { items: true } }));
+    expect(mockPrisma.cart.create).toHaveBeenCalledWith(expect.objectContaining({ include: itemsInclude }));
   });
 });
 

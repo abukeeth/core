@@ -18,7 +18,7 @@ const REVEAL_DELAY_MS = 700;
  * publish — never automatically. See
  * docs/audits/AI_BUILDER_APPROVAL_FIX_IMPLEMENTATION.md.
  */
-export function BuilderExperience({ restaurantName }: { restaurantName: string }) {
+export function BuilderExperience({ restaurantName, restaurantId }: { restaurantName: string; restaurantId: string }) {
   const state = useRestaurantBuilder();
   const [readyToReveal, setReadyToReveal] = useState(false);
 
@@ -119,6 +119,7 @@ export function BuilderExperience({ restaurantName }: { restaurantName: string }
     content = (
       <FinaleReveal
         restaurantName={restaurantName}
+        restaurantId={restaurantId}
         siteId={state.siteId!}
         siteSlug={state.siteSlug ?? "your-restaurant"}
         siteDomain={state.siteDomain}

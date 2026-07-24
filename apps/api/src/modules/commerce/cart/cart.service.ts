@@ -48,7 +48,7 @@ export async function getOrCreateActiveCart(
       ...(identity.customerId ? { customerId: identity.customerId } : { guestSessionId: identity.guestSessionId }),
     },
     orderBy: { createdAt: "desc" },
-    include: { items: true },
+    include: { items: { include: { menuItem: { select: { name: true } } } } },
   });
   if (existing) return existing;
 
@@ -60,12 +60,12 @@ export async function getOrCreateActiveCart(
       fulfillmentType,
       expiresAt: cartExpiry(),
     },
-    include: { items: true },
+    include: { items: { include: { menuItem: { select: { name: true } } } } },
   });
 }
 
 export async function getCartWithItems(cartId: string): Promise<Cart & { items: CartItem[] }> {
-  const cart = await prisma.cart.findUnique({ where: { id: cartId }, include: { items: true } });
+  const cart = await prisma.cart.findUnique({ where: { id: cartId }, include: { items: { include: { menuItem: { select: { name: true } } } } } });
   if (!cart) {
     throw new CartNotFoundError();
   }
@@ -188,10 +188,13 @@ async function assertDeliveryAddressOwnership(customerId: string | null, deliver
   }
 }
 
-export async function setCartFulfillment(cartId: string, input: SetFulfillmentInput): Promise<Cart> {
-  const cart = await getCartWithItems(cartId);
-  await assertDeliveryAddressOwnership(cart.customerId, input.deliveryAddressId);
-  return prisma.cart.update({
+export async function setCartFulfillment(
+  cartId: string,
+  input: SetFulfillmentInput,
+): Promise<Cart & { items: CartItem[] }> {
+  const existing = await getCartWithItems(cartId);
+  await assertDeliveryAddressOwnership(existing.customerId, input.deliveryAddressId);
+  await prisma.cart.update({
     where: { id: cartId },
     data: {
       fulfillmentType: input.fulfillmentType,
@@ -199,6 +202,11 @@ export async function setCartFulfillment(cartId: string, input: SetFulfillmentIn
       deliveryAddressId: input.deliveryAddressId,
     },
   });
+  // Return the full cart WITH items — the storefront reads `cart.items`
+  // immediately after this call, so a bare Prisma row (no `items` key) would
+  // crash the page. Honors the module invariant documented above
+  // getCartWithItems. (A plain `prisma.cart.update` omits `items`.)
+  return getCartWithItems(cartId);
 }
 
 export async function setCartCoupon(cartId: string, code: string | null): Promise<Cart> {

@@ -58,6 +58,9 @@ export interface CartItem {
   unitPriceCents: number;
   modifiersSnapshot: { variantName?: string; modifiers: { groupName: string; optionName: string; priceDeltaCents: number }[] } | null;
   notes: string | null;
+  // Populated by cart reads (getCart / getCartWithItems) so the cart can show
+  // the real product name; may be absent on an optimistic just-added item.
+  menuItem?: { name: string } | null;
 }
 
 export interface Cart {
