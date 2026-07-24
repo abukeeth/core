@@ -12,6 +12,14 @@ Whichever managed provider Phase 1 lands on (`docs/runbooks/database-setup.md` �
 - **Point-in-time recovery (PITR)**, if the provider supports it (Neon, Supabase, and RDS all do). PITR matters specifically because the highest-likelihood real incident here isn't "the database disappeared" — it's "a bad migration or a bad data-fixing script ran against production a few minutes ago." A daily snapshot alone can only roll back to last night; PITR rolls back to the exact second before the bad statement ran.
 - This is provider/infrastructure configuration, not a repository code change — there is nothing in `apps/api` to modify for it. Enabling it is an operational step to perform once a real production database exists (Phase 1's completion report already flags this as the natural point to configure it, since Phase 1 was necessarily verified against a local PostgreSQL instance in this sandbox, which has no such feature).
 
+**On-demand backup (`scripts/backup-database.sh`).** In addition to the provider's automated snapshots, the repository ships a manual backup command that produces a single restorable artifact (`pg_dump -Fc`, compressed, `--no-owner --no-acl` for portability) and verifies the artifact is a readable archive before reporting success. Use it before a risky migration or data-fix, or to seed a staging database. It complements — does not replace — the provider's automated backups.
+
+```bash
+DATABASE_URL="postgresql://user:pass@host:5432/db?schema=public" ./scripts/backup-database.sh
+# → backups/ordervora-<UTC-timestamp>.dump, then restore with:
+#   pg_restore --no-owner --no-acl -d <fresh-database-url> <that-file>
+```
+
 ### 1.2 Object storage (Phase 7)
 
 Once `OBJECT_STORAGE_BUCKET` is configured against a real S3-compatible bucket (`docs/runbooks/object-storage.md`), enable:
@@ -50,30 +58,34 @@ These are initial targets for a single-region, single-primary-database deploymen
 3. Creates a throwaway database and restores the dump into it.
 4. Boots the *compiled* server (`node dist/src/index.js`, the exact artifact a real deploy runs) against the throwaway database via a distinct `DATABASE_URL`, and polls `/health`/`/ready` until both succeed.
 5. Confirms the marker row survived the round trip byte-for-byte.
-6. Tears everything down — the drill server, the throwaway database, the marker row, the dump file — leaving no trace, so it's safe to re-run on demand without accumulating cruft.
+6. Verifies **full-table integrity**: counts every public table in both the source and the restored database and requires them to be identical (a partial or selectively-failed restore — some tables empty, a failed `COPY` — shows up here even when the single marker row survived).
+7. Tears everything down — the drill server, the throwaway database, the marker row, the dump file — leaving no trace, so it's safe to re-run on demand without accumulating cruft.
 
 It exits non-zero on any step's failure (and still tears down what it safely can) — a drill that silently reports success on a partial restore would be worse than not running one.
 
 ### Actually executed in this environment
 
-This sandbox has no externally reachable managed-Postgres provider, so the drill was run against this environment's real local PostgreSQL 16 instance — the same one Phase 1's own migration work was verified against (`docs/runbooks/database-setup.md` §4) — rather than a cloud snapshot. The mechanics (`pg_dump` → fresh database → restore → boot the compiled app → verify) are identical to what a real provider-hosted restore looks like; only the source of the dump differs (a live `pg_dump` here vs. a provider's managed snapshot in production). Run twice, back to back, to confirm repeatability:
+This sandbox has no externally reachable managed-Postgres provider, so the drill was run against this environment's real local PostgreSQL 16 instance — rather than a cloud snapshot. The mechanics (`pg_dump` → fresh database → restore → boot the compiled app → verify) are identical to what a real provider-hosted restore looks like; only the source of the dump differs (a live `pg_dump` here vs. a provider's managed snapshot in production).
+
+**Re-verified 2026-07-24** against a database freshly migrated (`prisma migrate deploy`, all migrations through `20260724000000_kitchen_unaccepted_alert`) and seeded with the beta dataset (a real graph across ~20 tables — restaurants, full menus with variants/modifiers, customers, coupons, delivery config). The drill passed, now including the new full-table integrity check:
 
 ```
-[restore-drill] Step 1/6: writing a marker row to the source database
-[restore-drill] Step 2/6: pg_dump of the source database -> /tmp/restore_drill_1783058991.sql
-[restore-drill] Step 3/6: creating throwaway database ordervora_restore_drill_1783058991 and restoring into it
-[restore-drill] Step 4/6: booting the compiled server against the throwaway database
+[restore-drill] Step 1/7: writing a marker row to the source database
+[restore-drill] Step 2/7: pg_dump of the source database -> /tmp/restore_drill_1784921666.sql
+[restore-drill] Step 3/7: creating throwaway database ordervora_restore_drill_1784921666 and restoring into it
+[restore-drill] Step 4/7: booting the compiled server against the throwaway database
 [restore-drill]   /health and /ready both succeeded against the restored database
-[restore-drill] Step 5/6: confirming the marker row survived the restore byte-for-byte
-[restore-drill]   Marker row round-tripped correctly: drill-20260703T060951Z
-[restore-drill] Step 6/6: tearing down (server, throwaway database, dump file, marker row)
+[restore-drill] Step 5/7: confirming the marker row survived the restore byte-for-byte
+[restore-drill]   Marker row round-tripped correctly: drill-20260724T193426Z
+[restore-drill] Step 6/7: verifying full-table row-count integrity (source vs restored)
+[restore-drill]   All 77 tables have identical row counts in source and restored database
+[restore-drill] Step 7/7: tearing down (server, throwaway database, dump file, marker row)
 [restore-drill] Restore drill PASSED.
-[restore-drill] Stopping drill server (pid 24743)
-[restore-drill] Dropping throwaway database ordervora_restore_drill_1783058991
-[restore-drill] Removing marker table from the original database
 ```
 
-Both runs passed; `\l` (list databases) and `\dt` (list tables) confirmed clean teardown afterward — no leftover throwaway database, no leftover marker table, no leftover dump file in `/tmp`. Total wall-clock time for the full cycle (dump → restore → boot → verify → teardown) was under 15 seconds against this environment's local database and dataset size — the real number against a production-sized database and a cloud provider's actual snapshot-restore mechanism (which is provider-managed and not scripted by this repository) will differ and should be re-measured once one exists, per §3's RTO note.
+As an additional, independent integrity check beyond the drill's row-count comparison, a standalone `pg_dump -Fc` → `pg_restore` into a fresh database was verified with order-independent **content checksums** (`md5` over per-row hashes) on the data-bearing tables — `MenuItem`, `Restaurant`, `Customer`, `Coupon`, `MenuCategory`, `Theme`, `User`, `RestaurantHours`, `Table`, `MenuItemVariant` — every one matched byte-for-byte between source and restored, and a content spot-check (menu item names + prices, restaurant names) round-tripped exactly. Teardown left no trace — no leftover throwaway database, marker table, or dump file. Total wall-clock time for the full cycle was a few seconds against this environment's dataset size; the real number against a production-sized database and a cloud provider's managed snapshot-restore will differ and should be re-measured once one exists, per §3's RTO note.
+
+> Note on `--data-only` dump comparison: a naïve `md5` of two `pg_dump --data-only` outputs is **not** a valid equality test here — the schema has circular foreign keys (e.g. `User`↔`Restaurant`), so `pg_dump` reorders `--data-only` output and emits sequence `setval()` lines, making the raw text differ even when the data is identical. The per-table `COUNT(*)` and per-table content-hash checks above are the correct, reliable integrity signals; use those, not a whole-dump `md5`.
 
 ### Running it yourself
 

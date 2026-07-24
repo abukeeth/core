@@ -22,7 +22,10 @@
 #      (a distinct DATABASE_URL, never the original) and polls /health and
 #      /ready until both return success.
 #   5. Confirms the marker row survived the round trip byte-for-byte.
-#   6. Tears down: stops the booted server, drops the throwaway database
+#   6. Verifies full-table integrity: every public table has an identical
+#      row count in the source and the restored database (catches a partial
+#      or selectively-failed restore that a single marker row would miss).
+#   7. Tears down: stops the booted server, drops the throwaway database
 #      and the marker row from the original database, removes the dump
 #      file.
 #
@@ -64,7 +67,8 @@ cleanup() {
     psql "$ORIGINAL_DATABASE_URL_PSQL" -v ON_ERROR_STOP=0 -c \
       "DROP TABLE IF EXISTS _restore_drill_marker;" >/dev/null 2>&1 || true
   fi
-  rm -f "$DUMP_FILE" "/tmp/${DRILL_ID}.pid" "/tmp/${DRILL_ID}.server.log"
+  rm -f "$DUMP_FILE" "/tmp/${DRILL_ID}.pid" "/tmp/${DRILL_ID}.server.log" \
+    "/tmp/${DRILL_ID}.src_counts" "/tmp/${DRILL_ID}.dst_counts"
 }
 trap cleanup EXIT
 
@@ -88,25 +92,25 @@ DRILL_DB_URL_PSQL=$(printf '%s' "$ORIGINAL_DATABASE_URL_PSQL" | sed -E "s#(postg
 DRILL_DB_URL=$(printf '%s' "$ORIGINAL_DATABASE_URL" | sed -E "s#(postgresql://[^/]+)/[^?]+(\?.*)?#\1/${DRILL_DB_NAME}\2#")
 MAINTENANCE_DB_URL=$(printf '%s' "$ORIGINAL_DATABASE_URL_PSQL" | sed -E "s#(postgresql://[^/]+)/.+#\1/postgres#")
 
-log "Step 1/6: writing a marker row to the source database"
+log "Step 1/7: writing a marker row to the source database"
 MARKER_VALUE="drill-$(date -u +%Y%m%dT%H%M%SZ)"
 psql "$ORIGINAL_DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -c \
   "CREATE TABLE IF NOT EXISTS _restore_drill_marker (id serial PRIMARY KEY, value text NOT NULL, created_at timestamptz NOT NULL DEFAULT now());" >/dev/null
 psql "$ORIGINAL_DATABASE_URL_PSQL" -v ON_ERROR_STOP=1 -c \
   "INSERT INTO _restore_drill_marker (value) VALUES ('${MARKER_VALUE}');" >/dev/null
 
-log "Step 2/6: pg_dump of the source database -> $DUMP_FILE"
+log "Step 2/7: pg_dump of the source database -> $DUMP_FILE"
 pg_dump --no-owner --no-acl "$ORIGINAL_DATABASE_URL_PSQL" > "$DUMP_FILE" \
   || fail "pg_dump failed"
 [ -s "$DUMP_FILE" ] || fail "pg_dump produced an empty file"
 
-log "Step 3/6: creating throwaway database $DRILL_DB_NAME and restoring into it"
+log "Step 3/7: creating throwaway database $DRILL_DB_NAME and restoring into it"
 psql "$MAINTENANCE_DB_URL" -v ON_ERROR_STOP=1 -c \
   "CREATE DATABASE \"${DRILL_DB_NAME}\";" >/dev/null || fail "CREATE DATABASE failed"
 psql "$DRILL_DB_URL_PSQL" -v ON_ERROR_STOP=1 -f "$DUMP_FILE" >/dev/null \
   || fail "restore into throwaway database failed"
 
-log "Step 4/6: booting the compiled server against the throwaway database"
+log "Step 4/7: booting the compiled server against the throwaway database"
 [ -f "$API_DIR/dist/src/index.js" ] || fail "apps/api is not built — run 'pnpm --filter api run build' first"
 (
   cd "$API_DIR"
@@ -127,12 +131,27 @@ done
 curl -fs "http://localhost:${SERVER_PORT}/health" >/dev/null || fail "/health did not return success against the restored database"
 log "  /health and /ready both succeeded against the restored database"
 
-log "Step 5/6: confirming the marker row survived the restore byte-for-byte"
+log "Step 5/7: confirming the marker row survived the restore byte-for-byte"
 RESTORED_VALUE=$(psql "$DRILL_DB_URL_PSQL" -t -A -c \
   "SELECT value FROM _restore_drill_marker WHERE value = '${MARKER_VALUE}';")
 [ "$RESTORED_VALUE" = "$MARKER_VALUE" ] || fail "marker row did not survive the restore (expected '${MARKER_VALUE}', got '${RESTORED_VALUE}')"
 log "  Marker row round-tripped correctly: ${RESTORED_VALUE}"
 
-log "Step 6/6: tearing down (server, throwaway database, dump file, marker row)"
+log "Step 6/7: verifying full-table row-count integrity (source vs restored)"
+# One generated query counts every public table; run it against both databases
+# and require identical results. A partial restore (some tables empty, a failed
+# COPY) shows up here even though the marker row above survived.
+COUNT_SQL=$(psql "$ORIGINAL_DATABASE_URL_PSQL" -t -A -v ON_ERROR_STOP=1 -c \
+  "SELECT string_agg(format('SELECT %L AS t, count(*) c FROM %I.%I', tablename, schemaname, tablename), ' UNION ALL ') FROM pg_tables WHERE schemaname='public';")
+[ -n "$COUNT_SQL" ] || fail "could not enumerate source tables for the integrity check"
+psql "$ORIGINAL_DATABASE_URL_PSQL" -t -A -F'|' -v ON_ERROR_STOP=1 -c "SELECT t,c FROM (${COUNT_SQL}) x ORDER BY t" > "/tmp/${DRILL_ID}.src_counts"
+psql "$DRILL_DB_URL_PSQL" -t -A -F'|' -v ON_ERROR_STOP=1 -c "SELECT t,c FROM (${COUNT_SQL}) x ORDER BY t" > "/tmp/${DRILL_ID}.dst_counts"
+if ! diff "/tmp/${DRILL_ID}.src_counts" "/tmp/${DRILL_ID}.dst_counts" >&2; then
+  fail "row counts differ between source and restored database (see diff above)"
+fi
+TABLE_TOTAL=$(wc -l < "/tmp/${DRILL_ID}.src_counts" | tr -d ' ')
+log "  All ${TABLE_TOTAL} tables have identical row counts in source and restored database"
+
+log "Step 7/7: tearing down (server, throwaway database, dump file, marker row)"
 
 log "Restore drill PASSED."
