@@ -48,7 +48,7 @@ export async function getOrCreateActiveCart(
       ...(identity.customerId ? { customerId: identity.customerId } : { guestSessionId: identity.guestSessionId }),
     },
     orderBy: { createdAt: "desc" },
-    include: { items: true },
+    include: { items: { include: { menuItem: { select: { name: true } } } } },
   });
   if (existing) return existing;
 
@@ -60,12 +60,12 @@ export async function getOrCreateActiveCart(
       fulfillmentType,
       expiresAt: cartExpiry(),
     },
-    include: { items: true },
+    include: { items: { include: { menuItem: { select: { name: true } } } } },
   });
 }
 
 export async function getCartWithItems(cartId: string): Promise<Cart & { items: CartItem[] }> {
-  const cart = await prisma.cart.findUnique({ where: { id: cartId }, include: { items: true } });
+  const cart = await prisma.cart.findUnique({ where: { id: cartId }, include: { items: { include: { menuItem: { select: { name: true } } } } } });
   if (!cart) {
     throw new CartNotFoundError();
   }

@@ -211,8 +211,11 @@ export default function CartPage() {
             <li key={item.id} className="flex items-center justify-between gap-4 p-4">
               <div className="flex flex-col gap-1">
                 <span className="font-medium text-ink">
-                  {item.modifiersSnapshot?.variantName ?? "Item"}
+                  {item.menuItem?.name ?? "Item"}
                 </span>
+                {item.modifiersSnapshot?.variantName && (
+                  <span className="text-xs text-ink-muted">{item.modifiersSnapshot.variantName}</span>
+                )}
                 <span className="text-sm text-ink-secondary">${formatPrice(item.unitPriceCents)} each</span>
               </div>
               <div className="flex items-center gap-2">
