@@ -47,9 +47,11 @@ vi.mock("../coupons/coupons.service", () => ({
 
 import { prisma } from "../../../lib/prisma";
 import { validateCouponForRedemption } from "../coupons/coupons.service";
+import { isRestaurantOpenAt } from "../delivery-rules/hours.service";
 import { computeCheckoutQuote } from "./quote.service";
 
 const mockPrisma = vi.mocked(prisma, { deep: true });
+const mockIsRestaurantOpenAt = vi.mocked(isRestaurantOpenAt);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -107,6 +109,25 @@ describe("computeCheckoutQuote", () => {
     const quote = await computeCheckoutQuote(cart(), 500);
     expect(quote.tipCents).toBe(500);
     expect(quote.totalCents).toBe(2500);
+  });
+
+  it("stays open for a brand-new store with NO hours configured (24/7 default), even if the open-check would say closed", async () => {
+    // A best-effort default-hours seed that never ran must not make every
+    // order — pickup included — read as "Restaurant is closed".
+    mockIsRestaurantOpenAt.mockReturnValue(false);
+    mockPrisma.restaurantHours.findMany.mockResolvedValue([] as never);
+    const quote = await computeCheckoutQuote(cart(), 0);
+    expect(quote.eligible).toBe(true);
+  });
+
+  it("respects configured hours: a store whose hours all evaluate closed is ineligible", async () => {
+    mockIsRestaurantOpenAt.mockReturnValue(false);
+    mockPrisma.restaurantHours.findMany.mockResolvedValue([
+      { id: "h1", restaurantId: "r1", dayOfWeek: "MONDAY", opensAt: 540, closesAt: 1020, isClosed: false },
+    ] as never);
+    const quote = await computeCheckoutQuote(cart(), 0);
+    expect(quote.eligible).toBe(false);
+    expect(quote.reason).toMatch(/closed/i);
   });
 
   it("is ineligible for delivery when the address has no geocoded location", async () => {

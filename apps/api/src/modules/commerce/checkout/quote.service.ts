@@ -97,7 +97,13 @@ export async function computeCheckoutQuote(
 
   const routing = evaluateRouting({
     restaurantId: cart.restaurantId,
-    isOpen: isRestaurantOpenAt(hours, cart.scheduledFor ?? new Date()),
+    // A restaurant with NO hours rows has never configured hours — and new
+    // stores are meant to open 24/7 by default (see ensureDefaultBusinessHours)
+    // so they accept orders immediately. Treat "no hours at all" as open so a
+    // best-effort seed that didn't run can't silently make every order read as
+    // "Restaurant is closed" (even pickup) with no way to self-heal. Once the
+    // owner configures any hours, those are respected exactly.
+    isOpen: hours.length === 0 || isRestaurantOpenAt(hours, cart.scheduledFor ?? new Date()),
     kitchenAvailable: isKitchenAvailable(capacity, activeOrderCount),
     activeDriverCount,
     deliveryConfig,

@@ -17,17 +17,17 @@ afterEach(() => {
 });
 
 describe("/setup flag gate", () => {
-  it("renders the legacy wizard when the flag is off (default)", () => {
+  it("renders Onboarding V3 by default when the flag is unset", () => {
     vi.stubEnv("NEXT_PUBLIC_ONBOARDING_V3", "");
-    render(<BusinessSetupPage />);
-    expect(screen.getByText("Legacy Wizard")).toBeInTheDocument();
-    expect(screen.queryByText("Onboarding V3")).not.toBeInTheDocument();
-  });
-
-  it("renders Onboarding V3 when the flag is on", () => {
-    vi.stubEnv("NEXT_PUBLIC_ONBOARDING_V3", "true");
     render(<BusinessSetupPage />);
     expect(screen.getByText("Onboarding V3")).toBeInTheDocument();
     expect(screen.queryByText("Legacy Wizard")).not.toBeInTheDocument();
+  });
+
+  it("renders the legacy wizard only when explicitly opted out", () => {
+    vi.stubEnv("NEXT_PUBLIC_ONBOARDING_V3", "false");
+    render(<BusinessSetupPage />);
+    expect(screen.getByText("Legacy Wizard")).toBeInTheDocument();
+    expect(screen.queryByText("Onboarding V3")).not.toBeInTheDocument();
   });
 });

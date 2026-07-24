@@ -7,20 +7,24 @@
  * stays the default until an operator explicitly opts in.
  */
 
-/** Truthy values an operator might set an on/off env var to. */
-function isEnvEnabled(value: string | undefined): boolean {
+/** Falsy values an operator might set an on/off env var to, to force a flag OFF. */
+function isEnvDisabled(value: string | undefined): boolean {
   if (!value) return false;
   const normalized = value.trim().toLowerCase();
-  return normalized === "1" || normalized === "true" || normalized === "on" || normalized === "yes";
+  return normalized === "0" || normalized === "false" || normalized === "off" || normalized === "no";
 }
 
 /**
  * Onboarding V3 — the 3-screen store-creation flow (Create → Analysis & Review
- * → Live Build + Ready) that replaces the 7-step Business Setup Wizard when
- * enabled. OFF by default: `/setup` keeps rendering the existing wizard until
- * `NEXT_PUBLIC_ONBOARDING_V3` is explicitly turned on, so there is no
- * regression for anyone mid-onboarding on the old flow.
+ * → Live Build + Ready) that replaces the legacy 7-step Business Setup Wizard.
+ *
+ * ON by default. V3 is the shipped onboarding, so `/setup` renders it unless an
+ * operator explicitly opts back into the legacy wizard by setting
+ * `NEXT_PUBLIC_ONBOARDING_V3` to a falsy value (`0`/`false`/`off`/`no`). A
+ * missing/blank value keeps V3 on — the previous default (OFF) meant a
+ * production build with the var unset silently served the old wizard even
+ * though V3 was merged, which is exactly the regression this inverts.
  */
 export function isOnboardingV3Enabled(): boolean {
-  return isEnvEnabled(process.env.NEXT_PUBLIC_ONBOARDING_V3);
+  return !isEnvDisabled(process.env.NEXT_PUBLIC_ONBOARDING_V3);
 }

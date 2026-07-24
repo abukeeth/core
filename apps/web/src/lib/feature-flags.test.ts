@@ -6,18 +6,18 @@ afterEach(() => {
 });
 
 describe("isOnboardingV3Enabled", () => {
-  it("defaults OFF when the env var is unset", () => {
+  it("defaults ON when the env var is unset", () => {
     vi.stubEnv("NEXT_PUBLIC_ONBOARDING_V3", "");
-    expect(isOnboardingV3Enabled()).toBe(false);
-  });
-
-  it.each(["1", "true", "TRUE", "on", "yes", " true "])("is ON for truthy value %j", (value) => {
-    vi.stubEnv("NEXT_PUBLIC_ONBOARDING_V3", value);
     expect(isOnboardingV3Enabled()).toBe(true);
   });
 
-  it.each(["0", "false", "off", "no", "disabled", "maybe"])("stays OFF for non-truthy value %j", (value) => {
+  it.each(["0", "false", "FALSE", "off", "no", " false "])("is OFF (legacy) for falsy value %j", (value) => {
     vi.stubEnv("NEXT_PUBLIC_ONBOARDING_V3", value);
     expect(isOnboardingV3Enabled()).toBe(false);
+  });
+
+  it.each(["1", "true", "on", "yes", "enabled", "maybe"])("stays ON for any non-falsy value %j", (value) => {
+    vi.stubEnv("NEXT_PUBLIC_ONBOARDING_V3", value);
+    expect(isOnboardingV3Enabled()).toBe(true);
   });
 });

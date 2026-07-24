@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockGetRestaurant = vi.fn();
 const mockReplace = vi.fn();
@@ -37,6 +37,15 @@ function apiError(status: number) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // These cases exercise the LEGACY wizard's step routing + transient-load
+  // handling, which now renders only when an operator opts out of Onboarding
+  // V3. Force the opt-out so this file keeps testing the legacy flow it owns;
+  // the flag gate itself is covered by page.gate.test.tsx.
+  vi.stubEnv("NEXT_PUBLIC_ONBOARDING_V3", "false");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
 });
 
 describe("BusinessSetupWizardPage — Priority 1: transient load failures must not masquerade as a brand-new owner", () => {
