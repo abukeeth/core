@@ -135,18 +135,20 @@ export default function OrderMenuPage() {
     }
     try {
       const { item: added } = await addCartItem(cart.id, { menuItemId: item.id, quantity: 1 });
-      setCart((c) => (c ? { ...c, items: [...c.items, added] } : c));
+      setCart((c) => (c ? { ...c, items: [...(c.items ?? []), added] } : c));
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add item");
     }
   }
 
+  // `cart.items` is defensively defaulted: a cart response that ever omits items
+  // must never white-screen the storefront (there is no route error boundary).
   const subtotalCents = useMemo(
-    () => (cart ? cart.items.reduce((sum, it) => sum + it.unitPriceCents * it.quantity, 0) : 0),
+    () => (cart ? (cart.items ?? []).reduce((sum, it) => sum + it.unitPriceCents * it.quantity, 0) : 0),
     [cart],
   );
-  const cartCount = cart ? cart.items.reduce((n, it) => n + it.quantity, 0) : 0;
+  const cartCount = cart ? (cart.items ?? []).reduce((n, it) => n + it.quantity, 0) : 0;
 
   const allItems = useMemo(
     () => (menu ? menu.categories.flatMap((c) => c.items) : []),
@@ -297,11 +299,11 @@ export default function OrderMenuPage() {
             <div className="mt-4 grid grid-cols-2 gap-3">
               {menu.categories.map((c) => (
                 <button key={c.id} type="button" onClick={() => { setActiveCat(c.id); document.getElementById("menu")?.scrollIntoView({ behavior: "smooth" }); }}
-                  className="relative aspect-[16/10] overflow-hidden rounded-[18px] text-left">
-                  <Photo seed={`cat-${c.id}`} className="absolute inset-0">
-                    <span className="absolute inset-0" style={{ background: "linear-gradient(transparent 30%, rgba(18,11,3,.62))" }} />
+                  className="text-left">
+                  <Photo seed={`cat-${c.id}`} className="flex aspect-[16/10] w-full items-end rounded-[18px] p-3">
+                    <span className="absolute inset-0" style={{ background: "linear-gradient(transparent 25%, rgba(18,11,3,.68))" }} />
+                    <span className="relative z-[1] font-display text-sm font-bold leading-tight text-white drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">{c.name}</span>
                   </Photo>
-                  <span className="absolute inset-x-3 bottom-2.5 font-display text-sm font-bold text-white drop-shadow">{c.name}</span>
                 </button>
               ))}
             </div>
@@ -438,7 +440,7 @@ export default function OrderMenuPage() {
       {/* Product sheet (variants / modifiers) */}
       {activeItem && cart && (
         <ItemModal item={activeItem} cartId={cart.id} onClose={() => setActiveItem(null)}
-          onAdded={(added) => { setCart((c) => (c ? { ...c, items: [...c.items, added] } : c)); setActiveItem(null); }} />
+          onAdded={(added) => { setCart((c) => (c ? { ...c, items: [...(c.items ?? []), added] } : c)); setActiveItem(null); }} />
       )}
 
       {/* Search overlay */}
