@@ -14,24 +14,47 @@ import { assertValidOrderTransition } from "./order-state-machine";
 import { OrderNotFoundError } from "./orders.errors";
 import type { CancelOrderInput, ListOrdersQuery, RefundOrderInput } from "./orders.validation";
 
-export async function listOrders(restaurantId: string, query: ListOrdersQuery): Promise<{ orders: Order[]; total: number }> {
+// Non-financial customer identity for the kitchen ticket — name + phone only
+// (never the customer's account/address graph). Present on both the list and
+// detail shapes so the KDS and order-detail can show "who is this for".
+const TICKET_CUSTOMER = { select: { name: true, phone: true } } as const;
+
+// The order LIST is what the KDS renders as tickets, so it now carries the
+// items (what to cook), the customer identity, and the payment record (so the
+// card/cash + paid/unpaid state shows). redactOrderFinancials still strips the
+// money when the kitchen firewall is enforced (default off).
+const LIST_INCLUDE = {
+  items: true,
+  payment: true,
+  customer: TICKET_CUSTOMER,
+  guestCustomer: TICKET_CUSTOMER,
+} satisfies Prisma.OrderInclude;
+
+const DETAIL_INCLUDE = {
+  items: true,
+  payment: true,
+  fulfillment: { include: { driverAssignment: true } },
+  customer: TICKET_CUSTOMER,
+  guestCustomer: TICKET_CUSTOMER,
+} satisfies Prisma.OrderInclude;
+
+export type OrderListRow = Prisma.OrderGetPayload<{ include: typeof LIST_INCLUDE }>;
+export type OrderWithRelations = Prisma.OrderGetPayload<{ include: typeof DETAIL_INCLUDE }>;
+
+export async function listOrders(
+  restaurantId: string,
+  query: ListOrdersQuery,
+): Promise<{ orders: OrderListRow[]; total: number }> {
   const where = { restaurantId, status: query.status, source: query.source };
   const [orders, total] = await Promise.all([
-    prisma.order.findMany({ where, orderBy: { createdAt: "desc" }, take: query.limit, skip: query.offset }),
+    prisma.order.findMany({ where, orderBy: { createdAt: "desc" }, take: query.limit, skip: query.offset, include: LIST_INCLUDE }),
     prisma.order.count({ where }),
   ]);
   return { orders, total };
 }
 
-type OrderWithRelations = Prisma.OrderGetPayload<{
-  include: { items: true; payment: true; fulfillment: { include: { driverAssignment: true } } };
-}>;
-
 export async function getOwnOrder(restaurantId: string, orderId: string): Promise<OrderWithRelations> {
-  const order = await prisma.order.findUnique({
-    where: { id: orderId },
-    include: { items: true, payment: true, fulfillment: { include: { driverAssignment: true } } },
-  });
+  const order = await prisma.order.findUnique({ where: { id: orderId }, include: DETAIL_INCLUDE });
   if (!order || order.restaurantId !== restaurantId) {
     throw new OrderNotFoundError();
   }

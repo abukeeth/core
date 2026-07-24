@@ -13,17 +13,20 @@ import {
   markOutForDelivery,
   markPaidCash,
   markReady,
+  orderCustomerRef,
+  orderLineModifiers,
+  paymentMethodLabel,
   refundOrder,
   startPreparing,
   type DriverCandidate,
   type OwnerOrderDetail,
 } from "@/lib/owner-commerce-api";
 
-/* Order detail — Figma "Owner Dashboard V3 / Order Details" (node 29:8).
- * Layout rebuilt to the design system; all existing actions preserved
- * (status transitions, mark-paid, cancel, refund, driver assignment).
- * The order API exposes no customer identity, so the customer card is
- * rendered from real fulfillment/payment data instead of fabricated names. */
+/* Order detail — the merchant's order ticket. Shows the real line items
+ * (name + modifiers), customer name/phone, payment method, and order note,
+ * plus every status transition (accept/decline/ready/out-for-delivery/
+ * complete, mark-paid, refund, driver assignment). Next-action buttons are
+ * correct for the order's fulfillment type. */
 
 function money(cents: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
@@ -79,15 +82,36 @@ const BANNER_ICON: Record<"brand" | "info" | "success" | "cancel", string> = {
   cancel: "bg-danger text-white",
 };
 
-const NEXT_ACTIONS: Record<string, { label: string; action: (id: string) => Promise<{ order: OwnerOrderDetail }> }[]> = {
-  CONFIRMED: [{ label: "Accept & start preparing", action: startPreparing }],
-  PREPARING: [
-    { label: "Mark ready", action: markReady },
-    { label: "Out for delivery", action: markOutForDelivery },
-  ],
-  READY: [{ label: "Complete order", action: completeOrder }],
-  OUT_FOR_DELIVERY: [{ label: "Complete order", action: completeOrder }],
-};
+function isDeliveryOrder(fulfillmentType: string): boolean {
+  return fulfillmentType.toUpperCase().includes("DELIVER");
+}
+
+/**
+ * The next action(s) for a status, correct for the order's fulfillment type.
+ * Previously PREPARING always offered BOTH "Mark ready" and "Out for delivery"
+ * regardless of type — so a pickup order could be pushed to OUT_FOR_DELIVERY,
+ * and a delivery order could be sent to READY (a dead-end: READY only completes,
+ * skipping the delivery leg). Now a delivery order sees only "Out for delivery"
+ * and a pickup/dine-in order sees only "Mark ready".
+ */
+function nextActionsFor(
+  status: string,
+  fulfillmentType: string,
+): { label: string; action: (id: string) => Promise<{ order: OwnerOrderDetail }> }[] {
+  switch (status) {
+    case "CONFIRMED":
+      return [{ label: "Accept & start preparing", action: startPreparing }];
+    case "PREPARING":
+      return isDeliveryOrder(fulfillmentType)
+        ? [{ label: "Out for delivery", action: markOutForDelivery }]
+        : [{ label: "Mark ready", action: markReady }];
+    case "READY":
+    case "OUT_FOR_DELIVERY":
+      return [{ label: "Complete order", action: completeOrder }];
+    default:
+      return [];
+  }
+}
 
 export default function OrderDetailPage() {
   const params = useParams<{ id: string }>();
@@ -189,7 +213,8 @@ export default function OrderDetailPage() {
 
   const b = banner(order.status);
   const isCancelled = order.status.toUpperCase().includes("CANCEL") || order.status.toUpperCase().includes("REFUND");
-  const nextActions = NEXT_ACTIONS[order.status] ?? [];
+  const nextActions = nextActionsFor(order.status, order.fulfillmentType);
+  const customer = orderCustomerRef(order);
   const canCancel = !isCancelled && !order.status.toUpperCase().includes("COMPLETE");
   const unpaid = order.paymentStatus.toUpperCase() === "UNPAID";
 
@@ -233,10 +258,23 @@ export default function OrderDetailPage() {
         </div>
         <dl className="mt-3 space-y-2 text-sm">
           <div className="flex justify-between gap-4"><dt className="text-ink-secondary">Method</dt><dd className="font-medium text-ink">{fulfillmentLabel(order.fulfillmentType)}</dd></div>
+          {customer && (
+            <div className="flex justify-between gap-4"><dt className="text-ink-secondary">Customer</dt><dd className="font-medium text-ink">{customer.name}</dd></div>
+          )}
+          {customer?.phone && (
+            <div className="flex justify-between gap-4"><dt className="text-ink-secondary">Phone</dt><dd className="font-medium text-ink"><a href={`tel:${customer.phone}`} className="text-brand">{customer.phone}</a></dd></div>
+          )}
+          <div className="flex justify-between gap-4"><dt className="text-ink-secondary">Payment</dt><dd className="font-medium text-ink">{paymentMethodLabel(order)}</dd></div>
           <div className="flex justify-between gap-4"><dt className="text-ink-secondary">Source</dt><dd className="font-medium text-ink">{order.source.replaceAll("_", " ").toLowerCase()}</dd></div>
           {order.tableId && <div className="flex justify-between gap-4"><dt className="text-ink-secondary">Table</dt><dd className="font-medium text-ink">{order.tableId}</dd></div>}
           <div className="flex justify-between gap-4"><dt className="text-ink-secondary">Placed</dt><dd className="font-medium text-ink">{new Date(order.placedAt).toLocaleString()}</dd></div>
         </dl>
+        {order.notes && (
+          <div className="mt-3 rounded-[14px] border border-amber-200 bg-amber-50 px-3.5 py-2.5">
+            <p className="text-[11px] font-bold uppercase tracking-wide text-amber-700">Order note</p>
+            <p className="mt-0.5 text-sm text-amber-900">{order.notes}</p>
+          </div>
+        )}
       </div>
 
       {/* Items + totals */}
@@ -247,15 +285,21 @@ export default function OrderDetailPage() {
         <ul className="mt-3 space-y-2.5">
           {order.items.length === 0 ? (
             <li className="text-sm text-ink-secondary">No line items on this order.</li>
-          ) : order.items.map((item) => (
-            <li key={item.id} className="flex items-start justify-between gap-3">
-              <span className="flex min-w-0 items-start gap-2.5">
-                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-[11px] font-semibold text-brand">{item.quantity}×</span>
-                <span className="min-w-0 text-sm text-ink">{item.menuItemNameSnapshot}</span>
-              </span>
-              <span className="shrink-0 text-sm font-semibold text-ink">{money(item.unitPriceCents * item.quantity)}</span>
-            </li>
-          ))}
+          ) : order.items.map((item) => {
+            const modifiers = orderLineModifiers(item);
+            return (
+              <li key={item.id} className="flex items-start justify-between gap-3">
+                <span className="flex min-w-0 items-start gap-2.5">
+                  <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-[11px] font-semibold text-brand">{item.quantity}×</span>
+                  <span className="min-w-0">
+                    <span className="block text-sm text-ink">{item.nameSnapshot}</span>
+                    {modifiers.length > 0 && <span className="mt-0.5 block text-xs text-ink-secondary">{modifiers.join(" · ")}</span>}
+                  </span>
+                </span>
+                <span className="shrink-0 text-sm font-semibold text-ink">{money(item.unitPriceCents * item.quantity)}</span>
+              </li>
+            );
+          })}
         </ul>
         <dl className="mt-4 space-y-1.5 border-t border-line pt-3 text-sm">
           <div className="flex justify-between"><dt className="text-ink-secondary">Subtotal</dt><dd className="text-ink">{money(order.subtotalCents)}</dd></div>

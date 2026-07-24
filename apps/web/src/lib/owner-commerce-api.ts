@@ -2,6 +2,32 @@
 // payments, delivery, kitchen capacity, POS, tables, coupons management.
 // Mirrors lib/api.ts's apiFetch pattern.
 
+/** A modifier the customer selected on a line item (labels only — no money). */
+export interface OrderLineModifier {
+  groupName: string;
+  optionName: string;
+}
+
+/**
+ * A kitchen-ticket line. `nameSnapshot`/`variantNameSnapshot`/`modifiersSnapshot`
+ * are the real Prisma column names the API returns (the previous DTO read a
+ * non-existent `menuItemNameSnapshot`, so every line rendered blank).
+ */
+export interface OrderLine {
+  id: string;
+  nameSnapshot: string;
+  variantNameSnapshot: string | null;
+  quantity: number;
+  unitPriceCents: number;
+  modifiersSnapshot: { variantName?: string; modifiers?: OrderLineModifier[] } | null;
+}
+
+/** Non-financial "who is this for" — resolved from customer or guestCustomer. */
+export interface OrderCustomerRef {
+  name: string;
+  phone: string | null;
+}
+
 export interface OwnerOrder {
   id: string;
   orderNumber: number;
@@ -18,11 +44,15 @@ export interface OwnerOrder {
   totalCents: number;
   placedAt: string;
   tableId: string | null;
+  notes: string | null;
+  // The order list now carries the full ticket so the KDS can render it.
+  items: OrderLine[];
+  customer: OrderCustomerRef | null;
+  guestCustomer: OrderCustomerRef | null;
+  payment: { id: string; status: string } | null;
 }
 
 export interface OwnerOrderDetail extends OwnerOrder {
-  items: { id: string; menuItemNameSnapshot: string; quantity: number; unitPriceCents: number }[];
-  payment: { id: string; status: string } | null;
   fulfillment:
     | {
         id: string;
@@ -31,6 +61,32 @@ export interface OwnerOrderDetail extends OwnerOrder {
         driverAssignment: DriverAssignment | null;
       }
     | null;
+}
+
+/** The customer to show on a ticket — a registered customer wins, else the guest. */
+export function orderCustomerRef(order: OwnerOrder): OrderCustomerRef | null {
+  return order.customer ?? order.guestCustomer ?? null;
+}
+
+/**
+ * How the order pays, derived from real state (there is no cash/card column):
+ * a Payment row means a card was charged; its absence means cash. Combined with
+ * the order's paymentStatus this yields "Card · Paid" / "Cash · Unpaid" etc.
+ */
+export function paymentMethodLabel(order: OwnerOrder): string {
+  const method = order.payment ? "Card" : "Cash";
+  const paid = order.paymentStatus === "PAID";
+  return `${method} · ${paid ? "Paid" : "Unpaid"}`;
+}
+
+/** Human list of an item's modifiers (variant + each selected option), for a ticket line. */
+export function orderLineModifiers(line: OrderLine): string[] {
+  const snap = line.modifiersSnapshot;
+  const parts: string[] = [];
+  const variant = line.variantNameSnapshot ?? snap?.variantName;
+  if (variant) parts.push(variant);
+  for (const m of snap?.modifiers ?? []) parts.push(m.optionName);
+  return parts;
 }
 
 export interface OrderEvent {

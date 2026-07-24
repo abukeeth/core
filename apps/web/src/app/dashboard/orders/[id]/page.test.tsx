@@ -10,7 +10,10 @@ vi.mock("next/navigation", () => ({
 const mockGetOwnOrder = vi.fn();
 const mockListDriverCandidates = vi.fn();
 const mockAssignDriver = vi.fn();
-vi.mock("@/lib/owner-commerce-api", () => ({
+// Keep the real pure helpers (orderCustomerRef / paymentMethodLabel /
+// orderLineModifiers); mock only the network functions.
+vi.mock("@/lib/owner-commerce-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/owner-commerce-api")>()),
   getOwnOrder: (...args: unknown[]) => mockGetOwnOrder(...args),
   listDriverCandidates: (...args: unknown[]) => mockListDriverCandidates(...args),
   assignDriver: (...args: unknown[]) => mockAssignDriver(...args),
@@ -108,5 +111,54 @@ describe("OrderDetailPage — assign-driver control (Sprint 09)", () => {
     expect(screen.getByText(/Currently assigned to/)).toBeInTheDocument();
     expect(screen.getByText(/status: OFFERED/)).toBeInTheDocument();
     expect(screen.getByText("Reassign driver")).toBeInTheDocument();
+  });
+});
+
+describe("OrderDetailPage — next action is correct for the fulfillment type (P0)", () => {
+  it("a PREPARING pickup order offers 'Mark ready' and NOT 'Out for delivery'", async () => {
+    mockGetOwnOrder.mockResolvedValue({ order: baseOrder({ status: "PREPARING", fulfillmentType: "PICKUP" }) });
+    render(<OrderDetailPage />);
+    await screen.findByText("Order #42");
+    expect(screen.getByRole("button", { name: "Mark ready" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Out for delivery" })).not.toBeInTheDocument();
+  });
+
+  it("a PREPARING delivery order offers 'Out for delivery' and NOT 'Mark ready'", async () => {
+    mockGetOwnOrder.mockResolvedValue({ order: baseOrder({ status: "PREPARING", fulfillmentType: "DELIVERY" }) });
+    render(<OrderDetailPage />);
+    await screen.findByText("Order #42");
+    expect(screen.getByRole("button", { name: "Out for delivery" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mark ready" })).not.toBeInTheDocument();
+  });
+});
+
+describe("OrderDetailPage — the ticket shows what the kitchen needs (P0)", () => {
+  it("renders real item names + modifiers, the customer, and the payment method", async () => {
+    mockGetOwnOrder.mockResolvedValue({
+      order: baseOrder({
+        status: "CONFIRMED",
+        paymentStatus: "UNPAID",
+        payment: null,
+        notes: "No pickles please",
+        customer: { name: "Jordan P.", phone: "555-0100" },
+        items: [
+          {
+            id: "i1",
+            nameSnapshot: "The Reuben",
+            variantNameSnapshot: null,
+            quantity: 2,
+            unitPriceCents: 1450,
+            modifiersSnapshot: { modifiers: [{ groupName: "Bread", optionName: "Rye" }] },
+          },
+        ],
+      }),
+    });
+    render(<OrderDetailPage />);
+    await screen.findByText("Order #42");
+    expect(screen.getByText("The Reuben")).toBeInTheDocument();
+    expect(screen.getByText("Rye")).toBeInTheDocument();
+    expect(screen.getByText("Jordan P.")).toBeInTheDocument();
+    expect(screen.getByText("Cash · Unpaid")).toBeInTheDocument();
+    expect(screen.getByText("No pickles please")).toBeInTheDocument();
   });
 });

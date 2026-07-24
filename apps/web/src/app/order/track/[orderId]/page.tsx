@@ -14,13 +14,22 @@ import {
 } from "@/lib/commerce-api";
 
 const MILESTONE_LABELS: Record<string, string> = {
+  // CONFIRMED is the real first milestone written at placement (checkout.service);
+  // without this key it rendered the raw enum "CONFIRMED" to the customer.
+  CONFIRMED: "Order placed",
   PLACED: "Order placed",
   PREPARING: "Kitchen is preparing your order",
   READY: "Order is ready",
   OUT_FOR_DELIVERY: "Out for delivery",
   COMPLETED: "Delivered / picked up",
   CANCELLED: "Cancelled",
+  REFUNDED: "Refunded",
 };
+
+// Once an order reaches one of these it will never change again, so tracking
+// stops polling.
+const TERMINAL_STATUSES = new Set(["COMPLETED", "CANCELLED", "REFUNDED", "FAILED"]);
+const TRACK_POLL_MS = 10_000;
 
 export default function OrderTrackingPage() {
   const params = useParams<{ orderId: string }>();
@@ -65,6 +74,17 @@ export default function OrderTrackingPage() {
       cancelled = true;
     };
   }, [orderId]);
+
+  // Live updates: poll the order + timeline so merchant status changes
+  // (PREPARING → READY → OUT_FOR_DELIVERY → COMPLETED, or a cancellation) reach
+  // the customer without a manual refresh. Stops once the order is terminal.
+  useEffect(() => {
+    if (order && TERMINAL_STATUSES.has(order.status.toUpperCase())) return;
+    const interval = setInterval(() => {
+      void load();
+    }, TRACK_POLL_MS);
+    return () => clearInterval(interval);
+  }, [order, load]);
 
   useEffect(() => {
     customerMe()

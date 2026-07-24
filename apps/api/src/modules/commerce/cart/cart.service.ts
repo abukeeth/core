@@ -143,7 +143,10 @@ export async function addCartItem(restaurantId: string, cartId: string, input: A
       variantId: input.variantId,
       quantity: input.quantity,
       unitPriceCents,
-      modifiersSnapshot: { variantName, modifiers: modifiersSnapshot } as never,
+      // `name` is the base menu-item name at add-to-cart time — without it the
+      // cart UI has nothing to show but the variant/"Item" and the customer
+      // can't tell what they added. Frozen here alongside variant/modifiers.
+      modifiersSnapshot: { name: menuItem.name, variantName, modifiers: modifiersSnapshot } as never,
       notes: input.notes,
     },
   });

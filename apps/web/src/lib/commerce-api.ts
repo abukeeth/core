@@ -56,8 +56,17 @@ export interface CartItem {
   variantId: string | null;
   quantity: number;
   unitPriceCents: number;
-  modifiersSnapshot: { variantName?: string; modifiers: { groupName: string; optionName: string; priceDeltaCents: number }[] } | null;
+  modifiersSnapshot: { name?: string; variantName?: string; modifiers: { groupName: string; optionName: string; priceDeltaCents: number }[] } | null;
   notes: string | null;
+}
+
+/** The line label a customer sees: the real product name, then the variant. Falls back gracefully for pre-existing carts that predate the stored name. */
+export function cartItemLabel(item: CartItem): string {
+  const snap = item.modifiersSnapshot;
+  const name = snap?.name?.trim();
+  const variant = snap?.variantName?.trim();
+  if (name && variant) return `${name} — ${variant}`;
+  return name || variant || "Item";
 }
 
 export interface Cart {
@@ -126,7 +135,9 @@ export interface Order {
   discountCents: number;
   totalCents: number;
   placedAt: string;
-  items?: { id: string; menuItemNameSnapshot: string; quantity: number; unitPriceCents: number }[];
+  // Real Prisma column names (the previous `menuItemNameSnapshot` didn't exist,
+  // so item rows rendered blank on confirmation/tracking).
+  items?: { id: string; nameSnapshot: string; variantNameSnapshot: string | null; quantity: number; unitPriceCents: number }[];
 }
 
 export interface OrderTimelineEntry {
