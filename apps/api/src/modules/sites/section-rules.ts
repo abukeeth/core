@@ -17,9 +17,20 @@ export interface SectionAvailability {
 export function filterSectionsByAvailability(order: SectionType[], availability: SectionAvailability): SectionType[] {
   return order.filter((type) => {
     switch (type) {
+      // signatureDishes / menu, plus the flagship sections that are meaningless
+      // without a menu (productCollection / featuredBrands / comboDeals) — all
+      // dropped early when there are no items (each also self-omits at render).
+      // The deli catering / build-your-own bands are deliberately NOT here: they
+      // are generic marketing content with no menu dependency, so a brand-new
+      // store still gets them.
       case "signatureDishes":
       case "menu":
+      case "productCollection":
+      case "featuredBrands":
+      case "comboDeals":
         return availability.hasMenuItems;
+      case "storeLocations":
+        return availability.hasHoursOrLocation;
       // Gallery is always kept: a theme may render an immersive editorial
       // gallery from art-directed imagery when the owner has uploaded none
       // (restaurant-maison), while themes that only show real uploads simply

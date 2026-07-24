@@ -1,4 +1,5 @@
 import { resolveHeroImage, resolveHeroInsetImage } from "../asset-resolver";
+import { renderFlagshipHero } from "./flagship-hero";
 import { escapeHtml } from "../html-escape";
 import { deterministicHue } from "../image-fallback";
 import { heroPlaceholder } from "../placeholder-imagery";
@@ -53,10 +54,15 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   // Primary hero CTA opens the Ordering Storefront (A). Older definitions saved
   // a dead "#primary-action" self-anchor as the link — treat that (and an empty
   // link) as "send the customer to ordering", so every Order/Menu hero button
-  // actually reaches the storefront.
+  // actually reaches the storefront. (P0 wiring, preserved.)
   const orderUrl = `${ctx.orderingBaseUrl}/order/${ctx.restaurantId}`;
   const rawCtaLink = readString(props, "ctaLink", "");
   const ctaLink = !rawCtaLink || rawCtaLink === "#primary-action" ? orderUrl : rawCtaLink;
+  // Flagship vertical themes own their hero composition entirely (editorial
+  // split / cinematic full-bleed) rather than parameterizing the shared one.
+  // They receive the already-resolved ctaLink above, so their CTA also reaches A.
+  const flagship = renderFlagshipHero(ctx, { headline, subhead, ctaLabel, ctaLink });
+  if (flagship) return flagship;
   const secondaryCtaLabel = readString(props, "secondaryCtaLabel");
   const secondaryCtaLink = readString(props, "secondaryCtaLink", "/menu");
   const badge = readString(props, "badge");
