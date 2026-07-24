@@ -3923,3 +3923,34 @@ for viewing collected subscribers beyond the raw `GET
 :id/newsletter-subscribers` API.
 
 Sprint 20A stops here per instruction — Task 6 not started.
+
+---
+
+## Onboarding V3 — default-ready (name/address confirm + full E2E)
+
+Completed the remaining blockers to make Wizard V3 the default onboarding
+path (still behind `NEXT_PUBLIC_ONBOARDING_V3`, defaults OFF; legacy 7-step
+wizard kept as fallback). No payment step, no Stripe, no payment settings in
+the wizard (explicitly out of scope).
+
+- **New Confirm-details stage** between Review and Build. Guarantees a store
+  leaves onboarding with a real business **name** (the "My Business"
+  placeholder is treated as empty and must be replaced) and a chance to set an
+  **address** (optional), on BOTH the AI-import and Manual/Skip paths. It
+  re-fetches the freshest server state, so an AI-extracted name/address is
+  pre-filled. Flow is now Create → Review → Confirm details → Build.
+- **Data-driven resume** extended: an APPROVED-but-not-DONE store resumes at
+  Confirm details, never straight to build.
+- **Live E2E coverage** (`onboarding-v3.e2e.test.tsx`) drives the real
+  container + real Create/Review/Confirm screens against a stateful in-memory
+  API through both full paths (AI import + Manual/Skip) and resume at every
+  stage.
+- **Rollout plan + final readiness report:** `ONBOARDING_V3_ROLLOUT.md`.
+  Flag documented in `apps/web/.env.example`.
+
+**Verified:** web typecheck clean; lint 0 errors (2 pre-existing unrelated
+`<img>` warnings); full web suite **350 passed**; production build clean.
+
+**Key operational note:** the flag is build-time inlined — enabling it and
+rolling it back both require a rebuild + redeploy (no instant runtime toggle).
+Rollout is staged around deploys; see the rollout doc.

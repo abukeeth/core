@@ -20,6 +20,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => stableRouter }));
 // Stub the screens so this test targets the container's stage derivation only.
 vi.mock("./create-business-screen", () => ({ CreateBusinessScreen: () => <div>Create Screen</div> }));
 vi.mock("./analysis-review-screen", () => ({ AnalysisReviewScreen: () => <div>Review Screen</div> }));
+vi.mock("./confirm-details-screen", () => ({ ConfirmDetailsScreen: () => <div>Confirm Screen</div> }));
 
 import { OnboardingV3 } from "./onboarding-v3";
 import type { ImportJob, Restaurant } from "@/lib/api";
@@ -86,12 +87,14 @@ describe("OnboardingV3 — data-driven resume", () => {
     expect(mockListImportJobs).not.toHaveBeenCalled();
   });
 
-  it("marks onboarding DONE and hands off when the menu is already approved", async () => {
+  it("resumes at Confirm details (not straight to build) when the menu is already approved but not yet DONE", async () => {
     mockGetRestaurant.mockResolvedValue({ restaurant: restaurant() });
     mockListImportJobs.mockResolvedValue({ jobs: [job("APPROVED")] });
     render(<OnboardingV3 />);
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/dashboard/builder"));
-    expect(mockSetSetupStep).toHaveBeenCalledWith("DONE");
+    await waitFor(() => expect(screen.getByText("Confirm Screen")).toBeInTheDocument());
+    // Not yet handed off — DONE + redirect only happen after details are confirmed.
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockSetSetupStep).not.toHaveBeenCalled();
   });
 
   it("shows a retry state (never Create) on a transient load failure", async () => {

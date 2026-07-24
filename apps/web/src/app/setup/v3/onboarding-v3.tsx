@@ -13,6 +13,7 @@ import {
 import { V3Shell, type V3Stage } from "./v3-shell";
 import { CreateBusinessScreen } from "./create-business-screen";
 import { AnalysisReviewScreen } from "./analysis-review-screen";
+import { ConfirmDetailsScreen } from "./confirm-details-screen";
 
 // The builder page IS the "Live Build + Ready" experience (generate → review →
 // publish → finale with the live link + QR). V3 reuses it wholesale rather than
@@ -45,20 +46,28 @@ export function OnboardingV3() {
   // the create screen never flashes back while Next transitions.
   const handingOff = useRef(false);
 
-  const goToBuild = useCallback(() => {
+  // Terminal handoff — runs ONLY after the owner confirms their details. Marks
+  // onboarding complete server-side (so the dashboard gate lets the owner into
+  // the builder, which lives behind setupStep === DONE) and redirects. Best-
+  // effort status write mirrors the legacy website-theme step.
+  const finishToBuild = useCallback(() => {
     if (handingOff.current) return;
     handingOff.current = true;
     setStage("build");
-    // Mark onboarding complete server-side so the dashboard gate lets the owner
-    // into the builder (which normally lives behind the setupStep === DONE
-    // gate). Best-effort ordering mirrors the legacy website-theme step: the
-    // redirect proceeds even if the status write is slow.
     void setSetupStep("DONE").catch(() => {
       // Non-fatal: the builder is still reachable; a stale setupStep self-heals
       // on the next load. Never block the handoff on it.
     });
     router.replace(BUILD_ROUTE);
   }, [router]);
+
+  // Every path (AI approve, Screen-1 skip, failed-import skip, resumed approved
+  // job) converges on the Confirm-details step before build, so a store never
+  // goes live without a real name and a chance to set its address.
+  const goToConfirm = useCallback(() => {
+    if (handingOff.current) return;
+    setStage("confirm");
+  }, []);
 
   // Sets nothing synchronously — the initial `loading` state carries the first
   // render, and every resolution (ready/error/redirect) happens in the async
@@ -111,8 +120,9 @@ export function OnboardingV3() {
           setActiveJob(resumable);
           setStage("review");
         } else if (jobs.some((job) => job.status === "APPROVED")) {
-          // Menu already saved but onboarding not marked done — go build.
-          goToBuild();
+          // Menu already saved but onboarding not marked done (setupStep !== DONE
+          // reached this far) — resume at Confirm details, not straight to build.
+          setStage("confirm");
         } else {
           setStage("create");
         }
@@ -127,7 +137,7 @@ export function OnboardingV3() {
     return () => {
       cancelled = true;
     };
-  }, [router, goToBuild]);
+  }, [router]);
 
   useEffect(() => runLoad(), [runLoad]);
 
@@ -148,10 +158,11 @@ export function OnboardingV3() {
   }
 
   // Skip AI import from Screen 1 — the store already exists (Screen 1 created
-  // it); go straight to build, where the owner adds the menu manually.
-  function handleSkipToBuild(store: Restaurant) {
+  // it); go to Confirm details, then build, where the owner adds the menu
+  // manually.
+  function handleSkipToConfirm(store: Restaurant) {
     setRestaurant(store);
-    goToBuild();
+    goToConfirm();
   }
 
   if (loadState === "loading") {
@@ -195,11 +206,12 @@ export function OnboardingV3() {
   return (
     <V3Shell stage={stage}>
       {stage === "create" && (
-        <CreateBusinessScreen restaurant={restaurant} onAnalyzed={handleAnalyzed} onSkip={handleSkipToBuild} />
+        <CreateBusinessScreen restaurant={restaurant} onAnalyzed={handleAnalyzed} onSkip={handleSkipToConfirm} />
       )}
       {stage === "review" && activeJob && (
-        <AnalysisReviewScreen initialJob={activeJob} onApproved={goToBuild} onReset={handleReset} onSkip={goToBuild} />
+        <AnalysisReviewScreen initialJob={activeJob} onApproved={goToConfirm} onReset={handleReset} onSkip={goToConfirm} />
       )}
+      {stage === "confirm" && <ConfirmDetailsScreen onConfirmed={finishToBuild} />}
     </V3Shell>
   );
 }

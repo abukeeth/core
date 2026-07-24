@@ -2,13 +2,14 @@
 
 import type { ReactNode } from "react";
 
-/** The three visible stages of Onboarding V3. `build` covers generate → review → live. */
-export type V3Stage = "create" | "review" | "build";
+/** The visible stages of Onboarding V3. `build` covers generate → review → live. */
+export type V3Stage = "create" | "review" | "confirm" | "build";
 
-const STAGE_ORDER: V3Stage[] = ["create", "review", "build"];
+const STAGE_ORDER: V3Stage[] = ["create", "review", "confirm", "build"];
 const STAGE_LABELS: Record<V3Stage, string> = {
   create: "Create",
   review: "Review",
+  confirm: "Details",
   build: "Go live",
 };
 
