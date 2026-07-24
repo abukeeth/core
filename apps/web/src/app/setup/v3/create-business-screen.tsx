@@ -11,7 +11,7 @@ import {
 } from "@/lib/api";
 import { downscaleImageFile } from "@/lib/image-downscale";
 import { BUSINESS_TYPES } from "../business-types";
-import { primaryButtonClass } from "../wizard-shell";
+import { primaryButtonClass, secondaryButtonClass } from "../wizard-shell";
 
 const ACCEPTED_FILE_TYPES = "application/pdf,image/png,image/jpeg,image/webp,image/gif";
 // Mirrors the API's IMPORT_MAX_CONSOLIDATED_FILES default (import.routes.ts).
@@ -34,10 +34,13 @@ function isImage(file: File): boolean {
 export function CreateBusinessScreen({
   restaurant,
   onAnalyzed,
+  onSkip,
 }: {
   /** An already-created store (resume / retry) so we never re-create and 409. */
   restaurant: Restaurant | null;
   onAnalyzed: (restaurant: Restaurant, job: ImportJob) => void;
+  /** Skip AI import — create the store and go straight to build; the owner adds the menu manually. */
+  onSkip: (restaurant: Restaurant) => void;
 }) {
   const [businessType, setBusinessType] = useState<BusinessType | null>(restaurant?.businessType ?? null);
   const [files, setFiles] = useState<File[]>([]);
@@ -66,19 +69,39 @@ export function CreateBusinessScreen({
     setFiles((prev) => prev.filter((_, i) => i !== index));
   }
 
+  // Create the store on first submit; reuse it on a retry/resume, updating the
+  // type only if the owner changed their pick (never re-creating and 409-ing).
+  async function ensureStore(): Promise<Restaurant> {
+    let store = restaurant;
+    if (!store) {
+      ({ restaurant: store } = await createRestaurant({ businessType: businessType! }));
+    } else if (store.businessType !== businessType) {
+      ({ restaurant: store } = await updateRestaurant({ businessType: businessType! }));
+    }
+    return store;
+  }
+
+  // Skip AI import entirely — the store still needs a business type, but no
+  // sources and no AI key are required. Goes straight to build; the owner adds
+  // their menu manually from the dashboard afterwards.
+  async function handleSkip() {
+    if (!businessType) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      onSkip(await ensureStore());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't continue. Please try again.");
+      setSubmitting(false);
+    }
+  }
+
   async function handleAnalyze() {
     if (!businessType || !hasSource) return;
     setSubmitting(true);
     setError(null);
     try {
-      // Create the store on first submit; reuse it on a retry/resume, updating
-      // the type only if the owner changed their pick (never re-creating).
-      let store = restaurant;
-      if (!store) {
-        ({ restaurant: store } = await createRestaurant({ businessType }));
-      } else if (store.businessType !== businessType) {
-        ({ restaurant: store } = await updateRestaurant({ businessType }));
-      }
+      const store = await ensureStore();
 
       // Shrink large phone photos on-device first — smaller upload, faster
       // vision analysis. Fail-open (downscale returns the original on any issue).
@@ -205,15 +228,25 @@ export function CreateBusinessScreen({
         </label>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-8 space-y-3">
         <button type="button" onClick={handleAnalyze} disabled={!canSubmit} className={primaryButtonClass}>
           {submitting ? "Analyzing…" : "Analyze My Business"}
         </button>
         {!hasSource && (
-          <p className="mt-3 text-center text-xs text-ink-secondary">
+          <p className="text-center text-xs text-ink-secondary">
             Add at least one source — a photo, a PDF, a website, or a Google link.
           </p>
         )}
+        {/* Manual path: no sources and no AI key required — go straight to
+            build and add the menu by hand. Needs only a business type. */}
+        <button
+          type="button"
+          onClick={handleSkip}
+          disabled={businessType === null || submitting}
+          className={secondaryButtonClass}
+        >
+          Skip — I&apos;ll add my menu manually
+        </button>
       </div>
     </div>
   );

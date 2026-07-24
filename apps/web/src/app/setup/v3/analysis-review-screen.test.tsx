@@ -57,7 +57,7 @@ describe("AnalysisReviewScreen", () => {
     vi.useFakeTimers();
     mockGetImportJob.mockResolvedValue({ job: job({ status: "AWAITING_REVIEW" }) });
 
-    render(<AnalysisReviewScreen initialJob={job({ status: "PENDING" })} onApproved={vi.fn()} onReset={vi.fn()} />);
+    render(<AnalysisReviewScreen initialJob={job({ status: "PENDING" })} onApproved={vi.fn()} onReset={vi.fn()} onSkip={vi.fn()} />);
     expect(screen.getByText("Reading your menu…")).toBeInTheDocument();
     expect(screen.getByText("Progress Card")).toBeInTheDocument();
 
@@ -69,7 +69,7 @@ describe("AnalysisReviewScreen", () => {
 
   it("calls onApproved when the review editor approves", () => {
     const onApproved = vi.fn();
-    render(<AnalysisReviewScreen initialJob={job({ status: "AWAITING_REVIEW" })} onApproved={onApproved} onReset={vi.fn()} />);
+    render(<AnalysisReviewScreen initialJob={job({ status: "AWAITING_REVIEW" })} onApproved={onApproved} onReset={vi.fn()} onSkip={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "approve" }));
     expect(onApproved).toHaveBeenCalledTimes(1);
@@ -77,7 +77,7 @@ describe("AnalysisReviewScreen", () => {
 
   it("calls onReset when the review editor is rejected", () => {
     const onReset = vi.fn();
-    render(<AnalysisReviewScreen initialJob={job({ status: "AWAITING_REVIEW" })} onApproved={vi.fn()} onReset={onReset} />);
+    render(<AnalysisReviewScreen initialJob={job({ status: "AWAITING_REVIEW" })} onApproved={vi.fn()} onReset={onReset} onSkip={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "reject" }));
     expect(onReset).toHaveBeenCalledTimes(1);
@@ -90,6 +90,7 @@ describe("AnalysisReviewScreen", () => {
         initialJob={job({ status: "FAILED", errorMessage: "No AI provider configured" })}
         onApproved={vi.fn()}
         onReset={vi.fn()}
+        onSkip={vi.fn()}
       />,
     );
 
@@ -99,5 +100,20 @@ describe("AnalysisReviewScreen", () => {
     await waitFor(() => expect(mockRerunImportJob).toHaveBeenCalledWith("job-1"));
     // Back to the analyzing state after the rerun resolves.
     await waitFor(() => expect(screen.getByText("Reading your menu…")).toBeInTheDocument());
+  });
+
+  it("lets the owner skip a failed import and continue to build (no AI required)", () => {
+    const onSkip = vi.fn();
+    render(
+      <AnalysisReviewScreen
+        initialJob={job({ status: "FAILED", errorMessage: "No AI provider configured" })}
+        onApproved={vi.fn()}
+        onReset={vi.fn()}
+        onSkip={onSkip}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Continue without it — add my menu manually" }));
+    expect(onSkip).toHaveBeenCalledTimes(1);
   });
 });

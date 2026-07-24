@@ -147,6 +147,13 @@ export function OnboardingV3() {
     setStage("create");
   }
 
+  // Skip AI import from Screen 1 — the store already exists (Screen 1 created
+  // it); go straight to build, where the owner adds the menu manually.
+  function handleSkipToBuild(store: Restaurant) {
+    setRestaurant(store);
+    goToBuild();
+  }
+
   if (loadState === "loading") {
     return (
       <main className="flex min-h-screen w-full items-center justify-center bg-canvas text-sm text-ink-secondary">
@@ -187,9 +194,11 @@ export function OnboardingV3() {
 
   return (
     <V3Shell stage={stage}>
-      {stage === "create" && <CreateBusinessScreen restaurant={restaurant} onAnalyzed={handleAnalyzed} />}
+      {stage === "create" && (
+        <CreateBusinessScreen restaurant={restaurant} onAnalyzed={handleAnalyzed} onSkip={handleSkipToBuild} />
+      )}
       {stage === "review" && activeJob && (
-        <AnalysisReviewScreen initialJob={activeJob} onApproved={goToBuild} onReset={handleReset} />
+        <AnalysisReviewScreen initialJob={activeJob} onApproved={goToBuild} onReset={handleReset} onSkip={goToBuild} />
       )}
     </V3Shell>
   );

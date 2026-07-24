@@ -26,10 +26,13 @@ export function AnalysisReviewScreen({
   initialJob,
   onApproved,
   onReset,
+  onSkip,
 }: {
   initialJob: ImportJob;
   onApproved: () => void;
   onReset: () => void;
+  /** Skip the import (e.g. it failed) and go straight to build; the owner adds the menu manually. */
+  onSkip: () => void;
 }) {
   const [job, setJob] = useState<ImportJob>(initialJob);
   const [submitting, setSubmitting] = useState(false);
@@ -139,6 +142,10 @@ export function AnalysisReviewScreen({
           </button>
           <button type="button" onClick={onReset} disabled={submitting} className={secondaryButtonClass}>
             Try different sources
+          </button>
+          {/* No AI / unreadable sources shouldn't trap the owner — continue and add the menu by hand. */}
+          <button type="button" onClick={onSkip} disabled={submitting} className={secondaryButtonClass}>
+            Continue without it — add my menu manually
           </button>
         </div>
       </div>

@@ -57,7 +57,7 @@ beforeEach(() => {
 
 describe("CreateBusinessScreen", () => {
   it("keeps Analyze disabled until a business type AND a source are provided", () => {
-    render(<CreateBusinessScreen restaurant={null} onAnalyzed={vi.fn()} />);
+    render(<CreateBusinessScreen restaurant={null} onAnalyzed={vi.fn()} onSkip={vi.fn()} />);
     const analyze = screen.getByRole("button", { name: "Analyze My Business" });
     expect(analyze).toBeDisabled();
 
@@ -74,7 +74,7 @@ describe("CreateBusinessScreen", () => {
 
   it("creates the store then one consolidated import job, and hands off", async () => {
     const onAnalyzed = vi.fn();
-    render(<CreateBusinessScreen restaurant={null} onAnalyzed={onAnalyzed} />);
+    render(<CreateBusinessScreen restaurant={null} onAnalyzed={onAnalyzed} onSkip={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Pizza/ }));
     fireEvent.change(screen.getByPlaceholderText("https://your-restaurant.com"), {
@@ -91,7 +91,7 @@ describe("CreateBusinessScreen", () => {
 
   it("reuses an existing store (never re-creates) and updates type only when it changed", async () => {
     const onAnalyzed = vi.fn();
-    render(<CreateBusinessScreen restaurant={restaurant({ businessType: "RESTAURANT" })} onAnalyzed={onAnalyzed} />);
+    render(<CreateBusinessScreen restaurant={restaurant({ businessType: "RESTAURANT" })} onAnalyzed={onAnalyzed} onSkip={vi.fn()} />);
 
     // Switch the pre-selected type from Restaurant to Pizza, then analyze.
     fireEvent.click(screen.getByRole("button", { name: /Pizza/ }));
@@ -107,7 +107,7 @@ describe("CreateBusinessScreen", () => {
 
   it("sends uploaded files through to the consolidated import", async () => {
     const onAnalyzed = vi.fn();
-    render(<CreateBusinessScreen restaurant={null} onAnalyzed={onAnalyzed} />);
+    render(<CreateBusinessScreen restaurant={null} onAnalyzed={onAnalyzed} onSkip={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Restaurant/ }));
     const menu = new File(["bytes"], "menu.jpg", { type: "image/jpeg" });
@@ -124,7 +124,7 @@ describe("CreateBusinessScreen", () => {
 
   it("surfaces an analyze failure and stays on the screen for a retry", async () => {
     mockCreateConsolidatedImport.mockRejectedValueOnce(new Error("Upload at least one source"));
-    render(<CreateBusinessScreen restaurant={null} onAnalyzed={vi.fn()} />);
+    render(<CreateBusinessScreen restaurant={null} onAnalyzed={vi.fn()} onSkip={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: /Restaurant/ }));
     fireEvent.change(screen.getByPlaceholderText("https://your-restaurant.com"), {
@@ -134,5 +134,36 @@ describe("CreateBusinessScreen", () => {
 
     await waitFor(() => expect(screen.getByText("Upload at least one source")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Analyze My Business" })).toBeEnabled();
+  });
+
+  describe("Skip — manual menu (no AI required)", () => {
+    const skipName = "Skip — I'll add my menu manually";
+
+    it("needs a business type but NO source, and creates the store then hands off to build", async () => {
+      const onSkip = vi.fn();
+      render(<CreateBusinessScreen restaurant={null} onAnalyzed={vi.fn()} onSkip={onSkip} />);
+
+      // Disabled until a business type is chosen (no source needed).
+      expect(screen.getByRole("button", { name: skipName })).toBeDisabled();
+      fireEvent.click(screen.getByRole("button", { name: /Pizza/ }));
+      expect(screen.getByRole("button", { name: skipName })).toBeEnabled();
+
+      fireEvent.click(screen.getByRole("button", { name: skipName }));
+
+      await waitFor(() => expect(onSkip).toHaveBeenCalledTimes(1));
+      expect(mockCreateRestaurant).toHaveBeenCalledWith({ businessType: "PIZZA" });
+      // Skip never touches the AI import.
+      expect(mockCreateConsolidatedImport).not.toHaveBeenCalled();
+    });
+
+    it("reuses an existing store on skip (never re-creates)", async () => {
+      const onSkip = vi.fn();
+      render(<CreateBusinessScreen restaurant={restaurant({ businessType: "RESTAURANT" })} onAnalyzed={vi.fn()} onSkip={onSkip} />);
+
+      fireEvent.click(screen.getByRole("button", { name: skipName }));
+
+      await waitFor(() => expect(onSkip).toHaveBeenCalledTimes(1));
+      expect(mockCreateRestaurant).not.toHaveBeenCalled();
+    });
   });
 });
