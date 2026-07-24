@@ -1,5 +1,5 @@
 import type { ImportJob } from "@prisma/client";
-import { ImportStatus, Prisma } from "@prisma/client";
+import { ImportSourceType, ImportStatus, Prisma } from "@prisma/client";
 import { fileStorage } from "../../lib/file-storage";
 import { MAX_ATTEMPTS, staleCutoff, type ReapResult } from "../../lib/job-durability";
 import { createLogger } from "../../lib/logger";
@@ -9,6 +9,7 @@ import { updateRestaurantById } from "../restaurants/restaurant.service";
 import { ImportJobEmptyMenuError, ImportJobNotFoundError, ImportJobNotReadyError, ImportJobNotRerunnableError } from "./import.errors";
 import type { CreateImportInput } from "./import.validation";
 import { importJobRunner } from "./job-runner";
+import type { ConsolidatedSources } from "./consolidated-import.service";
 import { extractedMenuDataSchema, type ExtractedMenuData, type ImportSourceInput } from "./types";
 
 const logger = createLogger("import-service");
@@ -17,6 +18,40 @@ export interface UploadedFile {
   buffer: Buffer;
   mimeType: string;
   originalName: string;
+}
+
+/** Onboarding V3 — the files + URLs pasted on the "Create Your Business" screen. */
+export interface ConsolidatedUpload {
+  images: UploadedFile[];
+  pdfs: UploadedFile[];
+  websiteUrl?: string;
+  googleMapsUrl?: string;
+}
+
+/**
+ * Creates ONE ImportJob (sourceType MULTI) that consolidates every source the
+ * owner supplied, and runs the extraction asynchronously via the shared durable
+ * runner — so "Analyze My Business" returns immediately and the review screen
+ * polls the job to AWAITING_REVIEW (or FAILED), exactly like a single import.
+ */
+export async function createConsolidatedImportJob(
+  restaurantId: string,
+  createdById: string,
+  upload: ConsolidatedUpload,
+): Promise<ImportJob> {
+  const job = await prisma.importJob.create({
+    data: { restaurantId, createdById, sourceType: ImportSourceType.MULTI },
+  });
+
+  const sources: ConsolidatedSources = {
+    images: upload.images.map((f) => ({ buffer: f.buffer, mimeType: f.mimeType, originalName: f.originalName })),
+    pdfs: upload.pdfs.map((f) => ({ buffer: f.buffer, mimeType: f.mimeType })),
+    websiteUrl: upload.websiteUrl,
+    googleMapsUrl: upload.googleMapsUrl,
+  };
+
+  importJobRunner.enqueueConsolidated(job.id, sources);
+  return job;
 }
 
 export async function createImportJob(

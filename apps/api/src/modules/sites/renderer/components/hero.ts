@@ -1,4 +1,5 @@
 import { resolveHeroImage, resolveHeroInsetImage } from "../asset-resolver";
+import { renderFlagshipHero } from "./flagship-hero";
 import { escapeHtml } from "../html-escape";
 import { deterministicHue } from "../image-fallback";
 import { heroPlaceholder } from "../placeholder-imagery";
@@ -51,6 +52,10 @@ export function renderHero(section: SectionBlock, ctx: RenderContext): string {
   const subhead = readString(props, "subhead");
   const ctaLabel = readString(props, "ctaLabel", "View Menu");
   const ctaLink = readString(props, "ctaLink", "#primary-action");
+  // Flagship vertical themes own their hero composition entirely (editorial
+  // split / cinematic full-bleed) rather than parameterizing the shared one.
+  const flagship = renderFlagshipHero(ctx, { headline, subhead, ctaLabel, ctaLink });
+  if (flagship) return flagship;
   const secondaryCtaLabel = readString(props, "secondaryCtaLabel");
   const secondaryCtaLink = readString(props, "secondaryCtaLink", "/menu");
   const badge = readString(props, "badge");

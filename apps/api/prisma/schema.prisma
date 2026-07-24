@@ -362,6 +362,10 @@ enum ImportSourceType {
   DOORDASH
   UBER_EATS
   GRUBHUB
+  // Onboarding V3 — a single job that consolidates several sources
+  // (best-N images + PDFs + website URL + Google Maps URL) into one
+  // reviewable extraction. Orchestrated directly, not via a single adapter.
+  MULTI
 }
 
 enum ImportStatus {

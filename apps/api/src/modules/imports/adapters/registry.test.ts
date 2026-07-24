@@ -4,8 +4,11 @@ import { NotImplementedError } from "../import.errors";
 import { importAdapterRegistry } from "./registry";
 
 describe("importAdapterRegistry", () => {
-  it("resolves an adapter for every source type", () => {
+  it("resolves an adapter for every single-source type", () => {
+    // MULTI (Onboarding V3) is deliberately not a single adapter — it's
+    // orchestrated across several adapters by consolidated-import.service.
     for (const sourceType of Object.values(ImportSourceType)) {
+      if (sourceType === ImportSourceType.MULTI) continue;
       expect(importAdapterRegistry.get(sourceType)).toBeDefined();
     }
   });

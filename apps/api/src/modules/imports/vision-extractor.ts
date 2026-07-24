@@ -55,6 +55,16 @@ export async function extractMenuFromImages(images: Buffer[], mediaType: AIMedia
 }
 
 /**
+ * Like extractMenuFromImages but for a mixed set of images that don't all
+ * share one media type (e.g. a consolidated onboarding upload of JPEGs +
+ * PNGs analyzed together in a single vision call). One call keeps cost/latency
+ * bounded vs. one call per image.
+ */
+export async function extractMenuFromImageParts(parts: { data: Buffer; mediaType: AIMediaType }[]): Promise<ExtractedMenuData> {
+  return callAndParse(`${IMAGE_INTRO}\n\n${RESPONSE_SHAPE}`, parts);
+}
+
+/**
  * Text counterpart to extractMenuFromImages, used by the Website adapter
  * for a page's readable text content. Shares the same prompt shape and
  * validation via `callAndParse`.

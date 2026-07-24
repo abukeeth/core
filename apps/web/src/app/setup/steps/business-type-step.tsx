@@ -2,18 +2,7 @@
 
 import { useState } from "react";
 import { createRestaurant, type BusinessType, type Restaurant } from "@/lib/api";
-
-const BUSINESS_TYPES: { value: BusinessType; label: string; icon: string }[] = [
-  { value: "RESTAURANT", label: "Restaurant", icon: "🍽️" },
-  { value: "COFFEE_SHOP", label: "Coffee Shop", icon: "☕" },
-  { value: "DELI", label: "Deli", icon: "🥪" },
-  { value: "VAPE_SHOP", label: "Vape Shop", icon: "💨" },
-  { value: "CONVENIENCE_STORE", label: "Convenience Store", icon: "🏪" },
-  { value: "BAKERY", label: "Bakery", icon: "🥐" },
-  { value: "PIZZA", label: "Pizza", icon: "🍕" },
-  { value: "RETAIL", label: "Retail", icon: "🛍️" },
-  { value: "OTHER", label: "Other", icon: "✨" },
-];
+import { BUSINESS_TYPES } from "../business-types";
 
 export function BusinessTypeStep({ onDone }: { onDone: (restaurant: Restaurant) => void }) {
   const [submitting, setSubmitting] = useState<BusinessType | null>(null);

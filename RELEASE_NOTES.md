@@ -1,6 +1,92 @@
 # Release Notes
 
-## Identity Packs — three independent storefront identities (latest)
+## Flagship vertical storefront themes — Deli & Vape (latest)
+
+Two agency-grade, structurally-distinct storefront design systems replace the
+old "generic template, different colors" vertical themes (which are deprecated,
+not deleted, so published sites render unchanged). They differ by **layout,
+navigation, homepage structure, product cards, typography, color, and media
+strategy** — not only color.
+
+- **`deli-brooklyn`** (premium NYC deli): cream ground, deep-green ink, bronze
+  highlights, Fraunces serif display. Bespoke home: editorial split hero →
+  Fan Favorites (deli product cards) → deep-green **Build Your Own** band →
+  **Perfect Pairings** → **Most Ordered This Week** (real order data) →
+  **Catering** panel → reviews → hours → order CTA.
+- **`vape-lab`** (luxury tech brand): near-black ground, violet primary, cyan
+  highlights, Space Grotesk / IBM Plex Mono. Bespoke home: cinematic dark hero
+  + **age gate** → **Shop the Collection** strip → a **product grid per real
+  category** (Devices / E-Liquids / …) → Best Sellers → a readable dark
+  **Rewards** panel → reviews → **Store Locations**.
+- **Per-vertical product cards** (`product-card.ts`): the deli card (4:3 media,
+  Best-Seller badge, Quick Add pill) and vape card (1:1 media, Trending badge,
+  neon Add) are structurally different, not one card recolored.
+- New section renderers: buildYourOwn, comboDeals, catering, productCollection,
+  featuredBrands, storeLocations; bespoke hero (`flagship-hero.ts`) and a
+  readable-on-dark loyalty panel — all branched by `themeKey`.
+
+**Honesty (§2 Guardrails), enforced in code + tests:** every section renders
+only from REAL data and self-omits when it's absent. Reviews show only real
+verified reviews. Product badges come only from real order history
+(`ctx.bestSellers`). Ratings/review counts render only from a real per-item
+aggregate (`ctx.productStats`, review-ready but unpopulated today) — **never a
+fabricated rating, count, brand, or "new"/bundle-price claim.** Combo cards show
+two real items at their two real prices, never an invented bundle total.
+
+Selection: a DELI tenant now gets `deli-brooklyn` and a VAPE_SHOP tenant gets
+`vape-lab` (business-type match boost). Tests: **API 1663 passed / 5 skipped**
+(+23 new across cards, sections, and theme assembly/selection); typecheck clean.
+This lands on the same branch as the Onboarding V3 work (PR #39).
+
+---
+
+## Onboarding V3 — 3-screen store creation frontend
+
+The 7-step Business Setup Wizard is replaced, **behind the
+`NEXT_PUBLIC_ONBOARDING_V3` flag (default OFF)**, by a 3-screen flow that
+reuses the existing import, generation/builder, and QR pipelines rather than
+rebuilding them. Phase 1 (backend) already landed: a consolidated multi-source
+import (`MULTI` job — best-N images + PDFs + website URL + Google Maps URL
+merged into one reviewable extraction via `runConsolidatedExtraction`), a
+`POST /api/imports/consolidated` upload endpoint, and 24/7 default hours seeded
+on store creation so a new store accepts orders immediately.
+
+This work adds the **frontend (phases 3–6)**:
+
+- **Feature flag** (`apps/web/src/lib/feature-flags.ts`,
+  `isOnboardingV3Enabled()`) — every flag defaults OFF; `/setup` renders the
+  new flow only when the env var is explicitly truthy, otherwise the original
+  wizard (extracted intact to `setup/legacy-wizard.tsx`). No regression for
+  anyone mid-onboarding.
+- **`createConsolidatedImport` client** (`lib/api.ts`) — multipart POST of up
+  to 30 files + optional URLs to the consolidated endpoint; `MULTI` added to
+  `ImportSourceType`.
+- **Screen 1 — Create** (`v3/create-business-screen.tsx`): business-type
+  picker + multi-source upload (photos/PDFs, website URL, Google Maps URL) +
+  "Analyze My Business". Creates the store once (reuses it on retry/resume —
+  never re-creates and 409s), downscales photos on-device (fail-open), and
+  opens one consolidated import job.
+- **Screen 2 — Analysis & Review** (`v3/analysis-review-screen.tsx`): polls the
+  `MULTI` job to `AWAITING_REVIEW` with the existing `ProgressCard`, then reuses
+  the dashboard `ReviewEditor` so the owner edits and **approves the menu before
+  the storefront is built**; graceful FAILED retry. Never advances on a mere
+  upload accept — only a real `APPROVED` job (which requires ≥1 saved product).
+- **Screen 3 — Live Build + Ready**: marks `setupStep=DONE` and hands off to the
+  existing `/dashboard/builder` (generate → review → publish → finale with the
+  live link + starter QR) — the same reuse the legacy wizard's final step used.
+- **Container** (`v3/onboarding-v3.tsx`): data-driven resume — re-derives the
+  correct screen from real store + import-job state (a refresh mid-analysis
+  returns to review; an already-approved menu goes straight to build); transient
+  load failures show a retry state, never a fresh Create screen (Priority 1).
+
+Mobile-first throughout, on the warm cream/gold token system (shared `V3Shell`
+3-step tracker). Tests: **web 321 passed** (was 287; +34 new across flag,
+client, all three screens, and the gate), **API 1640 passed / 5 skipped**;
+web + API typecheck clean, `next build` clean, lint 0 errors.
+
+---
+
+## Identity Packs — three independent storefront identities
 
 One menu upload now generates three complete, genuinely different brand
 identities system-wide (all business types): Artisan Craft (dark serif

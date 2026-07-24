@@ -156,6 +156,20 @@ function buildHomeSection(type: SectionType, input: AssembleInput, facts: SiteFa
       };
     case "hoursLocation":
       return { type, props: { address: input.ingest.address, phone: input.ingest.phone } };
+    // Flagship theme sections — props are REAL data (or empty for the generic
+    // marketing bands); every one self-omits when its data is absent.
+    case "bestSellers":
+      // Deli titles this "Most Ordered This Week"; every other theme keeps the
+      // neutral "Best Sellers". Data (real order history) is resolved at render.
+      return { type, props: { title: input.theme.key === "deli-brooklyn" ? "Most Ordered This Week" : "Best Sellers" } };
+    case "comboDeals":
+      return { type, props: { items: pickSignatureDishes(input.ingest.menu) } };
+    case "catering":
+      return { type, props: { phone: input.ingest.phone } };
+    case "featuredBrands":
+      return { type, props: { categories: groupMenuByCategory(input.ingest.menu).map((c) => c.name) } };
+    case "storeLocations":
+      return { type, props: { address: input.ingest.address, phone: input.ingest.phone } };
     case "gallery":
       return { type, props: { intro: input.content.galleryIntro } };
     case "menu":
@@ -183,6 +197,27 @@ function seoCuisine(input: AssembleInput): string | undefined {
   return confidence === undefined || confidence > 0 ? input.brandProfile.cuisine : undefined;
 }
 
+/**
+ * Expands the `productCollection` layout marker into one section per REAL menu
+ * category (capped so a huge catalog can't produce an endless page), each a
+ * grid of that category's real items. Returns nothing when the menu is empty,
+ * so the layout engine drops it entirely — never an empty "collection" band.
+ */
+function buildProductCollections(input: AssembleInput): SectionBlock[] {
+  const MAX_COLLECTIONS = 4;
+  const MAX_ITEMS_EACH = 8;
+  return groupMenuByCategory(input.ingest.menu)
+    .slice(0, MAX_COLLECTIONS)
+    .map((category) => ({
+      type: "productCollection" as SectionType,
+      props: {
+        title: category.name,
+        eyebrow: "Shop",
+        items: category.items.slice(0, MAX_ITEMS_EACH),
+      },
+    }));
+}
+
 function buildHomePage(input: AssembleInput, facts: SiteFacts, city: string | undefined): SitePage {
   const availability = {
     hasMenuItems: input.ingest.menu.length > 0,
@@ -194,7 +229,13 @@ function buildHomePage(input: AssembleInput, facts: SiteFacts, city: string | un
     slug: "/",
     title: buildPageTitle("Home", input.ingest.restaurantName, seoCuisine(input), city),
     metaDescription: buildMetaDescription(input.content.tagline, seoCuisine(input), city),
-    sections: order.map((type) => buildHomeSection(type, input, facts)),
+    // A single `productCollection` marker fans out into one product grid per
+    // REAL menu category (the vape theme's Devices / E-Liquids / … sections),
+    // so the layout adapts to the tenant's actual catalog instead of hardcoding
+    // category names that might not exist.
+    sections: order.flatMap((type) =>
+      type === "productCollection" ? buildProductCollections(input) : [buildHomeSection(type, input, facts)],
+    ),
   };
 }
 

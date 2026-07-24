@@ -109,6 +109,15 @@ export interface RenderContext {
   // and degrade gracefully (the service band / reviews section self-omit).
   services?: ServiceAvailability;
   reviews?: RenderReview[];
+  /**
+   * Flagship themes — REAL per-item review aggregates keyed by item name, for
+   * product-card ratings/review counts. There is no per-item rating source in
+   * the data model today (reviews are per completed ORDER, not per item), so
+   * this is left undefined and cards render NO rating/review count rather than
+   * ever fabricating one (§2 Guardrails). Populating it later (a real per-item
+   * aggregate) lights the star row up with zero card changes.
+   */
+  productStats?: Record<string, { rating: number; reviewCount: number }>;
 }
 
 export function formatPrice(cents: number): string {

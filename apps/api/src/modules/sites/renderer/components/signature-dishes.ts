@@ -1,6 +1,7 @@
 import { escapeHtml } from "../html-escape";
 import { resolveProductImageUrl } from "../image-fallback";
 import { formatPrice, type RenderContext } from "../render-context";
+import { renderProductCard, renderProductGrid, bestSellerNameSet } from "./product-card";
 import type { SectionBlock } from "../../types";
 
 interface SignatureItem {
@@ -11,6 +12,25 @@ interface SignatureItem {
 
 export function renderSignatureDishes(section: SectionBlock, ctx: RenderContext): string {
   const intro = typeof section.props.intro === "string" ? section.props.intro : "";
+
+  // Deli flagship — the same "featured items" data, rendered through the deli
+  // product card (image, real Best-Seller badge, price, Quick Add) instead of
+  // the plain text tile, so the card design differs by vertical.
+  if (ctx.definition.themeKey === "deli-brooklyn") {
+    const deliItems = Array.isArray(section.props.items) ? (section.props.items as SignatureItem[]) : [];
+    if (deliItems.length === 0) return "";
+    const heading = typeof section.props.title === "string" && section.props.title ? section.props.title : "Fan Favorites";
+    const bestSellers = bestSellerNameSet(ctx);
+    const cards = deliItems.map((item) =>
+      renderProductCard({ name: item.name, description: item.description, priceCents: item.priceCents }, ctx, { style: "deli", bestSellers }),
+    );
+    return `<section aria-labelledby="favorites-title">
+  <p style="margin:0 0 0.5rem;font-size:0.72rem;letter-spacing:0.24em;text-transform:uppercase;color:var(--color-accent-600);">Off the counter</p>
+  <h2 id="favorites-title" style="margin:0 0 ${intro ? "0.5rem" : "1.5rem"};font-size:var(--step-1);">${escapeHtml(heading)}</h2>
+  ${intro ? `<p style="margin:0 0 1.5rem;color:var(--color-text-700);max-width:56ch;">${escapeHtml(intro)}</p>` : ""}
+  ${renderProductGrid(cards, "deli")}
+</section>`;
+  }
   // Vertical-aware heading set at assemble time ("Signature Dishes" for food,
   // "Featured Products" for retail/vape, "Featured Items" otherwise). Falls back
   // to the historical default so older definitions render unchanged.

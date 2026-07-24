@@ -29,7 +29,12 @@
 - Task 2: AI Brand Concepts experience — completed
 - Task 3: real Website Publishing Engine — completed
 - Task 4: Temporary Domain & Custom Domain Engine — completed
-- Task 5: Website Customization Studio — completed, **latest completed task**
+- Task 5: Website Customization Studio — completed
+
+### Onboarding V3 — 3-screen store creation (complete, behind a flag) — **latest completed work**
+- Phase 1 (backend): consolidated `MULTI` import (best-N images + PDFs + website/Google URLs), `POST /api/imports/consolidated`, 24/7 default hours on store creation — completed
+- Phases 3–6 (frontend): `NEXT_PUBLIC_ONBOARDING_V3` flag, `createConsolidatedImport` client, Screen 1 (Create), Screen 2 (Analysis & Review), Screen 3 (Live Build/Ready via the existing builder), resumable container — completed
+- Legacy 7-step wizard preserved intact and used whenever the flag is OFF (the default)
 
 See `RELEASE_NOTES.md` for full detail on each sprint/part/task (including verification results and known limitations) and `PROJECT_MEMORY.md` for current-state context.
 

@@ -71,10 +71,10 @@ describe("§Website Builder — the 3 design systems render materially different
     expect(ACTIVE_THEMES.map((t) => t.key).sort()).toEqual([
       "bold-commerce",
       "cafe-daybreak",
-      "deli-counter",
+      "deli-brooklyn",
       "modern-editorial",
       "restaurant-maison",
-      "vape-vapor",
+      "vape-lab",
       "warm-local",
     ]);
   });

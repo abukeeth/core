@@ -3,10 +3,13 @@ import { waitUntil } from "@vercel/functions";
 import { withHeartbeat } from "../../lib/job-durability";
 import { prisma } from "../../lib/prisma";
 import { importAdapterRegistry } from "./adapters/registry";
-import type { ImportSourceInput } from "./types";
+import { runConsolidatedExtraction, type ConsolidatedSources } from "./consolidated-import.service";
+import type { ExtractedMenuData, ImportSourceInput } from "./types";
 
 export interface ImportJobRunner {
   enqueue(jobId: string, input: ImportSourceInput): void;
+  /** Onboarding V3 — a single job whose extraction merges several sources. */
+  enqueueConsolidated(jobId: string, sources: ConsolidatedSources): void;
 }
 
 /**
@@ -27,16 +30,39 @@ export interface ImportJobRunner {
  */
 class InProcessImportJobRunner implements ImportJobRunner {
   enqueue(jobId: string, input: ImportSourceInput): void {
-    waitUntil(this.run(jobId, input));
+    waitUntil(
+      this.process(jobId, async () => {
+        const job = await prisma.importJob.findUniqueOrThrow({ where: { id: jobId } });
+        const adapter = importAdapterRegistry.get(job.sourceType);
+        if (!adapter) {
+          throw new Error(`No adapter registered for source type ${job.sourceType}`);
+        }
+        return adapter.extract(input);
+      }),
+    );
   }
 
-  private async run(jobId: string, input: ImportSourceInput): Promise<void> {
-    // §Job Durability — atomic claim: only a still-PENDING job can be
-    // started, and only once. If another worker or a reaper re-enqueue
-    // already claimed it, updateMany reports 0 rows and we abort — this
-    // makes enqueue() idempotent and safe for the reaper to call again.
-    // attempts is incremented here (a real processing start), and
-    // startedAt/heartbeatAt mark the job live for the reaper.
+  enqueueConsolidated(jobId: string, sources: ConsolidatedSources): void {
+    waitUntil(
+      this.process(jobId, async () => {
+        const result = await runConsolidatedExtraction(sources);
+        return result.extracted;
+      }),
+    );
+  }
+
+  /**
+   * Shared durable scaffold for both the single-source and consolidated
+   * paths: atomic claim → heartbeat-wrapped extraction → AWAITING_REVIEW,
+   * or FAILED on error. `extract` supplies the source-specific work.
+   *
+   * §Job Durability — atomic claim: only a still-PENDING job can be started,
+   * and only once. If another worker or a reaper re-enqueue already claimed
+   * it, updateMany reports 0 rows and we abort — making enqueue idempotent
+   * and safe for the reaper to call again. attempts is incremented here (a
+   * real processing start); startedAt/heartbeatAt mark the job live.
+   */
+  private async process(jobId: string, extract: () => Promise<ExtractedMenuData>): Promise<void> {
     const now = new Date();
     const claim = await prisma.importJob.updateMany({
       where: { id: jobId, status: ImportStatus.PENDING },
@@ -45,15 +71,9 @@ class InProcessImportJobRunner implements ImportJobRunner {
     if (claim.count === 0) return;
 
     try {
-      const job = await prisma.importJob.findUniqueOrThrow({ where: { id: jobId } });
-      const adapter = importAdapterRegistry.get(job.sourceType);
-      if (!adapter) {
-        throw new Error(`No adapter registered for source type ${job.sourceType}`);
-      }
-
       const extractedData = await withHeartbeat(
         () => prisma.importJob.update({ where: { id: jobId }, data: { heartbeatAt: new Date() } }).then(() => undefined),
-        () => adapter.extract(input),
+        extract,
       );
 
       await prisma.importJob.update({

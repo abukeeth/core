@@ -3,6 +3,12 @@ import { renderAboutStory, renderAboutTeaser } from "./components/about-teaser";
 import { renderAgeGate } from "./components/age-gate";
 import { renderAppPromotion } from "./components/app-promotion";
 import { renderBestSellers } from "./components/best-sellers";
+import { renderBuildYourOwn } from "./components/build-your-own";
+import { renderCatering } from "./components/catering";
+import { renderComboDeals } from "./components/combo-deals";
+import { renderFeaturedBrands } from "./components/featured-brands";
+import { renderProductCollection } from "./components/product-collection";
+import { renderStoreLocations } from "./components/store-locations";
 import { renderContactForm, renderContactInfo } from "./components/contact";
 import { renderCtaBanner } from "./components/cta-banner";
 import { renderCustomTextImage } from "./components/custom-text-image";
@@ -43,6 +49,12 @@ const REGISTRY: Partial<Record<SectionType, SectionRenderer>> = {
   features: renderFeatures,
   ageGate: renderAgeGate,
   bestSellers: renderBestSellers,
+  buildYourOwn: renderBuildYourOwn,
+  comboDeals: renderComboDeals,
+  catering: renderCatering,
+  productCollection: renderProductCollection,
+  featuredBrands: renderFeaturedBrands,
+  storeLocations: renderStoreLocations,
   offers: renderOffers,
   aboutTeaser: renderAboutTeaser,
   aboutStory: renderAboutStory,

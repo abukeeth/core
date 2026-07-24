@@ -3,9 +3,11 @@ import { NoRestaurantError } from "../restaurants/restaurant.errors";
 import { getOwnRestaurantId } from "../restaurants/restaurant.service";
 import { importAdapterRegistry } from "./adapters/registry";
 import { ImportJobEmptyMenuError, ImportJobNotFoundError, ImportJobNotReadyError, ImportJobNotRerunnableError } from "./import.errors";
-import { approveJob, createImportJob, getJob, listJobs, rejectJob, rerunJob, updateJobData } from "./import.service";
+import { approveJob, createConsolidatedImportJob, createImportJob, getJob, listJobs, rejectJob, rerunJob, updateJobData, type UploadedFile } from "./import.service";
 import { extractedMenuDataSchema } from "./types";
-import { createImportSchema } from "./import.validation";
+import { consolidatedImportSchema, createImportSchema } from "./import.validation";
+
+const RASTER_IMAGE_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
 
 function paramId(req: Request): string {
   return req.params.id as string;
@@ -54,6 +56,49 @@ export async function create(req: Request, res: Response): Promise<void> {
       ? { buffer: req.file.buffer, mimeType: req.file.mimetype, originalName: req.file.originalname }
       : undefined,
   );
+
+  res.status(202).json({ job });
+}
+
+/**
+ * Onboarding V3 — "Analyze My Business". Accepts up to 30 files (images + PDFs)
+ * plus optional website / Google Maps URLs, and creates ONE consolidated import
+ * job. Non-image/PDF files (e.g. a stray CSV) are ignored rather than rejected,
+ * so a good upload isn't blocked by one odd file.
+ */
+export async function createConsolidated(req: Request, res: Response): Promise<void> {
+  const restaurantId = await requireOwnRestaurantId(req, res);
+  if (!restaurantId) return;
+
+  const parsed = consolidatedImportSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+    return;
+  }
+
+  const files = (req.files as Express.Multer.File[] | undefined) ?? [];
+  const images: UploadedFile[] = [];
+  const pdfs: UploadedFile[] = [];
+  for (const file of files) {
+    const uploaded: UploadedFile = { buffer: file.buffer, mimeType: file.mimetype, originalName: file.originalname };
+    if (file.mimetype === "application/pdf") {
+      pdfs.push(uploaded);
+    } else if (RASTER_IMAGE_MIME_TYPES.has(file.mimetype)) {
+      images.push(uploaded);
+    }
+  }
+
+  if (images.length === 0 && pdfs.length === 0 && !parsed.data.websiteUrl && !parsed.data.googleMapsUrl) {
+    res.status(400).json({ error: "Upload at least one source — an image, a PDF, a website URL, or a Google Maps URL." });
+    return;
+  }
+
+  const job = await createConsolidatedImportJob(restaurantId, req.user!.id, {
+    images,
+    pdfs,
+    websiteUrl: parsed.data.websiteUrl,
+    googleMapsUrl: parsed.data.googleMapsUrl,
+  });
 
   res.status(202).json({ job });
 }

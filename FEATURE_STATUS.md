@@ -36,8 +36,10 @@
 
 | Feature | Status | Notes |
 |---|---|---|
-| 7-step Business Setup Wizard | ✅ 🚀 | `SetupStep` state machine. |
-| Resume onboarding across devices | ✅ 🚀 | `OnboardingStatus`. |
+| 7-step Business Setup Wizard | ✅ 🚀 | `SetupStep` state machine. Default onboarding. |
+| Onboarding V3 (3-screen: create → review → build) | 🟡 | Full stack behind `NEXT_PUBLIC_ONBOARDING_V3` (default OFF). Reuses consolidated import + builder + QR; legacy wizard preserved as the default. |
+| Consolidated multi-source import (`MULTI`) | ✅ | Best-N images + PDFs + website/Google URLs merged into one reviewable extraction; `POST /api/imports/consolidated`. |
+| Resume onboarding across devices | ✅ 🚀 | `OnboardingStatus`; V3 additionally re-derives its screen from live store + import-job state. |
 | Business types (9 verticals) | ✅ 🚀 | RESTAURANT…RETAIL, OTHER. |
 | Organization layer above Business | 🟡 | 1:1 with restaurant today (P1); nullable `organizationId`. |
 
@@ -103,6 +105,7 @@
 | Custom-domain TLS (ACME/Let's Encrypt) | 🔩 | Issuance is a stub — **pilot stays on platform subdomain**. |
 | Site scoring (SEO/a11y/perf/brand/conversion) | ✅ | |
 | Customization Studio (live preview, sections, brand/header/footer) | ✅ 🚀 | |
+| Flagship vertical themes (deli-brooklyn, vape-lab) | ✅ | Agency-grade, structurally-distinct per-vertical design systems (bespoke layout/nav/sections/cards/type/color). DELI→deli-brooklyn, VAPE_SHOP→vape-lab; old deli-counter/vape-vapor deprecated. Real-data-only (reviews/badges/ratings never fabricated). |
 | Generation V2 (three original briefs, no themes) | 🟡 | P0–P3 landed, **shadow mode, off by default**; not wired into web UI. |
 | Bilingual EN/AR generation, AI product-image gen | ⛔ | Post-launch. |
 
