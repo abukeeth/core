@@ -9,6 +9,7 @@ import { redis } from "./lib/redis";
 import { startJobReaper } from "./lib/job-reaper";
 import { startOutboxWorker } from "./modules/commerce/events/outbox-scheduler";
 import { startStaleOfferScheduler } from "./modules/commerce/fulfillment/stale-offer-scheduler";
+import { startUnacceptedOrderScheduler } from "./modules/commerce/orders/unaccepted-order-scheduler";
 import { startSslIssuanceScheduler } from "./modules/sites/ssl-issuance-scheduler";
 
 const logger = createLogger("index");
@@ -67,6 +68,7 @@ const server = app.listen(port, () => {
 });
 
 const staleOfferTimer = startStaleOfferScheduler();
+const unacceptedOrderTimer = startUnacceptedOrderScheduler();
 const outboxTimer = startOutboxWorker();
 const sslIssuanceTimer = startSslIssuanceScheduler();
 // §Job Durability (Phase 1) — recovers import/generation jobs stranded by a
@@ -89,6 +91,7 @@ function shutdown(signal: string) {
   logger.info({ signal }, "Signal received, shutting down gracefully");
 
   clearInterval(staleOfferTimer);
+  clearInterval(unacceptedOrderTimer);
   clearInterval(outboxTimer);
   clearInterval(sslIssuanceTimer);
   if (jobReaperTimer) clearInterval(jobReaperTimer);

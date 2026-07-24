@@ -1063,6 +1063,11 @@ model Order {
   completedAt          DateTime?
   cancelledAt          DateTime?
   cancellationReason   String?
+  // Set exactly once, atomically, when the "order not accepted within N
+  // seconds" fallback SMS is dispatched for this order — the claim marker that
+  // makes the sweep idempotent (no duplicate alerts) and multi-instance safe.
+  // Null means no unaccepted-alert has been sent.
+  unacceptedAlertSentAt DateTime?
 
   items                OrderItem[]
   events               OrderEvent[]
@@ -1087,6 +1092,9 @@ model Order {
   @@index([restaurantId, createdAt])
   @@index([restaurantId, source])
   @@index([customerId])
+  // Supports the unaccepted-order sweep: find CONFIRMED orders past the
+  // acceptance deadline that haven't been alerted yet.
+  @@index([status, confirmedAt])
 }
 
 // Frozen financial snapshot — deliberately divergent from the "menu always
@@ -2076,6 +2084,7 @@ enum NotificationType {
   DRIVER_REASSIGNED_AWAY
   PASSWORD_RESET_REQUESTED
   EMAIL_VERIFICATION_REQUESTED
+  KITCHEN_UNACCEPTED_ALERT
 }
 
 enum NotificationStatus {

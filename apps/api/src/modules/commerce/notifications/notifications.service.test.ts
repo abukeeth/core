@@ -10,8 +10,9 @@ const mockSend = vi.fn();
 vi.mock("./registry", () => ({
   notificationProviderRegistry: {
     get: vi.fn((channel: string) => {
-      if (channel === "EMAIL") return { channel: "EMAIL", implemented: true, send: mockSend };
-      return { channel, implemented: false, send: mockSend };
+      // EMAIL + SMS are implemented; PUSH remains a stub.
+      if (channel === "PUSH") return { channel, implemented: false, send: mockSend };
+      return { channel, implemented: true, send: mockSend };
     }),
   },
 }));
@@ -32,7 +33,7 @@ beforeEach(() => {
 
 describe("sendNotification", () => {
   it("writes SKIPPED_CHANNEL_DISABLED and never calls the adapter for a disabled channel", async () => {
-    await sendNotification({ type: "ORDER_CONFIRMATION", channel: "SMS", to: "x", body: "y" });
+    await sendNotification({ type: "ORDER_CONFIRMATION", channel: "PUSH", to: "x", body: "y" });
 
     expect(mockSend).not.toHaveBeenCalled();
     expect(mockPrisma.notificationLog.create).toHaveBeenCalledWith(
@@ -83,11 +84,12 @@ describe("convenience wrappers", () => {
   });
 
   it("sendDriverAssignmentOfferNotification calls sendNotification with type DRIVER_ASSIGNMENT_OFFER over SMS", async () => {
+    mockSend.mockResolvedValue({ success: true, providerMessageId: "sms-1" });
     await sendDriverAssignmentOfferNotification("o1", "r1", "+15551234567", 42);
 
     expect(mockPrisma.notificationLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ type: "DRIVER_ASSIGNMENT_OFFER", channel: "SMS", status: "SKIPPED_CHANNEL_DISABLED" }),
+        data: expect.objectContaining({ type: "DRIVER_ASSIGNMENT_OFFER", channel: "SMS", status: "SENT" }),
       }),
     );
   });

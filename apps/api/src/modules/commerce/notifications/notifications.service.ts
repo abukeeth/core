@@ -198,6 +198,23 @@ export async function sendNewOrderStaffAlert(
   });
 }
 
+/** Sent to the restaurant owner/alert number when a paid order hasn't been accepted (started) by the kitchen within the acceptance deadline — the KDS "missed order" safety net. SMS is the realistic channel for staff who may not be watching the screen. */
+export async function sendKitchenUnacceptedAlert(
+  orderId: string,
+  restaurantId: string,
+  ownerPhone: string,
+  orderNumber: number,
+): Promise<SendNotificationResult> {
+  return sendNotification({
+    type: "KITCHEN_UNACCEPTED_ALERT",
+    channel: "SMS",
+    to: ownerPhone,
+    body: `Order #${orderNumber} hasn't been accepted yet. Open your kitchen display to accept it.`,
+    orderId,
+    restaurantId,
+  });
+}
+
 /** Sent to a driver the moment they're offered a new delivery (Sprint 07.6 C-10). SMS is the realistic channel for a driver who may not have the dashboard open. */
 export async function sendDriverAssignmentOfferNotification(
   orderId: string,

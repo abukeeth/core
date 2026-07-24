@@ -280,6 +280,17 @@ const KNOWN_ENV_KEYS = [
   "DRIVER_OFFER_SWEEP_INTERVAL_MS",
   "OUTBOX_POLL_INTERVAL_MS",
   "SSL_ISSUANCE_SWEEP_INTERVAL_MS",
+  // SMS (Twilio) — the SMS channel is unconfigured-safe: unset means SMS sends
+  // soft-fail (logged, never thrown). Enables driver-offer SMS and the KDS
+  // "order not accepted in time" fallback alert.
+  "TWILIO_ACCOUNT_SID",
+  "TWILIO_AUTH_TOKEN",
+  "TWILIO_FROM_NUMBER",
+  "SMS_REQUEST_TIMEOUT_MS",
+  // KDS unaccepted-order fallback — acceptance deadline + sweep cadence, both
+  // with in-code defaults (60s / 15s).
+  "KITCHEN_UNACCEPTED_ALERT_MS",
+  "KITCHEN_UNACCEPTED_SWEEP_INTERVAL_MS",
   // §Job Durability (Phase 1) — all optional with in-code defaults
   // (lib/job-durability.ts / lib/job-reaper.ts): heartbeat cadence, the
   // staleness threshold, the reaper poll interval, the auto-retry cap, and

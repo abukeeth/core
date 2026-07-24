@@ -50,6 +50,7 @@ describe("createApp", () => {
       staleOfferSweep: { lastSuccessAt: null, lastError: null },
       sslIssuanceSweep: { lastSuccessAt: null, lastError: null },
       jobReaper: { lastSuccessAt: null, lastError: null },
+      unacceptedOrderSweep: { lastSuccessAt: null, lastError: null },
     });
   });
 
